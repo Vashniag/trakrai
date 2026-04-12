@@ -1,0 +1,26 @@
+{
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.turbo": true,
+    "**/build": true,
+    "**/out": true,
+    "**/coverage": true,
+    "**/pnpm-lock.yaml": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.next/**": true,
+    "**/.turbo/**": true,
+    "**/build/**": true,
+    "**/out/**": true,
+    "**/coverage/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true
+  },
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.implicitProjectConfig.checkJs": false
+}

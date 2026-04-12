@@ -1,0 +1,33 @@
+import type { KnipConfig } from 'knip';
+
+const config: KnipConfig = {
+  ignoreDependencies: ['eslint-*'],
+  drizzle: false,
+  workspaces: {
+    'apps/trakrai': {
+      entry: ['src/db/schema.ts', 'src/scripts/**/*.ts'],
+      project: ['src/**/*.{ts,tsx}'],
+      ignoreDependencies: ['@tailwindcss/postcss'],
+    },
+    'packages/trakrai-design-system': {
+      project: ['src/**/*.{ts,tsx}'],
+      ignoreDependencies: [
+        'postcss-load-config',
+        '@tailwindcss/postcss',
+        'next-themes',
+        'react-hook-form',
+      ],
+    },
+    'packages/eslint-config': {
+      entry: ['*.js'],
+      project: ['**/*.js'],
+    },
+    'packages/typescript-config': {
+      entry: ['*.json'],
+      project: ['**/*.json'],
+      ignoreDependencies: ['next'],
+    },
+  },
+};
+
+export default config;

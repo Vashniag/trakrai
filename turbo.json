@@ -1,0 +1,45 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "concurrency": "20",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "SKIP_ENV_VALIDATION",
+        "VERCEL_URL"
+      ]
+    },
+    "lint": {
+      "cache": false,
+      "dependsOn": ["^build", "^lint"]
+    },
+    "test": {
+      "cache": false,
+      "dependsOn": ["^test"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build", "^typecheck"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalEnv": ["NODE_ENV"],
+  "globalDependencies": ["tsconfig.json", "package.json"]
+}
