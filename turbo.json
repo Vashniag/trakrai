@@ -12,7 +12,8 @@
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
         "SKIP_ENV_VALIDATION",
-        "VERCEL_URL"
+        "VERCEL_URL",
+        "PORT"
       ]
     },
     "lint": {

@@ -4,7 +4,7 @@
     {
       "name": "trakrai-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "trakrai", "dev", "--", "--port", "3100"],
+      "runtimeArgs": ["--filter", "trakrai", "exec", "next", "dev", "--turbopack", "--port", "3100"],
       "port": 3100
     }
   ]

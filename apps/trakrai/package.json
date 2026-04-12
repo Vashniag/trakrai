@@ -7,7 +7,9 @@
     "dev": "next dev --turbopack",
     "lint": "next typegen && eslint --max-warnings=0 .",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@trakrai/design-system": "workspace:*",
@@ -15,24 +17,37 @@
     "@radix-ui/react-icons": "^1.3.2",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tanstack/react-query": "^5.99.0",
+    "@trpc/client": "^11.16.0",
+    "@trpc/react-query": "^11.16.0",
+    "@trpc/server": "^11.16.0",
+    "@trpc/tanstack-react-query": "^11.16.0",
+    "drizzle-orm": "1.0.0-beta.15-859cf75",
     "lucide-react": "^1.8.0",
     "next": "16.2.3",
     "next-themes": "^0.4.6",
     "nuqs": "^2.8.9",
+    "pg": "^8.20.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "react-hook-form": "7.72.1",
+    "server-only": "^0.0.1",
+    "set-cookie-parser": "^3.1.0",
     "sonner": "^2.0.7",
+    "superjson": "^2.2.6",
+    "trpc-to-openapi": "^3.2.0",
+    "winston": "^3.19.0",
     "zod": "4.3.6",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^25",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "drizzle-kit": "1.0.0-beta.15-90d1d1a",
     "eslint": "^10.2.0",
     "typescript": "^6"
   }

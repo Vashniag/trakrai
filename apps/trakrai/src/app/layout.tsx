@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from 'next/font/google';
 
 import './globals.css';
+import { TRPCReactProvider } from '@/server/react';
 
 import type { Metadata } from 'next';
 
@@ -25,7 +26,9 @@ const RootLayout = ({
   children: React.ReactNode;
 }>) => (
   <html lang="en" suppressHydrationWarning>
-    <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+    <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <TRPCReactProvider>{children}</TRPCReactProvider>
+    </body>
   </html>
 );
 
