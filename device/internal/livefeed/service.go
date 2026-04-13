@@ -26,16 +26,14 @@ func Run(ctx context.Context, cfg *Config) error {
 	defer frameSource.Close()
 
 	ipcClient := ipc.NewClient(cfg.IPC.SocketPath, ServiceName)
-	if err := ipcClient.Connect(); err != nil {
-		return err
-	}
+	ipcClient.Start()
 	defer ipcClient.Close()
 
 	if err := ipcClient.ReportStatus("idle", map[string]interface{}{
 		"available": true,
 		"redis":     redisconfig.Address(cfg.Redis),
 	}); err != nil {
-		slog.Warn("initial status report failed", "error", err)
+		slog.Debug("initial status report failed", "error", err)
 	}
 
 	sessions := NewSessionManager(cfg, frameSource, ipcClient)
@@ -46,7 +44,7 @@ func Run(ctx context.Context, cfg *Config) error {
 
 	sessions.StopSession()
 	if err := ipcClient.ReportStatus("stopped", map[string]interface{}{"reason": "shutdown"}); err != nil {
-		slog.Warn("final status report failed", "error", err)
+		slog.Debug("final status report failed", "error", err)
 	}
 
 	return nil

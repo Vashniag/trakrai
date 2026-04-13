@@ -199,12 +199,8 @@ func (s *Service) connectIPC(ctx context.Context) {
 	}
 
 	client := ipc.NewClient(socketPath, ServiceName)
-	if err := client.Connect(); err != nil {
-		s.log.Warn("IPC unavailable, continuing without status reporting", "socket", socketPath, "error", err)
-		return
-	}
-
 	s.ipcClient = client
+	s.ipcClient.Start()
 	go s.drainNotifications(ctx, client)
 }
 

@@ -37,12 +37,10 @@ func (s *Service) Run(ctx context.Context) error {
 		"socket", s.cfg.IPC.SocketPath,
 	)
 
-	if err := s.mqttService.Connect(); err != nil {
-		return err
-	}
-
 	go s.ipcServer.Serve(ctx)
+	s.mqttService.Start()
 	go s.mqttService.StartHeartbeat(ctx, 10*time.Second)
+	go s.mqttService.StartHealthMonitor(ctx, 15*time.Second)
 
 	slog.Info("cloud-comm ready, waiting for MQTT and IPC traffic")
 	<-ctx.Done()

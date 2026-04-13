@@ -28,9 +28,6 @@ func newRedisQueue(cfg *Config) (*redisQueue, error) {
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 	})
-	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		return nil, fmt.Errorf("redis ping: %w", err)
-	}
 	return &redisQueue{
 		cfg: cfg,
 		rdb: rdb,

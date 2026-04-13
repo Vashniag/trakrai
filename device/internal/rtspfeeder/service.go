@@ -21,10 +21,14 @@ func Run(ctx context.Context, cfg *Config) error {
 	defer rdb.Close()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		return err
+		slog.Warn("initial redis ping failed, continuing with reconnectable client",
+			"host", cfg.Redis.Host,
+			"port", cfg.Redis.Port,
+			"error", err,
+		)
+	} else {
+		slog.Info("connected to redis", "host", cfg.Redis.Host, "port", cfg.Redis.Port)
 	}
-
-	slog.Info("connected to redis", "host", cfg.Redis.Host, "port", cfg.Redis.Port)
 
 	var wg sync.WaitGroup
 	activeCameras := 0

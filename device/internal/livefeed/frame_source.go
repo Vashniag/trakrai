@@ -24,13 +24,6 @@ func NewFrameSource(cfg redisconfig.Config) (*FrameSource, error) {
 		DB:       cfg.DB,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("redis ping: %w", err)
-	}
-
 	return &FrameSource{
 		rdb:       rdb,
 		keyPrefix: cfg.KeyPrefix,

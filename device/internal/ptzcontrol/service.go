@@ -59,13 +59,11 @@ type Service struct {
 func Run(ctx context.Context, cfg *Config) error {
 	service := newService(cfg)
 
-	if err := service.connectIPC(); err != nil {
-		return err
-	}
+	service.connectIPC()
 	defer service.ipcClient.Close()
 
 	if err := service.reportStatus("idle"); err != nil {
-		slog.Warn("initial PTZ status report failed", "error", err)
+		slog.Debug("initial PTZ status report failed", "error", err)
 	}
 
 	go service.handleNotifications(ctx)
@@ -78,7 +76,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	<-ctx.Done()
 
 	if err := service.reportStatus("stopped"); err != nil {
-		slog.Warn("final PTZ status report failed", "error", err)
+		slog.Debug("final PTZ status report failed", "error", err)
 	}
 
 	return nil
@@ -105,12 +103,8 @@ func newService(cfg *Config) *Service {
 	}
 }
 
-func (s *Service) connectIPC() error {
-	if err := s.ipcClient.Connect(); err != nil {
-		return err
-	}
-
-	return nil
+func (s *Service) connectIPC() {
+	s.ipcClient.Start()
 }
 
 func (s *Service) handleNotifications(ctx context.Context) {
