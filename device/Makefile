@@ -1,6 +1,6 @@
-.PHONY: build build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder clean
+.PHONY: build build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm clean
 
-build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder
+build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm
 
 build-cloud-comm:
 	docker buildx build --output type=local,dest=./out/cloud-comm -f Dockerfile --build-arg CMD_PATH=./cmd/cloud-comm --build-arg BINARY_NAME=cloud-comm .
@@ -17,6 +17,10 @@ build-ptz-control:
 build-rtsp-feeder:
 	docker buildx build --output type=local,dest=./out/rtsp-feeder -f Dockerfile.gstreamer --build-arg CMD_PATH=./cmd/rtsp-feeder --build-arg BINARY_NAME=rtsp-feeder .
 	@echo "Binary: out/rtsp-feeder/rtsp-feeder"
+
+build-workflow-comm:
+	docker buildx build --output type=local,dest=./out/workflow-comm -f Dockerfile --build-arg CMD_PATH=./cmd/workflow-comm --build-arg BINARY_NAME=workflow-comm .
+	@echo "Binary: out/workflow-comm/workflow-comm"
 
 clean:
 	rm -rf out/
