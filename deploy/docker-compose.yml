@@ -59,9 +59,13 @@ services:
       - '3478:3478/udp'
       - '5349:5349'
       - '49160-49170:49160-49170/udp'
+    environment:
+      TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-127.0.0.1}
+      TURN_PRIVATE_IP: ${TURN_PRIVATE_IP:-}
     volumes:
-      - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
-    command: ['-c', '/etc/turnserver.conf']
+      - ./coturn/turnserver.conf:/etc/trakrai-turnserver.conf:ro
+      - ./coturn/entrypoint.sh:/usr/local/bin/trakrai-coturn-entrypoint.sh:ro
+    command: ['/bin/sh', '/usr/local/bin/trakrai-coturn-entrypoint.sh']
 
 volumes:
   trakrai_postgres_data:

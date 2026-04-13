@@ -5,34 +5,48 @@ import (
 	"log/slog"
 )
 
+const minimumKeyframeIntervalFrames = 2
+
+func keyframeIntervalFrames(fps int) int {
+	if fps < minimumKeyframeIntervalFrames {
+		return minimumKeyframeIntervalFrames
+	}
+
+	return fps
+}
+
 type H264Encoder struct {
 	enc *Encoder
 	log *slog.Logger
 }
 
 func buildHWEncoderPipeline(fps int) string {
+	keyframeInterval := keyframeIntervalFrames(fps)
 	return fmt.Sprintf(
 		"appsrc name=src is-live=true format=time caps=image/jpeg,framerate=%d/1 "+
 			"! jpegdec "+
 			"! nvvidconv "+
-			"! nvv4l2h264enc maxperf-enable=true insert-sps-pps=true idrinterval=30 bitrate=2000000 "+
+			"! nvv4l2h264enc maxperf-enable=true insert-sps-pps=true idrinterval=%d bitrate=2000000 "+
 			"! h264parse config-interval=1 "+
 			"! video/x-h264,stream-format=byte-stream "+
 			"! appsink name=sink max-buffers=4 drop=true sync=false emit-signals=false",
 		fps,
+		keyframeInterval,
 	)
 }
 
 func buildSWEncoderPipeline(fps int) string {
+	keyframeInterval := keyframeIntervalFrames(fps)
 	return fmt.Sprintf(
 		"appsrc name=src is-live=true format=time caps=image/jpeg,framerate=%d/1 "+
 			"! jpegdec "+
 			"! videoconvert "+
-			"! x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 key-int-max=30 "+
+			"! x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 key-int-max=%d "+
 			"! h264parse config-interval=1 "+
 			"! video/x-h264,stream-format=byte-stream "+
 			"! appsink name=sink max-buffers=4 drop=true sync=false emit-signals=false",
 		fps,
+		keyframeInterval,
 	)
 }
 

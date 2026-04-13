@@ -1,8 +1,15 @@
 'use client';
 
-import type { ConnectionState, DeviceServiceStatus, PtzVelocityCommand } from './live-types';
+import type {
+  ConnectionState,
+  DeviceServiceStatus,
+  PtzCapabilities,
+  PtzPosition,
+  PtzVelocityCommand,
+} from './live-types';
 
 const FRESH_HEARTBEAT_SECONDS = 5;
+const PTZ_LIMIT_EPSILON = 0.01;
 const SECONDS_PER_MINUTE = 60;
 const PTZ_METRIC_DECIMALS = 3;
 const PTZ_PAN_TILT_SPEED = 0.55;
@@ -215,3 +222,110 @@ export const formatServiceDetails = (details: DeviceServiceStatus['details']): s
 };
 
 export const getPtzStopButtonClasses = (): string => STOP_BUTTON_CLASSES;
+
+const isRangeAvailable = (
+  range: PtzCapabilities['panRange'] | PtzCapabilities['tiltRange'] | PtzCapabilities['zoomRange'],
+): range is NonNullable<typeof range> =>
+  range !== null &&
+  range !== undefined &&
+  Number.isFinite(range.min) &&
+  Number.isFinite(range.max) &&
+  range.max >= range.min;
+
+export const supportsPanTiltDrive = (capabilities: PtzCapabilities | null | undefined): boolean =>
+  capabilities === null || capabilities === undefined || capabilities.canContinuousPanTilt === true;
+
+export const supportsZoomDrive = (capabilities: PtzCapabilities | null | undefined): boolean =>
+  capabilities === null || capabilities === undefined || capabilities.canContinuousZoom === true;
+
+export const supportsZoomTarget = (capabilities: PtzCapabilities | null | undefined): boolean =>
+  capabilities === null || capabilities === undefined || capabilities.canAbsoluteZoom === true;
+
+export const supportsGoHome = (capabilities: PtzCapabilities | null | undefined): boolean =>
+  capabilities === null || capabilities === undefined || capabilities.canGoHome === true;
+
+const isDirectionBlockedByRange = (
+  currentValue: number | null | undefined,
+  range: PtzCapabilities['panRange'] | PtzCapabilities['tiltRange'] | PtzCapabilities['zoomRange'],
+  delta: number,
+): boolean => {
+  if (
+    !isRangeAvailable(range) ||
+    currentValue === null ||
+    currentValue === undefined ||
+    delta === 0
+  ) {
+    return false;
+  }
+
+  if (delta > 0) {
+    return currentValue >= range.max - PTZ_LIMIT_EPSILON;
+  }
+
+  return currentValue <= range.min + PTZ_LIMIT_EPSILON;
+};
+
+export const canStartPtzMove = (
+  direction: PtzDirection,
+  capabilities: PtzCapabilities | null | undefined,
+  position: PtzPosition | null | undefined,
+): boolean => {
+  if (capabilities === null || capabilities === undefined) {
+    return true;
+  }
+
+  if (direction.velocity.zoom !== 0) {
+    if (!supportsZoomDrive(capabilities)) {
+      return false;
+    }
+
+    return !isDirectionBlockedByRange(
+      position?.zoom,
+      capabilities.zoomRange,
+      direction.velocity.zoom,
+    );
+  }
+
+  if (!supportsPanTiltDrive(capabilities)) {
+    return false;
+  }
+
+  const panBlocked = isDirectionBlockedByRange(
+    position?.pan,
+    capabilities.panRange,
+    direction.velocity.pan,
+  );
+  const tiltBlocked = isDirectionBlockedByRange(
+    position?.tilt,
+    capabilities.tiltRange,
+    direction.velocity.tilt,
+  );
+
+  return !panBlocked && !tiltBlocked;
+};
+
+export const toNormalizedZoomValue = (
+  value: number | null | undefined,
+  capabilities: PtzCapabilities | null | undefined,
+): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const range = capabilities?.zoomRange;
+  if (!isRangeAvailable(range) || range.max === range.min) {
+    return clamp(value, PTZ_ZOOM_MIN, PTZ_ZOOM_MAX);
+  }
+
+  return clamp((value - range.min) / (range.max - range.min), PTZ_ZOOM_MIN, PTZ_ZOOM_MAX);
+};
+
+const clamp = (value: number, min: number, max: number): number => {
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+};

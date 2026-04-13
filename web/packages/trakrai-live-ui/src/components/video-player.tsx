@@ -34,9 +34,36 @@ export const VideoPlayer = ({
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoRef.current !== null) {
-      videoRef.current.srcObject = stream;
+    const video = videoRef.current;
+    if (video === null) {
+      return undefined;
     }
+
+    video.srcObject = stream;
+    if (stream === null) {
+      video.pause();
+      return undefined;
+    }
+
+    let disposed = false;
+
+    const attemptPlayback = () => {
+      void video.play().catch(() => {
+        if (disposed) {
+          return;
+        }
+      });
+    };
+
+    attemptPlayback();
+    video.addEventListener('loadedmetadata', attemptPlayback);
+    video.addEventListener('canplay', attemptPlayback);
+
+    return () => {
+      disposed = true;
+      video.removeEventListener('loadedmetadata', attemptPlayback);
+      video.removeEventListener('canplay', attemptPlayback);
+    };
   }, [stream]);
 
   const resolution = formatResolution(streamStats);

@@ -105,6 +105,7 @@ const LiveWorkspaceBody = ({
   const ptzControlsEnabled =
     ptzServiceStatus !== undefined && ptzCamera !== '' && isPtzCameraConfigured;
   const ptzPosition = ptzState?.position?.cameraName === ptzCamera ? ptzState.position : null;
+  const ptzCapabilities = ptzPosition?.capabilities ?? ptzState?.capabilities ?? null;
   const ptzStatusLabel = ptzState?.status ?? ptzServiceStatus?.status ?? 'offline';
   const lastPtzCommand = ptzState?.lastCommand ?? 'none';
   const lastPtzMovement =
@@ -201,6 +202,7 @@ const LiveWorkspaceBody = ({
           key={ptzCamera !== '' ? ptzCamera : 'no-ptz-camera'}
           activeDirection={activePtzDirection}
           cameraName={ptzCamera}
+          capabilities={ptzCapabilities}
           controlsEnabled={ptzControlsEnabled}
           error={ptzError}
           isCameraConfigured={isPtzCameraConfigured}

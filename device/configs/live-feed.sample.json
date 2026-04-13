@@ -11,6 +11,7 @@
     "key_prefix": "camera"
   },
   "webrtc": {
+    "advertise_relay_candidates": false,
     "stun_servers": ["stun:stun.l.google.com:19302"],
     "turn_servers": [
       {
@@ -22,4 +23,3 @@
     "framerate_fps": 10
   }
 }
-

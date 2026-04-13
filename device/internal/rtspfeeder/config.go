@@ -116,7 +116,7 @@ func applyGlobalDefaults(defaults CameraDefaults) CameraDefaults {
 		defaults.Height = 480
 	}
 	if defaults.Framerate == 0 {
-		defaults.Framerate = 2
+		defaults.Framerate = 10
 	}
 	if defaults.JPEGQuality == 0 {
 		defaults.JPEGQuality = 85

@@ -165,9 +165,12 @@ func TestEdgeWebSocketServerServesIceConfig(t *testing.T) {
 	if recorder.Header().Get("Access-Control-Allow-Origin") != "*" {
 		t.Fatalf("expected wildcard CORS header, got %q", recorder.Header().Get("Access-Control-Allow-Origin"))
 	}
+	if recorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("expected no-store Cache-Control header, got %q", recorder.Header().Get("Cache-Control"))
+	}
 
 	var response struct {
-		ICEServers []EdgeICEServerConfig `json:"iceServers"`
+		ICEServers []map[string]interface{} `json:"iceServers"`
 	}
 
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
@@ -177,8 +180,113 @@ func TestEdgeWebSocketServerServesIceConfig(t *testing.T) {
 	if len(response.ICEServers) != 2 {
 		t.Fatalf("expected 2 ICE servers, got %d", len(response.ICEServers))
 	}
-	if response.ICEServers[1].Username != "trakrai" {
-		t.Fatalf("expected TURN username to round-trip, got %q", response.ICEServers[1].Username)
+	if urls, ok := response.ICEServers[0]["urls"].(string); !ok || urls != "stun:stun.l.google.com:19302" {
+		t.Fatalf("expected STUN urls to serialize as a string, got %#v", response.ICEServers[0]["urls"])
+	}
+	if _, exists := response.ICEServers[0]["username"]; exists {
+		t.Fatalf("expected STUN server to omit empty username")
+	}
+	if username, ok := response.ICEServers[1]["username"].(string); !ok || username != "trakrai" {
+		t.Fatalf("expected TURN username to round-trip, got %#v", response.ICEServers[1]["username"])
+	}
+}
+
+func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+		},
+	}
+
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			_ = route
+			_ = env
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	httpServer := httptest.NewServer(httpTestMux(server))
+	defer httpServer.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/ws?deviceId=edge-device-1"
+	firstConn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial first websocket failed: %v", err)
+	}
+	defer firstConn.Close()
+
+	secondConn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial second websocket failed: %v", err)
+	}
+	defer secondConn.Close()
+
+	drainInitialMessages := func(conn *websocket.Conn) {
+		t.Helper()
+		for i := 0; i < 2; i++ {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				t.Fatalf("failed to read initial websocket message: %v", err)
+			}
+		}
+	}
+
+	drainInitialMessages(firstConn)
+	drainInitialMessages(secondConn)
+
+	if err := firstConn.WriteJSON(map[string]interface{}{
+		"type":    "start-live",
+		"payload": map[string]interface{}{"cameraName": "LP1-Main"},
+	}); err != nil {
+		t.Fatalf("failed to send start-live: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	server.Broadcast(liveFeedServiceName, "response", buildEnvelope("start-live-ack", marshalPayload(map[string]interface{}{
+		"cameraName": "LP1-Main",
+		"ok":         true,
+		"sessionId":  "session-1",
+	})))
+	server.Broadcast(liveFeedServiceName, "webrtc/offer", buildEnvelope("sdp-offer", marshalPayload(map[string]interface{}{
+		"cameraName": "LP1-Main",
+		"sdp":        "offer",
+		"sessionId":  "session-1",
+	})))
+
+	type outbound struct {
+		Type    string           `json:"type"`
+		Payload ipc.MQTTEnvelope `json:"payload"`
+	}
+
+	_ = firstConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var firstAck outbound
+	if err := firstConn.ReadJSON(&firstAck); err != nil {
+		t.Fatalf("failed to read first live response: %v", err)
+	}
+	if firstAck.Type != "device-response" {
+		t.Fatalf("expected device-response for owner, got %q", firstAck.Type)
+	}
+
+	var firstOffer outbound
+	if err := firstConn.ReadJSON(&firstOffer); err != nil {
+		t.Fatalf("failed to read first sdp-offer: %v", err)
+	}
+	if firstOffer.Type != "sdp-offer" {
+		t.Fatalf("expected sdp-offer for owner, got %q", firstOffer.Type)
+	}
+
+	_ = secondConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	if _, _, err := secondConn.ReadMessage(); err == nil {
+		t.Fatalf("expected non-owner websocket to receive no live-session messages")
 	}
 }
 

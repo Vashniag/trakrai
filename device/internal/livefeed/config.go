@@ -20,9 +20,10 @@ type TURNServer struct {
 }
 
 type WebRTCConfig struct {
-	STUNServers  []string     `json:"stun_servers"`
-	TURNServers  []TURNServer `json:"turn_servers"`
-	FramerateFPS int          `json:"framerate_fps"`
+	AdvertiseRelayCandidates bool         `json:"advertise_relay_candidates"`
+	STUNServers              []string     `json:"stun_servers"`
+	TURNServers              []TURNServer `json:"turn_servers"`
+	FramerateFPS             int          `json:"framerate_fps"`
 }
 
 type Config struct {

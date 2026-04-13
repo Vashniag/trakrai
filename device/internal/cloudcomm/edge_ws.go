@@ -65,8 +65,9 @@ type EdgeWebSocketServer struct {
 	dispatch         func(route topicRoute, env ipc.MQTTEnvelope) error
 	snapshotEnvelope func() ipc.MQTTEnvelope
 
-	mu      sync.RWMutex
-	clients map[*edgeClient]struct{}
+	mu         sync.RWMutex
+	clients    map[*edgeClient]struct{}
+	liveClient *edgeClient
 
 	httpServer *http.Server
 }
@@ -152,7 +153,7 @@ func (s *EdgeWebSocketServer) Broadcast(service string, subtopic string, env ipc
 		Type:     outboundWebSocketType(service, subtopic, env),
 	}
 
-	clients := s.snapshotClients()
+	clients := s.broadcastTargets(message)
 	delivered := 0
 	for _, client := range clients {
 		if err := client.writeJSON(message); err != nil {
@@ -172,6 +173,7 @@ func (s *EdgeWebSocketServer) handleHealth(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	s.applyCORSHeaders(w, r)
 
@@ -191,14 +193,11 @@ func (s *EdgeWebSocketServer) handleIceConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	s.applyCORSHeaders(w, r)
 
-	response := map[string]interface{}{
-		"iceServers": s.cfg.Edge.WebRTC.ICEServers,
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := json.NewEncoder(w).Encode(s.edgeICEConfigResponse()); err != nil {
 		s.log.Warn("encode ice-config response failed", "error", err)
 	}
 }
@@ -267,6 +266,17 @@ func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message
 	if message.Type == "set-device" {
 		s.handleSetDevice(client, message.Payload)
 		return
+	}
+
+	if message.Type == "start-live" {
+		s.setLiveClient(client)
+	}
+	if (message.Type == "sdp-answer" || message.Type == "ice-candidate" || message.Type == "stop-live") &&
+		!s.liveClientMatches(client) {
+		return
+	}
+	if message.Type == "stop-live" {
+		s.clearLiveClient(client)
 	}
 
 	route, env, err := translateWebSocketMessage(message)
@@ -391,6 +401,9 @@ func (s *EdgeWebSocketServer) addClient(client *edgeClient) {
 func (s *EdgeWebSocketServer) removeClient(client *edgeClient) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.liveClient == client {
+		s.liveClient = nil
+	}
 	delete(s.clients, client)
 }
 
@@ -403,6 +416,91 @@ func (s *EdgeWebSocketServer) snapshotClients() []*edgeClient {
 		clients = append(clients, client)
 	}
 	return clients
+}
+
+func (s *EdgeWebSocketServer) broadcastTargets(message edgeOutboundMessage) []*edgeClient {
+	if message.Type == "sdp-offer" || message.Type == "ice-candidate" || shouldUnicastLiveResponse(message) {
+		if client := s.snapshotLiveClient(); client != nil {
+			return []*edgeClient{client}
+		}
+	}
+
+	return s.snapshotClients()
+}
+
+func (s *EdgeWebSocketServer) snapshotLiveClient() *edgeClient {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.liveClient
+}
+
+func (s *EdgeWebSocketServer) setLiveClient(client *edgeClient) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.liveClient = client
+}
+
+func (s *EdgeWebSocketServer) clearLiveClient(client *edgeClient) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.liveClient == client {
+		s.liveClient = nil
+	}
+}
+
+func (s *EdgeWebSocketServer) liveClientMatches(client *edgeClient) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.liveClient == nil || s.liveClient == client
+}
+
+func shouldUnicastLiveResponse(message edgeOutboundMessage) bool {
+	if message.Type != "device-response" {
+		return false
+	}
+
+	switch message.Payload.Type {
+	case "start-live-ack", "service-unavailable":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *EdgeWebSocketServer) edgeICEConfigResponse() map[string]interface{} {
+	iceServers := make([]map[string]interface{}, 0, len(s.cfg.Edge.WebRTC.ICEServers))
+
+	for _, server := range s.cfg.Edge.WebRTC.ICEServers {
+		urls := make([]string, 0, len(server.URLs))
+		for _, url := range server.URLs {
+			if trimmedURL := strings.TrimSpace(url); trimmedURL != "" {
+				urls = append(urls, trimmedURL)
+			}
+		}
+		if len(urls) == 0 {
+			continue
+		}
+
+		entry := map[string]interface{}{}
+		if len(urls) == 1 {
+			entry["urls"] = urls[0]
+		} else {
+			entry["urls"] = urls
+		}
+
+		if username := strings.TrimSpace(server.Username); username != "" {
+			entry["username"] = username
+		}
+		if credential := strings.TrimSpace(server.Credential); credential != "" {
+			entry["credential"] = credential
+		}
+
+		iceServers = append(iceServers, entry)
+	}
+
+	return map[string]interface{}{
+		"iceServers": iceServers,
+	}
 }
 
 func normalizeLegacyServiceName(service string) string {

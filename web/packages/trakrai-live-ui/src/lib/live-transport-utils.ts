@@ -2,6 +2,7 @@
 
 import type {
   ActivityLogEntry,
+  PtzCapabilities,
   DeviceServiceStatus,
   DeviceStatus,
   PtzPosition,
@@ -24,6 +25,7 @@ export type BufferedIceCandidate = {
 
 export type StatsSnapshot = {
   bytesReceived: number;
+  framesDecoded: number | null;
   timestamp: number;
 };
 
@@ -117,6 +119,39 @@ const readStringArray = (value: unknown): string[] =>
 const readFiniteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 
+const readPtzRange = (value: unknown) => {
+  const range = asRecord(value);
+  if (range === null) {
+    return null;
+  }
+
+  const min = readFiniteNumber(range['min']);
+  const max = readFiniteNumber(range['max']);
+  if (min === null || max === null) {
+    return null;
+  }
+
+  return { max, min };
+};
+
+const readPtzCapabilities = (value: unknown): PtzCapabilities | null => {
+  const capabilities = asRecord(value);
+  if (capabilities === null) {
+    return null;
+  }
+
+  return {
+    canAbsolutePanTilt: capabilities['canAbsolutePanTilt'] === true,
+    canAbsoluteZoom: capabilities['canAbsoluteZoom'] === true,
+    canContinuousPanTilt: capabilities['canContinuousPanTilt'] === true,
+    canContinuousZoom: capabilities['canContinuousZoom'] === true,
+    canGoHome: capabilities['canGoHome'] === true,
+    panRange: readPtzRange(capabilities['panRange']),
+    tiltRange: readPtzRange(capabilities['tiltRange']),
+    zoomRange: readPtzRange(capabilities['zoomRange']),
+  };
+};
+
 const readPtzPosition = (value: unknown): PtzPosition | null => {
   const position = asRecord(value);
   if (position === null) {
@@ -146,6 +181,7 @@ const readPtzPosition = (value: unknown): PtzPosition | null => {
         };
 
   return {
+    capabilities: readPtzCapabilities(position['capabilities']),
     cameraName,
     moveStatus,
     pan,
@@ -164,11 +200,14 @@ export const readPtzState = (serviceStatus: DeviceServiceStatus | undefined): Pt
   }
 
   const details = asRecord(serviceStatus.details ?? null);
+  const position = details !== null ? readPtzPosition(details['position']) : null;
+
   return {
     activeCamera:
       details !== null && typeof details['activeCamera'] === 'string'
         ? normalizeOptionalString(details['activeCamera'])
         : null,
+    capabilities: readPtzCapabilities(details?.['capabilities']) ?? position?.capabilities ?? null,
     configuredCameras: details !== null ? readStringArray(details['configuredCameras']) : [],
     lastCommand:
       details !== null && typeof details['lastCommand'] === 'string'
@@ -178,7 +217,7 @@ export const readPtzState = (serviceStatus: DeviceServiceStatus | undefined): Pt
       details !== null && typeof details['lastError'] === 'string'
         ? normalizeOptionalString(details['lastError'])
         : null,
-    position: details !== null ? readPtzPosition(details['position']) : null,
+    position,
     status: serviceStatus.status,
   };
 };

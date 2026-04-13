@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,13 +57,15 @@ func (sm *SessionManager) StartSession(cameraName string) {
 	for _, stun := range sm.cfg.WebRTC.STUNServers {
 		iceServers = append(iceServers, webrtc.ICEServer{URLs: []string{stun}})
 	}
-	for _, turn := range sm.cfg.WebRTC.TURNServers {
-		iceServers = append(iceServers, webrtc.ICEServer{
-			URLs:           []string{turn.URL},
-			Username:       turn.Username,
-			Credential:     turn.Credential,
-			CredentialType: webrtc.ICECredentialTypePassword,
-		})
+	if sm.cfg.WebRTC.AdvertiseRelayCandidates {
+		for _, turn := range sm.cfg.WebRTC.TURNServers {
+			iceServers = append(iceServers, webrtc.ICEServer{
+				URLs:           []string{turn.URL},
+				Username:       turn.Username,
+				Credential:     turn.Credential,
+				CredentialType: webrtc.ICECredentialTypePassword,
+			})
+		}
 	}
 
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
@@ -126,10 +129,35 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		if !sm.isCurrentSession(sessionID, pc) {
 			return
 		}
+		candidateJSON := candidate.ToJSON()
+		sm.log.Debug(
+			"local ICE candidate gathered",
+			"session_id", sessionID,
+			"camera", cameraName,
+			"candidate", candidateSummary(candidateJSON),
+		)
 		sm.publish("webrtc/ice", "ice-candidate", map[string]interface{}{
-			"candidate": candidate.ToJSON(),
+			"candidate": candidateJSON,
 			"sessionId": sessionID,
 		})
+	})
+
+	pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		sm.log.Info(
+			"ICE connection state changed",
+			"state", state.String(),
+			"session_id", sessionID,
+			"camera", cameraName,
+		)
+	})
+
+	pc.OnICEGatheringStateChange(func(state webrtc.ICEGatheringState) {
+		sm.log.Info(
+			"ICE gathering state changed",
+			"state", state.String(),
+			"session_id", sessionID,
+			"camera", cameraName,
+		)
 	})
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
@@ -350,8 +378,20 @@ func (sm *SessionManager) AddICECandidate(sessionID string, candidateJSON json.R
 		return
 	}
 
+	sm.log.Debug(
+		"remote ICE candidate received",
+		"session_id", sm.sessionID,
+		"camera", sm.cameraName,
+		"candidate", candidateSummary(candidate),
+	)
+
 	if sm.pc.RemoteDescription() == nil {
 		sm.pendingICE = append(sm.pendingICE, candidate)
+		sm.log.Debug(
+			"buffering ICE candidate until remote description is set",
+			"session_id", sm.sessionID,
+			"camera", sm.cameraName,
+		)
 		return
 	}
 
@@ -467,4 +507,18 @@ func (sm *SessionManager) isCurrentSession(
 	defer sm.mu.Unlock()
 
 	return sm.sessionID == sessionID && sm.pc == pc
+}
+
+func candidateSummary(candidate webrtc.ICECandidateInit) string {
+	candidateValue := strings.TrimSpace(candidate.Candidate)
+	if candidateValue == "" {
+		return "empty"
+	}
+
+	fields := strings.Fields(candidateValue)
+	if len(fields) >= 8 {
+		return fmt.Sprintf("%s %s %s", fields[4], fields[5], fields[7])
+	}
+
+	return candidateValue
 }

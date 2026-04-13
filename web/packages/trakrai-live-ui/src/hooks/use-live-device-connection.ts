@@ -6,6 +6,7 @@ import type {
   ActivityLogEntry,
   ConnectionState,
   DeviceStatus,
+  PtzCapabilities,
   PtzPosition,
   PtzState,
   PtzVelocityCommand,
@@ -42,6 +43,7 @@ export type {
   DeviceCamera,
   DeviceServiceStatus,
   DeviceStatus,
+  PtzCapabilities,
   PtzMoveStatus,
   PtzPosition,
   PtzState,
@@ -186,17 +188,32 @@ export const useLiveDeviceConnection = ({
       inboundVideo !== null
         ? {
             bytesReceived: readStatNumber(inboundVideo, 'bytesReceived') ?? 0,
+            framesDecoded:
+              readStatNumber(inboundVideo, 'framesDecoded') ??
+              readStatNumber(inboundVideo, 'framesReceived'),
             timestamp: inboundVideo.timestamp,
           }
         : null;
     const previousSnapshot = lastStatsSnapshotRef.current;
 
     let bitrateKbps: number | null = null;
+    let calculatedFps: number | null = null;
     if (currentSnapshot !== null && previousSnapshot !== null) {
       const bytesDelta = currentSnapshot.bytesReceived - previousSnapshot.bytesReceived;
       const durationMs = currentSnapshot.timestamp - previousSnapshot.timestamp;
       if (bytesDelta >= 0 && durationMs > 0) {
         bitrateKbps = Number(((bytesDelta * BITS_PER_BYTE) / durationMs).toFixed(1));
+      }
+
+      if (
+        currentSnapshot.framesDecoded !== null &&
+        previousSnapshot.framesDecoded !== null &&
+        durationMs > 0
+      ) {
+        const framesDelta = currentSnapshot.framesDecoded - previousSnapshot.framesDecoded;
+        if (framesDelta >= 0) {
+          calculatedFps = Number(((framesDelta * MS_PER_SECOND) / durationMs).toFixed(1));
+        }
       }
     }
 
@@ -210,7 +227,9 @@ export const useLiveDeviceConnection = ({
       candidateType:
         remoteCandidate !== null ? readStatString(remoteCandidate, 'candidateType') : null,
       codec: codec !== null ? readStatString(codec, 'mimeType') : null,
-      fps: inboundVideo !== null ? readStatNumber(inboundVideo, 'framesPerSecond') : null,
+      fps:
+        calculatedFps ??
+        (inboundVideo !== null ? readStatNumber(inboundVideo, 'framesPerSecond') : null),
       frameHeight: inboundVideo !== null ? readStatNumber(inboundVideo, 'frameHeight') : null,
       frameWidth: inboundVideo !== null ? readStatNumber(inboundVideo, 'frameWidth') : null,
       jitterMs:
@@ -263,7 +282,9 @@ export const useLiveDeviceConnection = ({
         setActiveCameraName(cameraName ?? requestedCameraRef.current);
         appendLog('info', `Received SDP offer${cameraName !== null ? ` for ${cameraName}` : ''}`);
 
-        const iceResponse = await fetch(`${normalizedHttpBaseUrl}/api/ice-config`);
+        const iceResponse = await fetch(`${normalizedHttpBaseUrl}/api/ice-config`, {
+          cache: 'no-store',
+        });
         if (!iceResponse.ok) {
           throw new Error(`ICE config request failed with ${iceResponse.status}`);
         }
@@ -276,7 +297,6 @@ export const useLiveDeviceConnection = ({
           if (pcRef.current !== peerConnection) {
             return;
           }
-          setConnectionState('streaming');
           setStream(event.streams[0] ?? new MediaStream([event.track]));
           appendLog('info', 'Remote media track attached');
         };
@@ -524,6 +544,7 @@ export const useLiveDeviceConnection = ({
           const payload = unwrapPayload<Omit<PtzState, 'status'>>(message.payload);
           setPtzState((currentState) => ({
             activeCamera: payload.activeCamera ?? currentState?.activeCamera ?? null,
+            capabilities: payload.capabilities ?? currentState?.capabilities ?? null,
             configuredCameras:
               payload.configuredCameras.length > 0
                 ? payload.configuredCameras
@@ -547,6 +568,7 @@ export const useLiveDeviceConnection = ({
             const payload = unwrapPayload<PtzPosition>(message.payload);
             setPtzState((currentState) => ({
               activeCamera: payload.cameraName,
+              capabilities: payload.capabilities ?? currentState?.capabilities ?? null,
               configuredCameras: currentState?.configuredCameras ?? [],
               lastCommand: 'get-position',
               lastError: null,
@@ -560,6 +582,7 @@ export const useLiveDeviceConnection = ({
 
           if (responseType === 'ptz-command-ack') {
             const payload = unwrapPayload<{
+              capabilities?: PtzCapabilities | null;
               cameraName: string;
               command: string;
               ok?: boolean;
@@ -568,6 +591,11 @@ export const useLiveDeviceConnection = ({
             setPtzState((currentState) => ({
               activeCamera:
                 normalizeOptionalString(payload.cameraName) ?? currentState?.activeCamera ?? null,
+              capabilities:
+                payload.capabilities ??
+                payload.position?.capabilities ??
+                currentState?.capabilities ??
+                null,
               configuredCameras: currentState?.configuredCameras ?? [],
               lastCommand:
                 normalizeOptionalString(payload.command) ?? currentState?.lastCommand ?? null,
@@ -600,6 +628,7 @@ export const useLiveDeviceConnection = ({
             setPtzState((currentState) => ({
               activeCamera:
                 normalizeOptionalString(payload.cameraName) ?? currentState?.activeCamera ?? null,
+              capabilities: currentState?.capabilities ?? null,
               configuredCameras: currentState?.configuredCameras ?? [],
               lastCommand:
                 normalizeOptionalString(payload.command ?? payload.requestType) ??
@@ -787,6 +816,7 @@ export const useLiveDeviceConnection = ({
     setPtzError(null);
     setPtzState((currentState) => ({
       activeCamera: normalizedCameraName,
+      capabilities: currentState?.capabilities ?? null,
       configuredCameras: currentState?.configuredCameras ?? [],
       lastCommand: 'start-move',
       lastError: null,

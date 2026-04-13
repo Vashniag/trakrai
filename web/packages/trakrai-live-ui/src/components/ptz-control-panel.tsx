@@ -12,9 +12,10 @@ import {
 } from '@trakrai/design-system/components/card';
 import { Separator } from '@trakrai/design-system/components/separator';
 
-import type { PtzPosition, PtzVelocityCommand } from '../lib/live-types';
+import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from '../lib/live-types';
 
 import {
+  canStartPtzMove,
   DEFAULT_ZOOM_TARGET,
   PTZ_BUTTON_ACTIVE_CLASSES,
   PTZ_BUTTON_BASE_CLASSES,
@@ -28,11 +29,17 @@ import {
   formatUpdatedAt,
   getPtzStopButtonClasses,
   getServiceStatusClasses,
+  supportsGoHome,
+  supportsPanTiltDrive,
+  supportsZoomDrive,
+  supportsZoomTarget,
+  toNormalizedZoomValue,
 } from '../lib/live-ui-utils';
 
 type Props = Readonly<{
   activeDirection: string | null;
   cameraName: string;
+  capabilities: PtzCapabilities | null;
   controlsEnabled: boolean;
   error: string | null;
   isCameraConfigured: boolean;
@@ -64,6 +71,7 @@ const getZoomButtonClasses = (isActive: boolean): string =>
 export const PtzControlPanel = ({
   activeDirection,
   cameraName,
+  capabilities,
   controlsEnabled,
   error,
   isCameraConfigured,
@@ -81,11 +89,16 @@ export const PtzControlPanel = ({
   const [zoomTargetDraft, setZoomTargetDraft] = useState<number | null>(null);
 
   const hasCamera = cameraName.trim() !== '';
-  const zoomTarget = zoomTargetDraft ?? position?.zoom ?? DEFAULT_ZOOM_TARGET;
+  const zoomTarget =
+    zoomTargetDraft ?? toNormalizedZoomValue(position?.zoom, capabilities) ?? DEFAULT_ZOOM_TARGET;
   const statusClasses = getServiceStatusClasses(statusLabel);
+  const panTiltEnabled = controlsEnabled && supportsPanTiltDrive(capabilities);
+  const homeEnabled = controlsEnabled && supportsGoHome(capabilities);
+  const zoomHoldEnabled = controlsEnabled && supportsZoomDrive(capabilities);
+  const zoomTargetEnabled = controlsEnabled && supportsZoomTarget(capabilities);
 
   const handleGoHome = () => {
-    if (!hasCamera) {
+    if (!hasCamera || !homeEnabled) {
       return;
     }
 
@@ -103,7 +116,7 @@ export const PtzControlPanel = ({
   };
 
   const handleApplyZoom = () => {
-    if (!hasCamera) {
+    if (!hasCamera || !zoomTargetEnabled) {
       return;
     }
 
@@ -182,6 +195,9 @@ export const PtzControlPanel = ({
 
           <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
             <div className="space-y-3">
+              <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                Pan / tilt drive
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {PTZ_DIRECTION_LAYOUT.flatMap((row) =>
                   row.map((item) => {
@@ -208,7 +224,7 @@ export const PtzControlPanel = ({
                       <button
                         key={item.id}
                         className={getGridButtonClasses(activeDirection === item.id)}
-                        disabled={!controlsEnabled}
+                        disabled={!panTiltEnabled || !canStartPtzMove(item, capabilities, position)}
                         type="button"
                         onPointerCancel={onEndMove}
                         onPointerDown={(event) => {
@@ -232,7 +248,7 @@ export const PtzControlPanel = ({
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
-                  disabled={!controlsEnabled}
+                  disabled={!homeEnabled}
                   type="button"
                   variant="outline"
                   onClick={handleGoHome}
@@ -248,6 +264,19 @@ export const PtzControlPanel = ({
                   Refresh position
                 </Button>
               </div>
+
+              {!supportsPanTiltDrive(capabilities) ? (
+                <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  This camera profile does not advertise ONVIF pan / tilt drive support.
+                </div>
+              ) : null}
+
+              {!supportsGoHome(capabilities) ? (
+                <div className="border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                  Go home is unavailable because this camera profile does not expose a home
+                  position.
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-4 border p-4">
@@ -265,7 +294,7 @@ export const PtzControlPanel = ({
                 </div>
                 <input
                   className="h-2 w-full cursor-pointer accent-emerald-600"
-                  disabled={!controlsEnabled}
+                  disabled={!zoomTargetEnabled}
                   max={PTZ_ZOOM_MAX}
                   min={PTZ_ZOOM_MIN}
                   step={PTZ_ZOOM_STEP}
@@ -282,7 +311,9 @@ export const PtzControlPanel = ({
                   <button
                     key={direction.id}
                     className={getZoomButtonClasses(activeDirection === direction.id)}
-                    disabled={!controlsEnabled}
+                    disabled={
+                      !zoomHoldEnabled || !canStartPtzMove(direction, capabilities, position)
+                    }
                     type="button"
                     onPointerCancel={onEndMove}
                     onPointerDown={(event) => {
@@ -304,12 +335,18 @@ export const PtzControlPanel = ({
 
               <Button
                 className="w-full"
-                disabled={!controlsEnabled}
+                disabled={!zoomTargetEnabled}
                 type="button"
                 onClick={handleApplyZoom}
               >
                 Apply zoom target
               </Button>
+
+              {!supportsZoomDrive(capabilities) && !supportsZoomTarget(capabilities) ? (
+                <div className="border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                  Zoom is unavailable because this ONVIF profile does not expose zoom control.
+                </div>
+              ) : null}
 
               <Separator />
 

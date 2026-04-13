@@ -12,6 +12,7 @@ import (
 
 type statusPayload struct {
 	ActiveCamera      string            `json:"activeCamera,omitempty"`
+	Capabilities      *ptzCapabilities  `json:"capabilities,omitempty"`
 	ConfiguredCameras []string          `json:"configuredCameras"`
 	LastCommand       string            `json:"lastCommand,omitempty"`
 	LastError         string            `json:"lastError,omitempty"`
@@ -19,11 +20,12 @@ type statusPayload struct {
 }
 
 type commandAckPayload struct {
-	CameraName string            `json:"cameraName"`
-	Command    string            `json:"command"`
-	Ok         bool              `json:"ok"`
-	Position   *positionSnapshot `json:"position,omitempty"`
-	Velocity   *velocityCommand  `json:"velocity,omitempty"`
+	Capabilities *ptzCapabilities  `json:"capabilities,omitempty"`
+	CameraName   string            `json:"cameraName"`
+	Command      string            `json:"command"`
+	Ok           bool              `json:"ok"`
+	Position     *positionSnapshot `json:"position,omitempty"`
+	Velocity     *velocityCommand  `json:"velocity,omitempty"`
 }
 
 type errorPayload struct {
@@ -175,6 +177,7 @@ func (s *Service) handleStatusRequest(ctx context.Context, env ipc.MQTTEnvelope)
 		}
 
 		s.state.ActiveCamera = position.CameraName
+		s.state.Capabilities = position.Capabilities
 		s.state.Position = position
 		s.state.LastError = ""
 	}
@@ -208,6 +211,7 @@ func (s *Service) handleGetPosition(ctx context.Context, env ipc.MQTTEnvelope) {
 	}
 
 	s.state.ActiveCamera = position.CameraName
+	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
 	s.state.LastCommand = env.Type
 	s.state.LastError = ""
@@ -238,15 +242,23 @@ func (s *Service) handleStartMove(ctx context.Context, env ipc.MQTTEnvelope) {
 		return
 	}
 
+	capabilities, err := camera.Capabilities(ctx)
+	if err != nil {
+		s.publishError(payload.CameraName, env.Type, err)
+		return
+	}
+
 	s.state.ActiveCamera = strings.TrimSpace(payload.CameraName)
+	s.state.Capabilities = capabilities
 	s.state.LastCommand = env.Type
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
-		CameraName: payload.CameraName,
-		Command:    env.Type,
-		Ok:         true,
-		Velocity:   &payload.Velocity,
+		Capabilities: capabilities,
+		CameraName:   payload.CameraName,
+		Command:      env.Type,
+		Ok:           true,
+		Velocity:     &payload.Velocity,
 	}); err != nil {
 		s.log.Warn("publish PTZ ack failed", "error", err)
 	}
@@ -275,15 +287,17 @@ func (s *Service) handleStopMove(ctx context.Context, env ipc.MQTTEnvelope) {
 	}
 
 	s.state.ActiveCamera = position.CameraName
+	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
 	s.state.LastCommand = env.Type
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
-		CameraName: payload.CameraName,
-		Command:    env.Type,
-		Ok:         true,
-		Position:   position,
+		Capabilities: position.Capabilities,
+		CameraName:   payload.CameraName,
+		Command:      env.Type,
+		Ok:           true,
+		Position:     position,
 	}); err != nil {
 		s.log.Warn("publish PTZ stop ack failed", "error", err)
 	}
@@ -312,15 +326,17 @@ func (s *Service) handleSetZoom(ctx context.Context, env ipc.MQTTEnvelope) {
 	}
 
 	s.state.ActiveCamera = position.CameraName
+	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
 	s.state.LastCommand = env.Type
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
-		CameraName: payload.CameraName,
-		Command:    env.Type,
-		Ok:         true,
-		Position:   position,
+		Capabilities: position.Capabilities,
+		CameraName:   payload.CameraName,
+		Command:      env.Type,
+		Ok:           true,
+		Position:     position,
 	}); err != nil {
 		s.log.Warn("publish PTZ zoom ack failed", "error", err)
 	}
@@ -349,15 +365,17 @@ func (s *Service) handleGoHome(ctx context.Context, env ipc.MQTTEnvelope) {
 	}
 
 	s.state.ActiveCamera = position.CameraName
+	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
 	s.state.LastCommand = env.Type
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
-		CameraName: payload.CameraName,
-		Command:    env.Type,
-		Ok:         true,
-		Position:   position,
+		Capabilities: position.Capabilities,
+		CameraName:   payload.CameraName,
+		Command:      env.Type,
+		Ok:           true,
+		Position:     position,
 	}); err != nil {
 		s.log.Warn("publish PTZ home ack failed", "error", err)
 	}
