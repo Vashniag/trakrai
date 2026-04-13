@@ -1,0 +1,5 @@
+rtsp-feeder
+out/
+config.json
+*.jpg
+*.jpeg

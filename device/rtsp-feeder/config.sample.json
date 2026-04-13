@@ -1,0 +1,43 @@
+{
+  "log_level": "info",
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "defaults": {
+    "capture_method": "auto",
+    "width": 640,
+    "height": 480,
+    "framerate": 2,
+    "jpeg_quality": 85,
+    "latency_ms": 200,
+    "protocols": "tcp",
+    "reconnect_delay_sec": 5,
+    "rotate_180": false,
+    "save_frames": false,
+    "save_path": "/data/raw",
+    "pipeline_timeout_sec": 15
+  },
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Camera-1",
+      "rtsp_url": "rtsp://user:password@192.168.1.10:554/stream",
+      "enabled": true,
+      "rotate_180": false
+    },
+    {
+      "id": 2,
+      "name": "Camera-2",
+      "rtsp_url": "rtsp://user:password@192.168.1.11:554/stream",
+      "enabled": true,
+      "rotate_180": true,
+      "width": 1280,
+      "height": 720,
+      "framerate": 5
+    }
+  ]
+}
