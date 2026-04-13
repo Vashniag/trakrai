@@ -24,6 +24,7 @@ python device\python\ai_inference\main.py -config device\configs\ai-inference.sa
 Notes:
 
 - No Python libraries are installed or changed by this service.
+- `requirements.txt` pins the validated Jetson package versions for this worker and the legacy PyTorch inference path it imports.
 - The service expects the legacy AI repo path through `inference.legacy_code_root`.
 - Model paths are configured in JSON under `inference.models`.
 - The current recommended Jetson profile is `yolov5s.pt`, `fp16_inference=true`, `inference_image_size=[512, 512]`, `poll_interval_ms=5`, and `idle_sleep_ms=40`.

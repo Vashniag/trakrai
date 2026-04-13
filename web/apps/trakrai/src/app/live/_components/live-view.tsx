@@ -120,7 +120,7 @@ export const LiveView = () => {
 
   return (
     <div className="flex w-full max-w-7xl flex-col gap-5">
-      <section className="grid gap-5 xl:grid-cols-[1.6fr_0.95fr]">
+      <section className="grid items-start gap-5 xl:grid-cols-[1.45fr_0.95fr]">
         <Card className="border bg-neutral-950 text-white">
           <CardHeader className="border-b border-white/10">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -172,11 +172,38 @@ export const LiveView = () => {
           </CardContent>
         </Card>
 
+        <PtzControlPanel
+          key={ptzCamera !== '' ? ptzCamera : 'no-ptz-camera'}
+          activeDirection={activePtzDirection}
+          cameraName={ptzCamera}
+          controlsEnabled={ptzControlsEnabled}
+          error={ptzError}
+          isCameraConfigured={isPtzCameraConfigured}
+          lastCommand={lastPtzCommand}
+          lastMovement={lastPtzMovement}
+          position={ptzPosition}
+          serviceRegistered={ptzServiceStatus !== undefined}
+          statusLabel={ptzStatusLabel}
+          onBeginMove={beginPtzMove}
+          onEndMove={endPtzMove}
+          onGoHome={() => {
+            goHome(ptzCamera);
+          }}
+          onRefreshPosition={() => {
+            refreshPtzPosition(ptzCamera);
+          }}
+          onSetZoom={(zoom) => {
+            setPtzZoom(ptzCamera, zoom);
+          }}
+        />
+      </section>
+
+      <section className="grid items-start gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <Card className="border">
           <CardHeader className="border-b">
             <CardTitle className="text-base">Controls</CardTitle>
             <CardDescription>
-              Device selection, live session control, and service health.
+              Device selection, live session control, and service health below the live viewport.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -295,14 +322,15 @@ export const LiveView = () => {
             </div>
           </CardContent>
         </Card>
-      </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <CameraInventoryCard
           cameras={enabledCameras}
           currentCamera={currentCamera}
           onSelectCamera={setSelectedCamera}
         />
+      </section>
+
+      <section>
         <DiagnosticsCard
           logs={logs}
           showDiagnostics={showDiagnostics}
@@ -312,31 +340,6 @@ export const LiveView = () => {
           }}
         />
       </section>
-
-      <PtzControlPanel
-        key={ptzCamera !== '' ? ptzCamera : 'no-ptz-camera'}
-        activeDirection={activePtzDirection}
-        cameraName={ptzCamera}
-        controlsEnabled={ptzControlsEnabled}
-        error={ptzError}
-        isCameraConfigured={isPtzCameraConfigured}
-        lastCommand={lastPtzCommand}
-        lastMovement={lastPtzMovement}
-        position={ptzPosition}
-        serviceRegistered={ptzServiceStatus !== undefined}
-        statusLabel={ptzStatusLabel}
-        onBeginMove={beginPtzMove}
-        onEndMove={endPtzMove}
-        onGoHome={() => {
-          goHome(ptzCamera);
-        }}
-        onRefreshPosition={() => {
-          refreshPtzPosition(ptzCamera);
-        }}
-        onSetZoom={(zoom) => {
-          setPtzZoom(ptzCamera, zoom);
-        }}
-      />
     </div>
   );
 };

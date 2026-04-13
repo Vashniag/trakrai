@@ -1,0 +1,31 @@
+# Pinned from the Jetson device Python environment on 2026-04-13.
+# Use this file to mirror the working ai_inference runtime that was
+# validated against the live Redis feed on-device.
+#
+# Scope:
+# - direct dependencies of device/python/ai_inference
+# - import-time/runtime dependencies of the reused legacy
+#   TRAKR_AI_PTW/server_batch.py PyTorch inference path
+#
+# Not included:
+# - optional export/backends that are not required for the current
+#   PyTorch path
+# - TensorRT Python bindings, because `tensorrt` is not currently
+#   installed in the validated device environment
+
+numpy==1.24.4
+opencv-python==4.13.0.92
+redis==6.1.1
+
+# These exact Jetson builds are preinstalled on the validated device.
+torch==1.11.0a0+gitbc2c6ed
+torchvision==0.12.0a0+9b5a3fe
+
+matplotlib==3.7.5
+pandas==2.0.3
+Pillow==10.4.0
+PyYAML==6.0.2
+requests==2.32.4
+scipy==1.10.1
+seaborn==0.13.2
+tqdm==4.67.1
