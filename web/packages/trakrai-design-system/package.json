@@ -1,0 +1,103 @@
+{
+  "name": "@trakrai/design-system",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "dist",
+    "src/styles",
+    "postcss.config.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && pnpm run build:types && pnpm run build:css",
+    "build:css": "pnpm exec tailwindcss -i ./src/styles/globals.css -o ./dist/globals.css --minify",
+    "build:types": "tsc -p tsconfig.build.json",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings=0 .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tanstack/react-table": "^8.21.3",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "date-fns": "^4.1.0",
+    "embla-carousel-react": "^8.6.0",
+    "input-otp": "^1.4.2",
+    "motion": "^12.38.0",
+    "nuqs": "^2.8.9",
+    "radix-ui": "^1.4.3",
+    "react-day-picker": "^9.14.0",
+    "recharts": "2.15.4",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "tw-animate-css": "^1.4.0",
+    "vaul": "^1.1.2",
+    "zod": "4.3.6"
+  },
+  "peerDependencies": {
+    "lucide-react": "^0.400.0 || ^1.0.0",
+    "next-themes": "^0.4.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "react-hook-form": "7.72.0"
+  },
+  "peerDependenciesMeta": {
+    "next-themes": {
+      "optional": true
+    },
+    "react-hook-form": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^10.2.0",
+    "tailwindcss": "^4.2.2",
+    "tsdown": "^0.21.7",
+    "typescript": "^6"
+  },
+  "exports": {
+    "./globals.css": "./src/styles/globals.css",
+    "./postcss.config": "./postcss.config.mjs",
+    "./lib/*": "./src/lib/*.ts",
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      "./globals.css": "./dist/globals.css",
+      "./postcss.config": "./postcss.config.mjs",
+      "./lib/*": {
+        "import": "./dist/lib/*.js",
+        "types": "./dist/lib/*.d.ts"
+      },
+      "./components/*": {
+        "import": "./dist/components/*.js",
+        "types": "./dist/components/*.d.ts"
+      },
+      "./hooks/*": {
+        "import": "./dist/hooks/*.js",
+        "types": "./dist/hooks/*.d.ts"
+      }
+    }
+  }
+}
+

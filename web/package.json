@@ -1,0 +1,56 @@
+{
+  "name": "trakrai-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint --continue=always",
+    "lint:fix": "turbo run lint --continue=always -- --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx,mjs}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx,mjs}\"",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "duplicate:check": "jscpd . --pattern \"**/*.{ts,tsx}\" --ignore \"**/node_modules/**,**/.next/**,**/dist/**,**/build/**\"",
+    "test": "turbo run test",
+    "unused": "knip",
+    "update:check": "npm-check-updates --deep --errorLevel 2 --reject recharts,html-to-image",
+    "update:apply": "npm-check-updates --deep -u --reject recharts,html-to-image",
+    "prepare": "cd .. && husky web/.husky",
+    "precommit": "lint-staged && pnpm typecheck"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.9",
+    "knip": "^6.4.1",
+    "lint-staged": "^16.4.0",
+    "npm-check-updates": "^20.0.1",
+    "prettier": "^3.8.2",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "turbo": "^2.9.6",
+    "typescript": "6.0.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@tanstack/react-query": "^5.96.0",
+      "@types/react": "^19.2.10",
+      "@types/react-dom": "^19.2.3",
+      "@typescript-eslint/utils": "^8.55.0"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "eslint": "10"
+      }
+    },
+    "ignoredBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
