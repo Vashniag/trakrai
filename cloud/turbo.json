@@ -11,9 +11,16 @@
         "NODE_ENV",
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
+        "MICROSOFT_CLIENT_ID",
+        "MICROSOFT_CLIENT_SECRET",
+        "MICROSOFT_TENANT_ID",
         "SKIP_ENV_VALIDATION",
         "VERCEL_URL",
-        "PORT"
+        "PORT",
+        "EMAIL_SENDER_ADDRESS",
+        "SMTP_SERVER",
+        "SMTP_USER",
+        "SMTP_PASSWORD"
       ]
     },
     "lint": {

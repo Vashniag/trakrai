@@ -35,6 +35,7 @@ const AuthEmail = ({
         <Preview>{previewText}</Preview>
         <Container className="mx-auto my-[40px] max-w-[465px] rounded border border-solid border-[#eaeaea] p-[20px]">
           <Section>
+            <Text className="text-[20px] font-semibold text-black">{heading}</Text>
             <Text className="text-[14px]">Hi {userName},</Text>
             <Text className="text-[14px]">{body}</Text>
             <Button

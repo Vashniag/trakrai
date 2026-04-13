@@ -1,0 +1,26 @@
+{
+  "log_level": "info",
+  "device_id": "default",
+  "mqtt": {
+    "broker_url": "tcp://192.168.1.100:1883",
+    "client_id": "trakrai-device-01",
+    "keep_alive_sec": 30
+  },
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "cameras": [
+    {
+      "name": "LP1-Main",
+      "enabled": true
+    },
+    {
+      "name": "LP1-Sec",
+      "enabled": true
+    },
+    {
+      "name": "LP2-Main",
+      "enabled": true
+    }
+  ]
+}

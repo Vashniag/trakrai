@@ -7,7 +7,7 @@ import * as schema from '@/db/auth-schema';
 import AuthEmail from '@/emails/auth-email';
 import { env } from '@/lib/env';
 
-import { sendSESEmail } from './send-email';
+import { sendEmail } from './send-email';
 
 const SESSION_CACHE_MAX_AGE_MINUTES = 5;
 const SECONDS_PER_MINUTE = 60;
@@ -33,7 +33,7 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await sendSESEmail(
+      await sendEmail(
         [user.email],
         'Verify your email',
         AuthEmail({
@@ -51,7 +51,7 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      await sendSESEmail(
+      await sendEmail(
         [user.email],
         'Reset your password',
         AuthEmail({

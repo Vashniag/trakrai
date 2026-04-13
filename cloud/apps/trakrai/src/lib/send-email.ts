@@ -2,45 +2,38 @@
 
 import type React from 'react';
 
-import { SES, type SendEmailCommandInput } from '@aws-sdk/client-ses';
 import { render } from '@react-email/components';
+import nodemailer from 'nodemailer';
 
 import { env } from '@/lib/env';
 
-import { config } from './aws-config';
-
-export const sendSESEmail = async (
-  to: string[],
-  subject: string,
-  emailBody: React.ReactElement,
-) => {
+export const sendEmail = async (to: string[], subject: string, emailBody: React.ReactElement) => {
   const emailHtml = await render(emailBody);
   const emailText = await render(emailBody, {
     plainText: true,
   });
-
-  const ses = new SES(config);
-  const params: SendEmailCommandInput = {
-    Source: env.EMAIL_SENDER_ADDRESS,
-    Destination: {
-      ToAddresses: to,
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_SERVER,
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASSWORD,
     },
-    Message: {
-      Body: {
-        Html: { Data: emailHtml },
-        Text: { Data: emailText },
-      },
-      Subject: {
-        Data: subject,
-      },
-    },
-  };
+  });
 
-  const response = await ses.sendEmail(params);
-  const messageId = response.MessageId;
-  if (messageId === undefined || messageId === '') {
-    throw new Error('SES did not return a message id');
+  const response = await transporter.sendMail({
+    from: env.EMAIL_SENDER_ADDRESS,
+    to,
+    subject,
+    html: emailHtml,
+    text: emailText,
+  });
+
+  const { messageId } = response;
+  if (messageId === '') {
+    throw new Error('SMTP transport did not return a message id');
   }
-
   return { messageId };
 };

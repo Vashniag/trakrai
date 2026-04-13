@@ -1,0 +1,24 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "webrtc": {
+    "stun_servers": ["stun:stun.l.google.com:19302"],
+    "turn_servers": [
+      {
+        "url": "turn:192.168.1.100:3478",
+        "username": "trakrai",
+        "credential": "trakrai-secret"
+      }
+    ],
+    "framerate_fps": 10
+  }
+}

@@ -18,7 +18,7 @@
     "unused": "knip",
     "update:check": "npm-check-updates --deep --errorLevel 2 --reject recharts,html-to-image",
     "update:apply": "npm-check-updates --deep -u --reject recharts,html-to-image",
-    "prepare": "husky",
+    "prepare": "cd .. && husky cloud/.husky",
     "precommit": "lint-staged && pnpm typecheck"
   },
   "devDependencies": {
