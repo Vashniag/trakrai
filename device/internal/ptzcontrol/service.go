@@ -374,7 +374,7 @@ func (s *Service) cameraByName(name string) (*cameraController, error) {
 
 	camera := s.cameras[strings.ToLower(cameraName)]
 	if camera == nil {
-		return nil, fmt.Errorf("camera %q is not configured for PTZ", cameraName)
+		return nil, fmt.Errorf("camera %q is not configured for PTZ.", cameraName)
 	}
 
 	return camera, nil
