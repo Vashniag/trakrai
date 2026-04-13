@@ -3,6 +3,7 @@ FROM ubuntu:18.04 AS builder
 ARG GO_VERSION=1.21.13
 ARG CMD_PATH
 ARG BINARY_NAME
+ARG GO_LDFLAGS=""
 
 RUN dpkg --add-architecture arm64 && \
     echo 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ bionic main restricted universe multiverse' > /etc/apt/sources.list.d/arm64.list && \
@@ -33,9 +34,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -trimpath -ldflags="-s -w" -o /out/${BINARY_NAME} ${CMD_PATH}
+RUN go build -trimpath -ldflags="${GO_LDFLAGS} -s -w" -o /out/${BINARY_NAME} ${CMD_PATH}
 
 FROM scratch AS export
 ARG BINARY_NAME
 COPY --from=builder /out/${BINARY_NAME} /${BINARY_NAME}
-

@@ -8,13 +8,23 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/trakrai/device-services/internal/buildinfo"
 	"github.com/trakrai/device-services/internal/shared/logging"
 	"github.com/trakrai/device-services/internal/workflowcomm"
 )
 
 func main() {
 	configPath := flag.String("config", "config.json", "path to config file")
+	version := flag.Bool("version", false, "print version information and exit")
 	flag.Parse()
+
+	if *version {
+		if err := buildinfo.WriteVersion(os.Stdout, "workflow-comm"); err != nil {
+			slog.Error("write version failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	cfg, err := workflowcomm.LoadConfig(*configPath)
 	if err != nil {
