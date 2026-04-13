@@ -1,0 +1,29 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "defaults": {
+    "absolute_speed": 0.8,
+    "pan_tilt_speed": 0.55,
+    "zoom_speed": 0.45
+  },
+  "cameras": [
+    {
+      "name": "LP1-Main",
+      "address": "192.168.1.20",
+      "onvif_port": 80,
+      "username": "admin",
+      "password": "HACK_LAB",
+      "enabled": true
+    },
+    {
+      "name": "LP1-Sec",
+      "address": "192.168.1.25",
+      "onvif_port": 80,
+      "username": "admin",
+      "password": "HACK_LAB",
+      "enabled": true
+    }
+  ]
+}

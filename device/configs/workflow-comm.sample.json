@@ -1,0 +1,36 @@
+{
+  "log_level": "info",
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "workflow"
+  },
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "http": {
+    "base_url": "https://dev.trakr.live",
+    "device_access_token": "replace-me",
+    "request_timeout_sec": 15,
+    "upload_timeout_sec": 120,
+    "max_request_retries": 3,
+    "initial_backoff_ms": 500,
+    "max_backoff_sec": 30,
+    "user_agent": "trakrai-workflow-comm/1.0"
+  },
+  "queue": {
+    "pending_list": "workflow:cloud:pending",
+    "processing_list": "workflow:cloud:processing",
+    "retry_zset": "workflow:cloud:retry",
+    "dead_letter_list": "workflow:cloud:dead-letter",
+    "poll_timeout_sec": 5,
+    "retry_sweep_sec": 2,
+    "max_attempts": 8
+  },
+  "storage": {
+    "files_root": "/var/lib/trakrai/workflow-comm/files",
+    "delete_uploaded_files": false
+  }
+}
