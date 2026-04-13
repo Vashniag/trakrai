@@ -4,6 +4,11 @@ const config: KnipConfig = {
   ignoreDependencies: ['eslint-*'],
   drizzle: false,
   workspaces: {
+    'apps/trakrai-device': {
+      entry: ['src/app/page.tsx'],
+      project: ['src/**/*.{ts,tsx}'],
+      ignoreDependencies: ['@tailwindcss/postcss'],
+    },
     'apps/trakrai': {
       entry: ['src/db/schema.ts', 'src/scripts/**/*.ts'],
       project: ['src/**/*.{ts,tsx}'],

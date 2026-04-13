@@ -5,7 +5,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", "out/**"],
       "env": [
         "DATABASE_URL",
         "NODE_ENV",
@@ -20,7 +20,12 @@
         "EMAIL_SENDER_ADDRESS",
         "SMTP_SERVER",
         "SMTP_USER",
-        "SMTP_PASSWORD"
+        "SMTP_PASSWORD",
+        "NEXT_PUBLIC_TRAKRAI_DEVICE_ID",
+        "NEXT_PUBLIC_TRAKRAI_DEVICE_TRANSPORT_MODE",
+        "NEXT_PUBLIC_TRAKRAI_CLOUD_BRIDGE_URL",
+        "NEXT_PUBLIC_TRAKRAI_EDGE_BRIDGE_URL",
+        "NEXT_PUBLIC_TRAKRAI_ENABLE_DIAGNOSTICS"
       ]
     },
     "lint": {
