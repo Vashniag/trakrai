@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@trakrai/design-system/components/card';
 
-import type { DeviceCamera } from './live-view-types';
+import type { DeviceCamera } from '../lib/live-types';
 
 const CAMERA_CARD_SELECTED_CLASSES = 'border-emerald-500 bg-emerald-50';
 const CAMERA_CARD_IDLE_CLASSES =

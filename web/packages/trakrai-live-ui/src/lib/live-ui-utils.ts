@@ -1,13 +1,13 @@
 'use client';
 
-import type { ConnectionState, DeviceServiceStatus, PtzVelocityCommand } from './live-view-types';
+import type { ConnectionState, DeviceServiceStatus, PtzVelocityCommand } from './live-types';
 
 const FRESH_HEARTBEAT_SECONDS = 5;
 const SECONDS_PER_MINUTE = 60;
 const PTZ_METRIC_DECIMALS = 3;
 const PTZ_PAN_TILT_SPEED = 0.55;
 
-export const DEFAULT_DEVICE_ID = 'hacklab@10.8.0.50';
+export const DEFAULT_LIVE_DEVICE_ID = 'hacklab@10.8.0.50';
 export const DEFAULT_ZOOM_TARGET = 0.25;
 export const PTZ_ZOOM_MIN = 0;
 export const PTZ_ZOOM_MAX = 1;

@@ -1,20 +1,20 @@
 type MessageHandler = (msg: { type: string; payload: unknown }) => void;
 
-type StatusEvent =
+export type LiveTransportStatusEvent =
   | { attempt: number; type: 'connecting' }
   | { type: 'open' }
   | { reason?: string; type: 'closed' }
   | { delayMs: number; type: 'reconnect-scheduled' }
   | { message?: string; type: 'error' };
 
-type StatusHandler = (event: StatusEvent) => void;
+type StatusHandler = (event: LiveTransportStatusEvent) => void;
 
 const MAX_QUEUE_SIZE = 32;
 const RECONNECT_DELAY_MS = 1500;
 
 const normalizeGatewayUrl = (url: string): string => url.replace(/\s+(?=[?#]|$)/g, '').trim();
 
-export class LiveGatewayClient {
+export class LiveTransportClient {
   private ws: WebSocket | null = null;
   private readonly messageHandlers = new Set<MessageHandler>();
   private readonly statusHandlers = new Set<StatusHandler>();
@@ -132,7 +132,7 @@ export class LiveGatewayClient {
     this.statusHandlers.clear();
   }
 
-  private emitStatus(event: StatusEvent): void {
+  private emitStatus(event: LiveTransportStatusEvent): void {
     for (const handler of this.statusHandlers) {
       handler(event);
     }

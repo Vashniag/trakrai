@@ -2,6 +2,7 @@ package cloudcomm
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -12,6 +13,8 @@ type Service struct {
 	cfg         *Config
 	ipcServer   *ipc.Server
 	mqttService *MQTTService
+	edgeServer  *EdgeWebSocketServer
+	publisher   *TransportPublisher
 }
 
 func NewService(cfg *Config) (*Service, error) {
@@ -20,14 +23,22 @@ func NewService(cfg *Config) (*Service, error) {
 		return nil, err
 	}
 
-	mqttService := NewMQTTService(cfg, ipcServer, time.Now())
-	ipcServer.SetPublisher(mqttService.Publish)
+	service := &Service{
+		cfg:       cfg,
+		ipcServer: ipcServer,
+	}
 
-	return &Service{
-		cfg:         cfg,
-		ipcServer:   ipcServer,
-		mqttService: mqttService,
-	}, nil
+	mqttService := NewMQTTService(cfg, ipcServer, time.Now(), service.handleInbound)
+	service.mqttService = mqttService
+
+	if cfg.Edge.Enabled {
+		service.edgeServer = NewEdgeWebSocketServer(cfg, service.handleInbound, mqttService.StatusEnvelope)
+	}
+
+	service.publisher = NewTransportPublisher(mqttService, service.edgeServer)
+	ipcServer.SetPublisher(service.publisher.Publish)
+
+	return service, nil
 }
 
 func (s *Service) Run(ctx context.Context) error {
@@ -37,9 +48,15 @@ func (s *Service) Run(ctx context.Context) error {
 		"socket", s.cfg.IPC.SocketPath,
 	)
 
+	if s.edgeServer != nil {
+		if err := s.edgeServer.Start(ctx); err != nil {
+			return err
+		}
+	}
+
 	go s.ipcServer.Serve(ctx)
 	s.mqttService.Start()
-	go s.mqttService.StartHeartbeat(ctx, 10*time.Second)
+	go s.startHeartbeat(ctx, 10*time.Second)
 	go s.mqttService.StartHealthMonitor(ctx, 15*time.Second)
 
 	slog.Info("cloud-comm ready, waiting for MQTT and IPC traffic")
@@ -48,7 +65,67 @@ func (s *Service) Run(ctx context.Context) error {
 	return nil
 }
 
+func (s *Service) handleInbound(route topicRoute, env ipc.MQTTEnvelope) error {
+	if route.service == liveFeedServiceName && route.subtopic == "command" && env.Type == "get-status" {
+		return s.publisher.Publish(ipc.PublishMessageRequest{
+			Subtopic: "response",
+			Type:     "status",
+			Payload:  s.mqttService.statusPayload(),
+		})
+	}
+
+	if err := s.ipcServer.NotifyService(route.service, ipc.MqttMessageNotification{
+		Service:  route.service,
+		Subtopic: route.subtopic,
+		Envelope: env,
+	}); err != nil {
+		if route.subtopic == "command" {
+			publishErr := s.publisher.Publish(ipc.PublishMessageRequest{
+				Service:  route.service,
+				Subtopic: "response",
+				Type:     "service-unavailable",
+				Payload: marshalPayload(map[string]interface{}{
+					"service":     route.service,
+					"requestType": env.Type,
+					"error":       err.Error(),
+				}),
+			})
+			if publishErr != nil {
+				return fmt.Errorf("%w (and publishing service-unavailable failed: %v)", err, publishErr)
+			}
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) startHeartbeat(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.publisher.Publish(ipc.PublishMessageRequest{
+				Subtopic: "status",
+				Type:     "heartbeat",
+				Payload:  s.mqttService.heartbeatPayload(),
+			}); err != nil {
+				slog.Warn("heartbeat publish failed", "error", err)
+			}
+		}
+	}
+}
+
 func (s *Service) Close() {
+	if s.edgeServer != nil {
+		s.edgeServer.Close()
+	}
 	s.mqttService.Disconnect()
 	s.ipcServer.Close()
 }

@@ -2,14 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { LiveGatewayClient } from '@/lib/live-gateway-client';
+import type {
+  ActivityLogEntry,
+  ConnectionState,
+  DeviceStatus,
+  PtzPosition,
+  PtzState,
+  PtzVelocityCommand,
+  StreamStats,
+} from '../lib/live-types';
 
+import { LiveTransportClient } from '../lib/live-client';
 import {
   BITS_PER_BYTE,
   DISCONNECT_GRACE_MS,
   HEARTBEAT_INTERVAL_MS,
-  LIVE_GATEWAY_HTTP_URL,
-  LIVE_GATEWAY_WS_URL,
   LOG_LIMIT,
   MS_PER_SECOND,
   STALE_HEARTBEAT_SECONDS,
@@ -27,17 +34,7 @@ import {
   type BufferedIceCandidate,
   type IceConfigResponse,
   type StatsSnapshot,
-} from './use-device-stream-utils';
-
-import type {
-  ActivityLogEntry,
-  ConnectionState,
-  DeviceStatus,
-  PtzPosition,
-  PtzState,
-  PtzVelocityCommand,
-  StreamStats,
-} from './live-view-types';
+} from '../lib/live-transport-utils';
 
 export type {
   ActivityLogEntry,
@@ -50,9 +47,15 @@ export type {
   PtzState,
   PtzVelocityCommand,
   StreamStats,
-} from './live-view-types';
+} from '../lib/live-types';
 
-type UseDeviceStreamReturn = {
+export type LiveTransportConfig = {
+  deviceId: string;
+  httpBaseUrl: string;
+  signalingUrl: string;
+};
+
+export type LiveDeviceConnectionState = {
   activeCameraName: string | null;
   connectionState: ConnectionState;
   deviceStatus: DeviceStatus | null;
@@ -72,10 +75,20 @@ type UseDeviceStreamReturn = {
   stopPtzMove: (cameraName: string) => void;
   stream: MediaStream | null;
   streamStats: StreamStats | null;
+  transport: {
+    httpBaseUrl: string;
+    signalingUrl: string;
+  };
 };
 
-export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
+export const useLiveDeviceConnection = ({
+  deviceId,
+  httpBaseUrl,
+  signalingUrl,
+}: LiveTransportConfig): LiveDeviceConnectionState => {
   const normalizedDeviceId = deviceId.trim();
+  const normalizedHttpBaseUrl = normalizeEndpointUrl(httpBaseUrl);
+  const normalizedSignalingUrl = normalizeEndpointUrl(signalingUrl);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
   const [heartbeatAt, setHeartbeatAt] = useState<number | null>(null);
@@ -88,7 +101,7 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
   const [ptzError, setPtzError] = useState<string | null>(null);
   const [ptzState, setPtzState] = useState<PtzState | null>(null);
 
-  const liveGatewayRef = useRef<LiveGatewayClient | null>(null);
+  const liveGatewayRef = useRef<LiveTransportClient | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const iceCandidateBuffer = useRef<BufferedIceCandidate[]>([]);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -250,9 +263,7 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
         setActiveCameraName(cameraName ?? requestedCameraRef.current);
         appendLog('info', `Received SDP offer${cameraName !== null ? ` for ${cameraName}` : ''}`);
 
-        const iceResponse = await fetch(
-          `${normalizeEndpointUrl(LIVE_GATEWAY_HTTP_URL)}/api/ice-config`,
-        );
+        const iceResponse = await fetch(`${normalizedHttpBaseUrl}/api/ice-config`);
         if (!iceResponse.ok) {
           throw new Error(`ICE config request failed with ${iceResponse.status}`);
         }
@@ -365,7 +376,7 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
         cleanupPc(true);
       }
     },
-    [appendLog, cleanupPc, collectStats],
+    [appendLog, cleanupPc, collectStats, normalizedHttpBaseUrl],
   );
 
   const handleIceCandidate = useCallback(
@@ -395,7 +406,11 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
   );
 
   useEffect(() => {
-    if (normalizedDeviceId === '') {
+    if (
+      normalizedDeviceId === '' ||
+      normalizedHttpBaseUrl === '' ||
+      normalizedSignalingUrl === ''
+    ) {
       cleanupPc(true);
       setConnectionState('disconnected');
       setDeviceStatus(null);
@@ -406,10 +421,8 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
       return undefined;
     }
 
-    const gatewayUrl = `${normalizeEndpointUrl(LIVE_GATEWAY_WS_URL)}?deviceId=${encodeURIComponent(
-      normalizedDeviceId,
-    )}`;
-    const liveGateway = new LiveGatewayClient(gatewayUrl);
+    const gatewayUrl = `${normalizedSignalingUrl}?deviceId=${encodeURIComponent(normalizedDeviceId)}`;
+    const liveGateway = new LiveTransportClient(gatewayUrl);
     liveGatewayRef.current = liveGateway;
 
     appendLog('info', `Connecting to device ${normalizedDeviceId}`);
@@ -674,7 +687,15 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
       setPtzError(null);
       setPtzState(null);
     };
-  }, [appendLog, cleanupPc, handleIceCandidate, handleSdpOffer, normalizedDeviceId]);
+  }, [
+    appendLog,
+    cleanupPc,
+    handleIceCandidate,
+    handleSdpOffer,
+    normalizedDeviceId,
+    normalizedHttpBaseUrl,
+    normalizedSignalingUrl,
+  ]);
 
   useEffect(() => {
     if (
@@ -870,5 +891,9 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
     stopPtzMove,
     stream,
     streamStats,
+    transport: {
+      httpBaseUrl: normalizedHttpBaseUrl,
+      signalingUrl: normalizedSignalingUrl,
+    },
   };
 };

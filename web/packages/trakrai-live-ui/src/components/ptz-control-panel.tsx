@@ -12,6 +12,8 @@ import {
 } from '@trakrai/design-system/components/card';
 import { Separator } from '@trakrai/design-system/components/separator';
 
+import type { PtzPosition, PtzVelocityCommand } from '../lib/live-types';
+
 import {
   DEFAULT_ZOOM_TARGET,
   PTZ_BUTTON_ACTIVE_CLASSES,
@@ -26,9 +28,7 @@ import {
   formatUpdatedAt,
   getPtzStopButtonClasses,
   getServiceStatusClasses,
-} from './live-view-utils';
-
-import type { PtzPosition, PtzVelocityCommand } from './live-view-types';
+} from '../lib/live-ui-utils';
 
 type Props = Readonly<{
   activeDirection: string | null;

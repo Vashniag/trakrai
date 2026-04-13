@@ -10,9 +10,9 @@ import {
 } from '@trakrai/design-system/components/card';
 import { Separator } from '@trakrai/design-system/components/separator';
 
-import { formatMetric } from './live-view-utils';
+import type { ActivityLogEntry, StreamStats } from '../lib/live-types';
 
-import type { ActivityLogEntry, StreamStats } from './live-view-types';
+import { formatMetric } from '../lib/live-ui-utils';
 
 type Props = Readonly<{
   logs: ActivityLogEntry[];

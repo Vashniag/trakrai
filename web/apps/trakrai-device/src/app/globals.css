@@ -1,15 +1,3 @@
 @import '@trakrai/design-system/globals.css';
+@import '@trakrai/live-ui/styles.css';
 @source '../**/*.{ts,tsx}';
-
-:root {
-  --font-sans: "IBM Plex Sans", "Aptos", system-ui, sans-serif;
-  --font-geist-mono: "IBM Plex Mono", "Cascadia Code", ui-monospace, monospace;
-}
-
-body {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgb(245 158 11 / 0.18), transparent 28%),
-    radial-gradient(circle at bottom right, rgb(15 118 110 / 0.16), transparent 34%),
-    linear-gradient(135deg, #f5efe3 0%, #fbfaf7 44%, #eef4f7 100%);
-}

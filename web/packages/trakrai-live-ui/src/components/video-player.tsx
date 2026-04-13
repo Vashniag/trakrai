@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from 'react';
 
-import type { StreamStats } from './use-device-stream';
+import type { ConnectionState, StreamStats } from '../lib/live-types';
 
 type Props = Readonly<{
   activeCameraName: string | null;
-  connectionState: string;
+  connectionState: ConnectionState;
   isActive: boolean;
   stream: MediaStream | null;
   streamStats: StreamStats | null;

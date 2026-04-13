@@ -23,6 +23,9 @@ const config: KnipConfig = {
         'react-hook-form',
       ],
     },
+    'packages/trakrai-live-ui': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
     'packages/eslint-config': {
       entry: ['*.js'],
       project: ['**/*.js'],

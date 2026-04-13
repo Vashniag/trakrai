@@ -16,25 +16,49 @@ import { Separator } from '@trakrai/design-system/components/separator';
 
 import { CameraInventoryCard } from './camera-inventory-card';
 import { DiagnosticsCard } from './diagnostics-card';
+import { PtzControlPanel } from './ptz-control-panel';
+import { VideoPlayer } from './video-player';
+
+import type { PtzVelocityCommand } from '../lib/live-types';
+
+import { useLiveWorkspace } from '../hooks/use-live-workspace';
 import {
-  DEFAULT_DEVICE_ID,
+  DEFAULT_LIVE_DEVICE_ID,
   formatHeartbeatAge,
   formatServiceDetails,
   formatUptime,
   getServiceStatusClasses,
   getStatusClasses,
   getStatusLabel,
-} from './live-view-utils';
-import { PtzControlPanel } from './ptz-control-panel';
-import { useDeviceStream } from './use-device-stream';
-import { VideoPlayer } from './video-player';
+} from '../lib/live-ui-utils';
+import { LiveWorkspaceProvider } from '../providers/live-workspace-provider';
 
-import type { PtzVelocityCommand } from './live-view-types';
+export type LiveWorkspaceProps = Readonly<{
+  defaultDeviceId?: string;
+  deviceIdEditable?: boolean;
+  diagnosticsEnabled?: boolean;
+  httpBaseUrl: string;
+  signalingUrl: string;
+}>;
 
-export const LiveView = () => {
-  const [deviceId, setDeviceId] = useState(DEFAULT_DEVICE_ID);
+type LiveWorkspaceBodyProps = Readonly<{
+  deviceId: string;
+  deviceIdEditable: boolean;
+  onDeviceIdChange: (nextValue: string) => void;
+  showDiagnostics: boolean;
+  onToggleDiagnostics: () => void;
+  defaultDeviceId: string;
+}>;
+
+const LiveWorkspaceBody = ({
+  defaultDeviceId,
+  deviceId,
+  deviceIdEditable,
+  onDeviceIdChange,
+  onToggleDiagnostics,
+  showDiagnostics,
+}: LiveWorkspaceBodyProps) => {
   const [selectedCamera, setSelectedCamera] = useState('');
-  const [showDiagnostics, setShowDiagnostics] = useState(true);
   const [activePtzDirection, setActivePtzDirection] = useState<string | null>(null);
   const {
     activeCameraName,
@@ -56,7 +80,7 @@ export const LiveView = () => {
     error,
     logs,
     isBusy,
-  } = useDeviceStream(deviceId);
+  } = useLiveWorkspace();
 
   const enabledCameras = useMemo(
     () => (deviceStatus?.cameras ?? []).filter((camera) => camera.enabled),
@@ -127,7 +151,8 @@ export const LiveView = () => {
               <div>
                 <CardTitle className="text-xl text-white">Live feed</CardTitle>
                 <CardDescription className="text-white/60">
-                  Low-latency viewer over MQTT signaling and WebRTC media transport.
+                  Shared live view with WebRTC media transport and transport-agnostic device
+                  signaling.
                 </CardDescription>
               </div>
               <div
@@ -210,11 +235,13 @@ export const LiveView = () => {
             <div className="space-y-2">
               <Label htmlFor="live-device-id">Device ID</Label>
               <Input
+                disabled={!deviceIdEditable}
                 id="live-device-id"
-                placeholder={DEFAULT_DEVICE_ID}
+                placeholder={defaultDeviceId}
+                readOnly={!deviceIdEditable}
                 value={deviceId}
                 onChange={(event) => {
-                  setDeviceId(event.target.value);
+                  onDeviceIdChange(event.target.value);
                 }}
               />
             </div>
@@ -335,11 +362,47 @@ export const LiveView = () => {
           logs={logs}
           showDiagnostics={showDiagnostics}
           streamStats={streamStats}
-          onToggle={() => {
-            setShowDiagnostics((currentValue) => !currentValue);
-          }}
+          onToggle={onToggleDiagnostics}
         />
       </section>
     </div>
+  );
+};
+
+export const LiveWorkspace = ({
+  defaultDeviceId = DEFAULT_LIVE_DEVICE_ID,
+  deviceIdEditable = true,
+  diagnosticsEnabled = true,
+  httpBaseUrl,
+  signalingUrl,
+}: LiveWorkspaceProps) => {
+  const [deviceId, setDeviceId] = useState(defaultDeviceId);
+  const [showDiagnostics, setShowDiagnostics] = useState(diagnosticsEnabled);
+
+  useEffect(() => {
+    setDeviceId(defaultDeviceId);
+  }, [defaultDeviceId]);
+
+  useEffect(() => {
+    setShowDiagnostics(diagnosticsEnabled);
+  }, [diagnosticsEnabled]);
+
+  return (
+    <LiveWorkspaceProvider
+      deviceId={deviceId}
+      httpBaseUrl={httpBaseUrl}
+      signalingUrl={signalingUrl}
+    >
+      <LiveWorkspaceBody
+        defaultDeviceId={defaultDeviceId}
+        deviceId={deviceId}
+        deviceIdEditable={deviceIdEditable}
+        showDiagnostics={showDiagnostics}
+        onDeviceIdChange={setDeviceId}
+        onToggleDiagnostics={() => {
+          setShowDiagnostics((currentValue) => !currentValue);
+        }}
+      />
+    </LiveWorkspaceProvider>
   );
 };

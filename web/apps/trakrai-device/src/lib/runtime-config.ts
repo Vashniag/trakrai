@@ -8,6 +8,14 @@ export type DeviceUiRuntimeConfig = {
   transportMode: DeviceTransportMode;
 };
 
+export type ResolvedDeviceUiTransport = {
+  endpoint: string;
+  httpBaseUrl: string;
+  signalingUrl: string;
+};
+
+const WS_PATH_SUFFIX = '/ws';
+
 type WindowRuntimeConfig = Partial<DeviceUiRuntimeConfig> & {
   diagnosticsEnabled?: boolean | string;
   transportMode?: string;
@@ -48,6 +56,46 @@ const normalizeBoolean = (value: boolean | string | undefined, fallback: boolean
   }
 
   return fallback;
+};
+
+const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '');
+
+const normalizePath = (pathName: string): string => {
+  const trimmed = pathName.replace(/\/$/, '');
+  return trimmed === '/' ? '' : trimmed;
+};
+
+const ensureWsPath = (pathName: string): string =>
+  pathName.endsWith(WS_PATH_SUFFIX) ? pathName : `${normalizePath(pathName)}${WS_PATH_SUFFIX}`;
+
+const stripWsPath = (pathName: string): string =>
+  pathName.endsWith(WS_PATH_SUFFIX)
+    ? normalizePath(pathName.slice(0, -WS_PATH_SUFFIX.length))
+    : normalizePath(pathName);
+
+const deriveTransportUrls = (endpoint: string): ResolvedDeviceUiTransport => {
+  const normalizedEndpoint = trimTrailingSlash(endpoint.trim());
+  const parsedUrl = new URL(normalizedEndpoint);
+
+  if (parsedUrl.protocol === 'ws:' || parsedUrl.protocol === 'wss:') {
+    const httpProtocol = parsedUrl.protocol === 'wss:' ? 'https:' : 'http:';
+    const httpPath = stripWsPath(parsedUrl.pathname);
+
+    return {
+      endpoint: normalizedEndpoint,
+      httpBaseUrl: `${httpProtocol}//${parsedUrl.host}${httpPath}`,
+      signalingUrl: `${parsedUrl.protocol}//${parsedUrl.host}${ensureWsPath(parsedUrl.pathname)}`,
+    };
+  }
+
+  const signalingProtocol = parsedUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  const httpPath = stripWsPath(parsedUrl.pathname);
+
+  return {
+    endpoint: normalizedEndpoint,
+    httpBaseUrl: `${parsedUrl.protocol}//${parsedUrl.host}${httpPath}`,
+    signalingUrl: `${signalingProtocol}//${parsedUrl.host}${ensureWsPath(parsedUrl.pathname)}`,
+  };
 };
 
 export const DEFAULT_DEVICE_UI_RUNTIME_CONFIG: DeviceUiRuntimeConfig = {
@@ -94,3 +142,7 @@ export const readDeviceUiRuntimeConfig = (): DeviceUiRuntimeConfig => {
 
 export const getActiveTransportEndpoint = (config: DeviceUiRuntimeConfig): string =>
   config.transportMode === 'cloud' ? config.cloudBridgeUrl : config.edgeBridgeUrl;
+
+export const resolveDeviceUiTransport = (
+  config: DeviceUiRuntimeConfig,
+): ResolvedDeviceUiTransport => deriveTransportUrls(getActiveTransportEndpoint(config));

@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   logging: {
     browserToTerminal: true,
   },
-  transpilePackages: ['@trakrai/design-system'],
+  transpilePackages: ['@trakrai/design-system', '@trakrai/live-ui'],
 };
 
 export default nextConfig;

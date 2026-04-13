@@ -6,13 +6,13 @@ import type {
   DeviceStatus,
   PtzPosition,
   PtzState,
-} from './live-view-types';
+} from './live-types';
 
 export type IceConfigResponse = {
   iceServers: RTCIceServer[];
 };
 
-type LiveGatewayEnvelope<TPayload> = {
+type LiveEnvelope<TPayload> = {
   payload?: TPayload;
   type?: string;
 };
@@ -27,18 +27,6 @@ export type StatsSnapshot = {
   timestamp: number;
 };
 
-export const LIVE_GATEWAY_WS_URL =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'] ??
-  'ws://localhost:4000/ws';
-
-export const LIVE_GATEWAY_HTTP_URL =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'] ??
-  'http://localhost:4000';
-
 export const HEARTBEAT_INTERVAL_MS = 1000;
 export const LOG_LIMIT = 60;
 export const BITS_PER_BYTE = 8;
@@ -52,9 +40,9 @@ export const unwrapPayload = <TPayload>(envelope: unknown): TPayload => {
     typeof envelope === 'object' &&
     envelope !== null &&
     'payload' in envelope &&
-    (envelope as LiveGatewayEnvelope<TPayload>).payload !== undefined
+    (envelope as LiveEnvelope<TPayload>).payload !== undefined
   ) {
-    return (envelope as LiveGatewayEnvelope<TPayload>).payload as TPayload;
+    return (envelope as LiveEnvelope<TPayload>).payload as TPayload;
   }
 
   return envelope as TPayload;
@@ -65,9 +53,9 @@ export const getEnvelopeType = (payload: unknown): string | null => {
     typeof payload === 'object' &&
     payload !== null &&
     'type' in payload &&
-    typeof (payload as LiveGatewayEnvelope<unknown>).type === 'string'
+    typeof (payload as LiveEnvelope<unknown>).type === 'string'
   ) {
-    return (payload as LiveGatewayEnvelope<unknown>).type ?? null;
+    return (payload as LiveEnvelope<unknown>).type ?? null;
   }
 
   return null;

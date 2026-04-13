@@ -9,6 +9,27 @@
   "ipc": {
     "socket_path": "/tmp/trakrai-cloud-comm.sock"
   },
+  "edge": {
+    "enabled": true,
+    "listen_addr": ":8080",
+    "path": "/ws",
+    "allowed_origins": [
+      "http://127.0.0.1:8080",
+      "http://localhost:8080"
+    ],
+    "webrtc": {
+      "ice_servers": [
+        {
+          "urls": ["stun:stun.l.google.com:19302"]
+        },
+        {
+          "urls": ["turn:192.168.1.100:3478"],
+          "username": "trakrai",
+          "credential": "trakrai-secret"
+        }
+      ]
+    }
+  },
   "cameras": [
     {
       "name": "LP1-Main",
@@ -24,4 +45,3 @@
     }
   ]
 }
-
