@@ -117,13 +117,18 @@ export function unsubscribeFromDevice(deviceId: string): void {
   console.log(`[mqtt] unsubscribed from ${deviceId}`);
 }
 
-export function publishMqtt(deviceId: string, topicType: DeviceTopicType, payload: string): void {
+export function publishMqtt(
+  deviceId: string,
+  topicType: DeviceTopicType,
+  payload: string,
+  service?: string,
+): void {
   if (!client) {
     console.error('[mqtt] not connected, cannot publish');
     return;
   }
 
-  const topics = deviceTopics(deviceId);
+  const topics = deviceTopics(deviceId, service);
   client.publish(topics[topicType], payload, { qos: 1 });
 }
 

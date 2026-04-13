@@ -4,56 +4,74 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { LiveGatewayClient } from '@/lib/live-gateway-client';
 
-type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'streaming';
+import {
+  BITS_PER_BYTE,
+  DISCONNECT_GRACE_MS,
+  HEARTBEAT_INTERVAL_MS,
+  LIVE_GATEWAY_HTTP_URL,
+  LIVE_GATEWAY_WS_URL,
+  LOG_LIMIT,
+  MS_PER_SECOND,
+  STALE_HEARTBEAT_SECONDS,
+  STATS_INTERVAL_MS,
+  createLogEntry,
+  getEnvelopeType,
+  getReportedLiveFeedCamera,
+  normalizeEndpointUrl,
+  normalizeOptionalString,
+  readPtzState,
+  readStatBoolean,
+  readStatNumber,
+  readStatString,
+  unwrapPayload,
+  type BufferedIceCandidate,
+  type IceConfigResponse,
+  type StatsSnapshot,
+} from './use-device-stream-utils';
 
-type DeviceStatus = {
-  uptime: number;
-  cameras: { enabled: boolean; name: string; pipeline?: string }[];
-};
+import type {
+  ActivityLogEntry,
+  ConnectionState,
+  DeviceStatus,
+  PtzPosition,
+  PtzState,
+  PtzVelocityCommand,
+  StreamStats,
+} from './live-view-types';
+
+export type {
+  ActivityLogEntry,
+  ConnectionState,
+  DeviceCamera,
+  DeviceServiceStatus,
+  DeviceStatus,
+  PtzMoveStatus,
+  PtzPosition,
+  PtzState,
+  PtzVelocityCommand,
+  StreamStats,
+} from './live-view-types';
 
 type UseDeviceStreamReturn = {
+  activeCameraName: string | null;
   connectionState: ConnectionState;
   deviceStatus: DeviceStatus | null;
   error: string | null;
   heartbeatAgeSeconds: number | null;
+  isBusy: boolean;
+  logs: ActivityLogEntry[];
+  goHome: (cameraName: string) => void;
+  ptzError: string | null;
+  ptzState: PtzState | null;
+  refreshPtzPosition: (cameraName: string) => void;
+  refreshStatus: () => void;
+  setPtzZoom: (cameraName: string, zoom: number) => void;
   startLive: (cameraName: string) => void;
+  startPtzMove: (cameraName: string, velocity: PtzVelocityCommand) => void;
   stopLive: () => void;
+  stopPtzMove: (cameraName: string) => void;
   stream: MediaStream | null;
-};
-
-type IceConfigResponse = {
-  iceServers: RTCIceServer[];
-};
-
-type LiveGatewayEnvelope<TPayload> = {
-  payload?: TPayload;
-  type?: string;
-};
-
-const LIVE_GATEWAY_WS_URL =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'] ??
-  'ws://localhost:4000/ws';
-const LIVE_GATEWAY_HTTP_URL =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'] ??
-  'http://localhost:4000';
-const HEARTBEAT_INTERVAL_MS = 1000;
-const MS_PER_SECOND = 1000;
-
-const unwrapPayload = <TPayload>(envelope: unknown): TPayload => {
-  if (
-    typeof envelope === 'object' &&
-    envelope !== null &&
-    'payload' in envelope &&
-    (envelope as LiveGatewayEnvelope<TPayload>).payload !== undefined
-  ) {
-    return (envelope as LiveGatewayEnvelope<TPayload>).payload as TPayload;
-  }
-
-  return envelope as TPayload;
+  streamStats: StreamStats | null;
 };
 
 export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
@@ -61,54 +79,260 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
   const [heartbeatAt, setHeartbeatAt] = useState<number | null>(null);
-  const [heartbeatNow, setHeartbeatNow] = useState<number>(0);
+  const [heartbeatNow, setHeartbeatNow] = useState<number>(Date.now());
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
+  const [activeCameraName, setActiveCameraName] = useState<string | null>(null);
+  const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [ptzError, setPtzError] = useState<string | null>(null);
+  const [ptzState, setPtzState] = useState<PtzState | null>(null);
 
   const liveGatewayRef = useRef<LiveGatewayClient | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
-  const iceCandidateBuffer = useRef<RTCIceCandidateInit[]>([]);
+  const iceCandidateBuffer = useRef<BufferedIceCandidate[]>([]);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const pendingSessionIdRef = useRef<string | null>(null);
+  const requestedCameraRef = useRef<string | null>(null);
+  const lastStatsSnapshotRef = useRef<StatsSnapshot | null>(null);
+  const staleHeartbeatReportedRef = useRef(false);
+  const disconnectTimerRef = useRef<number | null>(null);
 
-  const cleanupPc = useCallback(() => {
+  const appendLog = useCallback((level: ActivityLogEntry['level'], message: string) => {
+    setLogs((currentLogs) => [createLogEntry(level, message), ...currentLogs].slice(0, LOG_LIMIT));
+  }, []);
+
+  const cleanupPc = useCallback((clearSession: boolean) => {
+    if (disconnectTimerRef.current !== null) {
+      window.clearTimeout(disconnectTimerRef.current);
+      disconnectTimerRef.current = null;
+    }
+
     if (pcRef.current !== null) {
       pcRef.current.close();
       pcRef.current = null;
     }
 
     iceCandidateBuffer.current = [];
+    lastStatsSnapshotRef.current = null;
     setStream(null);
+    setStreamStats(null);
+
+    if (clearSession) {
+      activeSessionIdRef.current = null;
+      pendingSessionIdRef.current = null;
+      setActiveCameraName(null);
+    }
+  }, []);
+
+  const collectStats = useCallback(async () => {
+    const peerConnection = pcRef.current;
+    if (peerConnection === null) {
+      return;
+    }
+
+    const stats = await peerConnection.getStats();
+    const statsEntries = Array.from(stats.values()) as RTCStats[];
+    let inboundVideo: RTCStats | null = null;
+    let candidatePair: RTCStats | null = null;
+    let codec: RTCStats | null = null;
+    let remoteCandidate: RTCStats | null = null;
+
+    for (const stat of statsEntries) {
+      if (stat.type === 'inbound-rtp') {
+        const mediaKind = readStatString(stat, 'kind') ?? readStatString(stat, 'mediaType');
+        const isRemote = readStatBoolean(stat, 'isRemote');
+        if (mediaKind === 'video' && isRemote !== true) {
+          inboundVideo = stat;
+        }
+      }
+
+      if (stat.type === 'candidate-pair') {
+        const nextCandidatePair = stat;
+        if (
+          readStatString(nextCandidatePair, 'state') === 'succeeded' &&
+          (candidatePair === null || readStatBoolean(nextCandidatePair, 'nominated') === true)
+        ) {
+          candidatePair = nextCandidatePair;
+        }
+      }
+    }
+
+    const codecId = inboundVideo !== null ? readStatString(inboundVideo, 'codecId') : null;
+    if (codecId !== null) {
+      codec = (stats.get(codecId) as RTCStats | undefined) ?? null;
+    }
+
+    const remoteCandidateId =
+      candidatePair !== null ? readStatString(candidatePair, 'remoteCandidateId') : null;
+    if (remoteCandidateId !== null) {
+      remoteCandidate = (stats.get(remoteCandidateId) as RTCStats | undefined) ?? null;
+    }
+
+    const currentSnapshot =
+      inboundVideo !== null
+        ? {
+            bytesReceived: readStatNumber(inboundVideo, 'bytesReceived') ?? 0,
+            timestamp: inboundVideo.timestamp,
+          }
+        : null;
+    const previousSnapshot = lastStatsSnapshotRef.current;
+
+    let bitrateKbps: number | null = null;
+    if (currentSnapshot !== null && previousSnapshot !== null) {
+      const bytesDelta = currentSnapshot.bytesReceived - previousSnapshot.bytesReceived;
+      const durationMs = currentSnapshot.timestamp - previousSnapshot.timestamp;
+      if (bytesDelta >= 0 && durationMs > 0) {
+        bitrateKbps = Number(((bytesDelta * BITS_PER_BYTE) / durationMs).toFixed(1));
+      }
+    }
+
+    if (currentSnapshot !== null) {
+      lastStatsSnapshotRef.current = currentSnapshot;
+    }
+
+    setStreamStats({
+      bitrateKbps,
+      bytesReceived: inboundVideo !== null ? readStatNumber(inboundVideo, 'bytesReceived') : null,
+      candidateType:
+        remoteCandidate !== null ? readStatString(remoteCandidate, 'candidateType') : null,
+      codec: codec !== null ? readStatString(codec, 'mimeType') : null,
+      fps: inboundVideo !== null ? readStatNumber(inboundVideo, 'framesPerSecond') : null,
+      frameHeight: inboundVideo !== null ? readStatNumber(inboundVideo, 'frameHeight') : null,
+      frameWidth: inboundVideo !== null ? readStatNumber(inboundVideo, 'frameWidth') : null,
+      jitterMs:
+        inboundVideo !== null && readStatNumber(inboundVideo, 'jitter') !== null
+          ? Number(((readStatNumber(inboundVideo, 'jitter') ?? 0) * MS_PER_SECOND).toFixed(1))
+          : null,
+      packetsLost: inboundVideo !== null ? readStatNumber(inboundVideo, 'packetsLost') : null,
+      roundTripTimeMs:
+        candidatePair !== null && readStatNumber(candidatePair, 'currentRoundTripTime') !== null
+          ? Number(
+              (
+                (readStatNumber(candidatePair, 'currentRoundTripTime') ?? 0) * MS_PER_SECOND
+              ).toFixed(1),
+            )
+          : null,
+      transport: remoteCandidate !== null ? readStatString(remoteCandidate, 'protocol') : null,
+    });
   }, []);
 
   const handleSdpOffer = useCallback(
-    async (payload: { sdp: string }) => {
+    async (payload: { cameraName?: string; sdp: string; sessionId?: string }) => {
       try {
-        const iceResponse = await fetch(`${LIVE_GATEWAY_HTTP_URL}/api/ice-config`);
+        const offeredSessionId = normalizeOptionalString(payload.sessionId);
+        const expectedSessionId = pendingSessionIdRef.current ?? activeSessionIdRef.current;
+        if (offeredSessionId !== null) {
+          if (
+            activeSessionIdRef.current !== null &&
+            offeredSessionId === activeSessionIdRef.current &&
+            pcRef.current !== null
+          ) {
+            appendLog('info', `Ignoring duplicate SDP offer for session ${offeredSessionId}`);
+            return;
+          }
+
+          if (expectedSessionId !== null && offeredSessionId !== expectedSessionId) {
+            appendLog('warn', `Ignoring stale SDP offer for session ${offeredSessionId}`);
+            return;
+          }
+        }
+
+        const nextSessionId =
+          offeredSessionId ?? pendingSessionIdRef.current ?? crypto.randomUUID();
+        const cameraName = normalizeOptionalString(payload.cameraName);
+
+        cleanupPc(false);
+        activeSessionIdRef.current = nextSessionId;
+        pendingSessionIdRef.current = nextSessionId;
+        setError(null);
+        setConnectionState('starting');
+        setActiveCameraName(cameraName ?? requestedCameraRef.current);
+        appendLog('info', `Received SDP offer${cameraName !== null ? ` for ${cameraName}` : ''}`);
+
+        const iceResponse = await fetch(
+          `${normalizeEndpointUrl(LIVE_GATEWAY_HTTP_URL)}/api/ice-config`,
+        );
+        if (!iceResponse.ok) {
+          throw new Error(`ICE config request failed with ${iceResponse.status}`);
+        }
         const iceConfig = (await iceResponse.json()) as IceConfigResponse;
         const peerConnection = new RTCPeerConnection(iceConfig);
 
         pcRef.current = peerConnection;
 
         peerConnection.ontrack = (event) => {
+          if (pcRef.current !== peerConnection) {
+            return;
+          }
           setConnectionState('streaming');
           setStream(event.streams[0] ?? new MediaStream([event.track]));
+          appendLog('info', 'Remote media track attached');
         };
 
         peerConnection.onicecandidate = (event) => {
           if (event.candidate !== null) {
             liveGatewayRef.current?.send('ice-candidate', {
               candidate: event.candidate.toJSON(),
+              sessionId: nextSessionId,
             });
           }
         };
 
         peerConnection.onconnectionstatechange = () => {
-          if (
-            peerConnection.connectionState === 'disconnected' ||
-            peerConnection.connectionState === 'failed'
-          ) {
-            setConnectionState('connected');
-            setError('WebRTC connection lost');
-            cleanupPc();
+          if (pcRef.current !== peerConnection) {
+            return;
+          }
+
+          switch (peerConnection.connectionState) {
+            case 'new':
+            case 'connecting':
+              if (disconnectTimerRef.current !== null) {
+                window.clearTimeout(disconnectTimerRef.current);
+                disconnectTimerRef.current = null;
+              }
+              break;
+            case 'connected':
+              if (disconnectTimerRef.current !== null) {
+                window.clearTimeout(disconnectTimerRef.current);
+                disconnectTimerRef.current = null;
+              }
+              setConnectionState('streaming');
+              setError(null);
+              appendLog('info', 'Peer connection established');
+              break;
+            case 'disconnected':
+              if (disconnectTimerRef.current !== null) {
+                window.clearTimeout(disconnectTimerRef.current);
+              }
+              setError('Media connection interrupted. Waiting to recover...');
+              appendLog('warn', 'Peer connection temporarily disconnected');
+              disconnectTimerRef.current = window.setTimeout(() => {
+                if (pcRef.current !== peerConnection) {
+                  return;
+                }
+                if (peerConnection.connectionState !== 'disconnected') {
+                  return;
+                }
+                setConnectionState('connected');
+                setError('WebRTC connection lost');
+                appendLog('warn', 'Peer connection did not recover in time');
+                cleanupPc(true);
+              }, DISCONNECT_GRACE_MS);
+              break;
+            case 'failed':
+            case 'closed':
+              if (disconnectTimerRef.current !== null) {
+                window.clearTimeout(disconnectTimerRef.current);
+                disconnectTimerRef.current = null;
+              }
+              setConnectionState('connected');
+              setError('WebRTC connection lost');
+              appendLog('warn', `Peer connection ${peerConnection.connectionState}`);
+              cleanupPc(true);
+              break;
+            default:
+              break;
           }
         };
 
@@ -116,76 +340,321 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
           new RTCSessionDescription({ sdp: payload.sdp, type: 'offer' }),
         );
 
-        for (const candidate of iceCandidateBuffer.current) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        for (const bufferedCandidate of iceCandidateBuffer.current) {
+          if (
+            bufferedCandidate.sessionId !== null &&
+            bufferedCandidate.sessionId !== nextSessionId
+          ) {
+            continue;
+          }
+          await peerConnection.addIceCandidate(new RTCIceCandidate(bufferedCandidate.candidate));
         }
         iceCandidateBuffer.current = [];
 
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        liveGatewayRef.current?.send('sdp-answer', { sdp: answer.sdp });
+        liveGatewayRef.current?.send('sdp-answer', {
+          sdp: answer.sdp,
+          sessionId: nextSessionId,
+        });
+        void collectStats();
       } catch (caughtError) {
-        setError(caughtError instanceof Error ? caughtError.message : 'WebRTC setup failed');
-        cleanupPc();
+        const message = caughtError instanceof Error ? caughtError.message : 'WebRTC setup failed';
+        setError(message);
+        appendLog('error', message);
+        cleanupPc(true);
       }
     },
-    [cleanupPc],
+    [appendLog, cleanupPc, collectStats],
   );
 
-  const handleIceCandidate = useCallback(async (payload: { candidate: RTCIceCandidateInit }) => {
-    const peerConnection = pcRef.current;
-    if (peerConnection?.remoteDescription != null) {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
-      return;
-    }
+  const handleIceCandidate = useCallback(
+    async (payload: { candidate: RTCIceCandidateInit; sessionId?: string }) => {
+      const sessionId = normalizeOptionalString(payload.sessionId);
+      const peerConnection = pcRef.current;
 
-    iceCandidateBuffer.current.push(payload.candidate);
-  }, []);
+      if (
+        sessionId !== null &&
+        activeSessionIdRef.current !== null &&
+        sessionId !== activeSessionIdRef.current
+      ) {
+        return;
+      }
+
+      if (peerConnection?.remoteDescription != null) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        return;
+      }
+
+      iceCandidateBuffer.current.push({
+        candidate: payload.candidate,
+        sessionId,
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (normalizedDeviceId === '') {
+      cleanupPc(true);
+      setConnectionState('disconnected');
+      setDeviceStatus(null);
+      setHeartbeatAt(null);
+      setError(null);
+      setPtzError(null);
+      setPtzState(null);
       return undefined;
     }
 
-    const liveGateway = new LiveGatewayClient(
-      `${LIVE_GATEWAY_WS_URL}?deviceId=${encodeURIComponent(normalizedDeviceId)}`,
-    );
+    const gatewayUrl = `${normalizeEndpointUrl(LIVE_GATEWAY_WS_URL)}?deviceId=${encodeURIComponent(
+      normalizedDeviceId,
+    )}`;
+    const liveGateway = new LiveGatewayClient(gatewayUrl);
     liveGatewayRef.current = liveGateway;
 
-    const unsubscribe = liveGateway.onMessage((message) => {
+    appendLog('info', `Connecting to device ${normalizedDeviceId}`);
+
+    const unsubscribeMessages = liveGateway.onMessage((message) => {
       switch (message.type) {
         case 'session-info':
-          setConnectionState('connected');
-          break;
-        case 'device-status':
           setConnectionState((currentState) =>
             currentState === 'streaming' ? currentState : 'connected',
           );
-          setDeviceStatus(unwrapPayload<DeviceStatus>(message.payload));
+          appendLog('info', 'Gateway session ready');
+          break;
+        case 'device-status':
+          setConnectionState((currentState) =>
+            currentState === 'streaming' || currentState === 'starting'
+              ? currentState
+              : 'connected',
+          );
+          {
+            const nextStatus = unwrapPayload<DeviceStatus>(message.payload);
+            setDeviceStatus(nextStatus);
+            const nextPtzState = readPtzState(nextStatus.services?.['ptz-control']);
+            if (nextPtzState !== null) {
+              setPtzState(nextPtzState);
+              setPtzError(nextPtzState.lastError);
+            }
+            const reportedCamera = getReportedLiveFeedCamera(nextStatus);
+            if (reportedCamera !== null) {
+              setActiveCameraName(reportedCamera);
+            }
+          }
           setHeartbeatAt(Date.now());
+          setError(null);
+          staleHeartbeatReportedRef.current = false;
           break;
         case 'device-response': {
-          const payload = unwrapPayload<{ error?: string }>(message.payload);
-          const responseType =
-            typeof message.payload === 'object' &&
-            message.payload !== null &&
-            'type' in message.payload &&
-            typeof (message.payload as LiveGatewayEnvelope<unknown>).type === 'string'
-              ? (message.payload as LiveGatewayEnvelope<unknown>).type
-              : undefined;
+          const payload = unwrapPayload<{
+            cameraName?: string;
+            error?: string;
+            ok?: boolean;
+            sessionId?: string;
+          }>(message.payload);
+          const responseType = getEnvelopeType(message.payload) ?? undefined;
 
-          if (responseType === 'start-live-ack' && payload.error !== undefined) {
+          if (responseType === 'status') {
+            setConnectionState((currentState) =>
+              currentState === 'streaming' || currentState === 'starting'
+                ? currentState
+                : 'connected',
+            );
+            {
+              const nextStatus = unwrapPayload<DeviceStatus>(message.payload);
+              setDeviceStatus(nextStatus);
+              const nextPtzState = readPtzState(nextStatus.services?.['ptz-control']);
+              if (nextPtzState !== null) {
+                setPtzState(nextPtzState);
+                setPtzError(nextPtzState.lastError);
+              }
+              const reportedCamera = getReportedLiveFeedCamera(nextStatus);
+              if (reportedCamera !== null) {
+                setActiveCameraName(reportedCamera);
+              }
+            }
+            setHeartbeatAt(Date.now());
+            setError(null);
+            staleHeartbeatReportedRef.current = false;
+            appendLog('info', 'Device status snapshot refreshed');
+            return;
+          }
+
+          if (responseType === 'start-live-ack') {
+            if (payload.ok === false || payload.error !== undefined) {
+              setError(payload.error ?? 'Device rejected the live start request');
+              setConnectionState('connected');
+              appendLog('error', payload.error ?? 'Device rejected the live start request');
+              cleanupPc(true);
+              return;
+            }
+
+            const acknowledgedCameraName = normalizeOptionalString(payload.cameraName);
+            pendingSessionIdRef.current = normalizeOptionalString(payload.sessionId);
+            setActiveCameraName(acknowledgedCameraName ?? requestedCameraRef.current);
+            setConnectionState('starting');
+            appendLog(
+              'info',
+              `Device acknowledged live start${
+                acknowledgedCameraName !== null ? ` for ${acknowledgedCameraName}` : ''
+              }`,
+            );
+          }
+
+          if (responseType === 'service-unavailable' && payload.error !== undefined) {
             setError(payload.error);
+            appendLog('error', payload.error);
+          }
+          break;
+        }
+        case 'ptz-status': {
+          const payload = unwrapPayload<Omit<PtzState, 'status'>>(message.payload);
+          setPtzState((currentState) => ({
+            activeCamera: payload.activeCamera ?? currentState?.activeCamera ?? null,
+            configuredCameras:
+              payload.configuredCameras.length > 0
+                ? payload.configuredCameras
+                : (currentState?.configuredCameras ?? []),
+            lastCommand: payload.lastCommand ?? currentState?.lastCommand ?? null,
+            lastError: payload.lastError ?? null,
+            position: payload.position ?? currentState?.position ?? null,
+            status: currentState?.status ?? 'idle',
+          }));
+          setPtzError(payload.lastError ?? null);
+          appendLog('info', 'PTZ status snapshot refreshed');
+          break;
+        }
+        case 'ptz-response': {
+          const responseType = getEnvelopeType(message.payload);
+          if (responseType === null) {
+            break;
+          }
+
+          if (responseType === 'ptz-position') {
+            const payload = unwrapPayload<PtzPosition>(message.payload);
+            setPtzState((currentState) => ({
+              activeCamera: payload.cameraName,
+              configuredCameras: currentState?.configuredCameras ?? [],
+              lastCommand: 'get-position',
+              lastError: null,
+              position: payload,
+              status: currentState?.status ?? 'idle',
+            }));
+            setPtzError(null);
+            appendLog('info', `PTZ position refreshed for ${payload.cameraName}`);
+            break;
+          }
+
+          if (responseType === 'ptz-command-ack') {
+            const payload = unwrapPayload<{
+              cameraName: string;
+              command: string;
+              ok?: boolean;
+              position?: PtzPosition;
+            }>(message.payload);
+            setPtzState((currentState) => ({
+              activeCamera:
+                normalizeOptionalString(payload.cameraName) ?? currentState?.activeCamera ?? null,
+              configuredCameras: currentState?.configuredCameras ?? [],
+              lastCommand:
+                normalizeOptionalString(payload.command) ?? currentState?.lastCommand ?? null,
+              lastError: null,
+              position: payload.position ?? currentState?.position ?? null,
+              status: payload.command === 'start-move' ? 'moving' : 'idle',
+            }));
+            setPtzError(null);
+            appendLog(
+              'info',
+              `PTZ command acknowledged: ${payload.command}${
+                typeof payload.cameraName === 'string' && payload.cameraName.trim() !== ''
+                  ? ` (${payload.cameraName})`
+                  : ''
+              }`,
+            );
+            break;
+          }
+
+          if (responseType === 'ptz-error' || responseType === 'service-unavailable') {
+            const payload = unwrapPayload<{
+              cameraName?: string;
+              command?: string;
+              error?: string;
+              requestType?: string;
+            }>(message.payload);
+            const nextError =
+              payload.error ?? `PTZ ${payload.command ?? payload.requestType ?? 'request'} failed`;
+            setPtzError(nextError);
+            setPtzState((currentState) => ({
+              activeCamera:
+                normalizeOptionalString(payload.cameraName) ?? currentState?.activeCamera ?? null,
+              configuredCameras: currentState?.configuredCameras ?? [],
+              lastCommand:
+                normalizeOptionalString(payload.command ?? payload.requestType) ??
+                currentState?.lastCommand ??
+                null,
+              lastError: nextError,
+              position: currentState?.position ?? null,
+              status: 'error',
+            }));
+            appendLog('error', nextError);
           }
           break;
         }
         case 'sdp-offer':
-          void handleSdpOffer(unwrapPayload<{ sdp: string }>(message.payload));
+          void handleSdpOffer(
+            unwrapPayload<{ cameraName?: string; sdp: string; sessionId?: string }>(
+              message.payload,
+            ),
+          );
           break;
         case 'ice-candidate':
           void handleIceCandidate(
-            unwrapPayload<{ candidate: RTCIceCandidateInit }>(message.payload),
+            unwrapPayload<{ candidate: RTCIceCandidateInit; sessionId?: string }>(message.payload),
           );
+          break;
+        default:
+          break;
+      }
+    });
+
+    const unsubscribeStatus = liveGateway.onStatus((event) => {
+      switch (event.type) {
+        case 'connecting':
+          setConnectionState((currentState) => {
+            if (currentState === 'streaming') {
+              return currentState;
+            }
+
+            return event.attempt > 1 ? 'reconnecting' : 'connecting';
+          });
+          appendLog('info', `Opening gateway socket (attempt ${event.attempt})`);
+          break;
+        case 'open':
+          setConnectionState((currentState) =>
+            currentState === 'streaming' ? currentState : 'connected',
+          );
+          setError(null);
+          liveGateway.requestStatus();
+          appendLog('info', 'Gateway socket connected');
+          break;
+        case 'closed':
+          setConnectionState((currentState) =>
+            currentState === 'disconnected' ? currentState : 'reconnecting',
+          );
+          appendLog(
+            'warn',
+            `Gateway socket closed${event.reason !== undefined ? ` (${event.reason})` : ''}`,
+          );
+          break;
+        case 'reconnect-scheduled':
+          setConnectionState((currentState) =>
+            currentState === 'disconnected' ? currentState : 'reconnecting',
+          );
+          appendLog('warn', `Retrying gateway connection in ${event.delayMs}ms`);
+          break;
+        case 'error':
+          setError(event.message ?? 'Gateway transport error');
+          appendLog('error', event.message ?? 'Gateway transport error');
           break;
         default:
           break;
@@ -195,14 +664,41 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
     liveGateway.connect();
 
     return () => {
-      unsubscribe();
+      unsubscribeMessages();
+      unsubscribeStatus();
       liveGateway.disconnect();
-      cleanupPc();
+      liveGatewayRef.current = null;
+      cleanupPc(true);
+      setHeartbeatAt(null);
+      setStreamStats(null);
+      setPtzError(null);
+      setPtzState(null);
     };
-  }, [cleanupPc, handleIceCandidate, handleSdpOffer, normalizedDeviceId]);
+  }, [appendLog, cleanupPc, handleIceCandidate, handleSdpOffer, normalizedDeviceId]);
 
   useEffect(() => {
-    if (heartbeatAt === null) {
+    if (
+      connectionState !== 'starting' &&
+      connectionState !== 'streaming' &&
+      pcRef.current === null
+    ) {
+      setStreamStats(null);
+      lastStatsSnapshotRef.current = null;
+      return undefined;
+    }
+
+    void collectStats();
+    const timer = window.setInterval(() => {
+      void collectStats();
+    }, STATS_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [collectStats, connectionState]);
+
+  useEffect(() => {
+    if (normalizedDeviceId === '') {
       return undefined;
     }
 
@@ -213,23 +709,131 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
     return () => {
       window.clearInterval(timer);
     };
-  }, [heartbeatAt]);
+  }, [normalizedDeviceId]);
 
-  const startLive = useCallback((cameraName: string) => {
-    setError(null);
-    liveGatewayRef.current?.send('start-live', { cameraName });
-  }, []);
+  const startLive = useCallback(
+    (cameraName: string) => {
+      const normalizedCameraName = cameraName.trim();
+      if (normalizedCameraName === '') {
+        return;
+      }
+
+      requestedCameraRef.current = normalizedCameraName;
+      pendingSessionIdRef.current = null;
+      setError(null);
+      setConnectionState('starting');
+      setActiveCameraName(normalizedCameraName);
+      appendLog('info', `Requesting live feed for ${normalizedCameraName}`);
+      liveGatewayRef.current?.send('start-live', { cameraName: normalizedCameraName });
+    },
+    [appendLog],
+  );
 
   const stopLive = useCallback(() => {
+    appendLog('info', 'Stopping live feed');
     liveGatewayRef.current?.send('stop-live', {});
-    cleanupPc();
+    requestedCameraRef.current = null;
+    cleanupPc(true);
     setConnectionState('connected');
-  }, [cleanupPc]);
+    liveGatewayRef.current?.requestStatus();
+  }, [appendLog, cleanupPc]);
+
+  const refreshStatus = useCallback(() => {
+    appendLog('info', 'Requesting latest device status');
+    liveGatewayRef.current?.requestStatus();
+  }, [appendLog]);
+
+  const refreshPtzPosition = useCallback(
+    (cameraName: string) => {
+      const normalizedCameraName = cameraName.trim();
+      if (normalizedCameraName === '') {
+        return;
+      }
+
+      appendLog('info', `Requesting PTZ position for ${normalizedCameraName}`);
+      setPtzError(null);
+      liveGatewayRef.current?.send('ptz-get-position', { cameraName: normalizedCameraName });
+    },
+    [appendLog],
+  );
+
+  const startPtzMove = useCallback((cameraName: string, velocity: PtzVelocityCommand) => {
+    const normalizedCameraName = cameraName.trim();
+    if (normalizedCameraName === '') {
+      return;
+    }
+
+    setPtzError(null);
+    setPtzState((currentState) => ({
+      activeCamera: normalizedCameraName,
+      configuredCameras: currentState?.configuredCameras ?? [],
+      lastCommand: 'start-move',
+      lastError: null,
+      position: currentState?.position ?? null,
+      status: 'moving',
+    }));
+    liveGatewayRef.current?.send('ptz-start-move', {
+      cameraName: normalizedCameraName,
+      velocity,
+    });
+  }, []);
+
+  const stopPtzMove = useCallback((cameraName: string) => {
+    const normalizedCameraName = cameraName.trim();
+    if (normalizedCameraName === '') {
+      return;
+    }
+
+    liveGatewayRef.current?.send('ptz-stop', { cameraName: normalizedCameraName });
+  }, []);
+
+  const setPtzZoom = useCallback(
+    (cameraName: string, zoom: number) => {
+      const normalizedCameraName = cameraName.trim();
+      if (normalizedCameraName === '') {
+        return;
+      }
+
+      appendLog('info', `Setting PTZ zoom for ${normalizedCameraName} to ${zoom.toFixed(2)}`);
+      setPtzError(null);
+      liveGatewayRef.current?.send('ptz-set-zoom', {
+        cameraName: normalizedCameraName,
+        zoom,
+      });
+    },
+    [appendLog],
+  );
+
+  const goHome = useCallback(
+    (cameraName: string) => {
+      const normalizedCameraName = cameraName.trim();
+      if (normalizedCameraName === '') {
+        return;
+      }
+
+      appendLog('info', `Sending PTZ home command for ${normalizedCameraName}`);
+      setPtzError(null);
+      liveGatewayRef.current?.send('ptz-go-home', { cameraName: normalizedCameraName });
+    },
+    [appendLog],
+  );
 
   const heartbeatAgeSeconds =
     heartbeatAt === null
       ? null
       : Math.max(0, Math.floor((heartbeatNow - heartbeatAt) / MS_PER_SECOND));
+
+  useEffect(() => {
+    if (
+      heartbeatAgeSeconds !== null &&
+      heartbeatAgeSeconds >= STALE_HEARTBEAT_SECONDS &&
+      !staleHeartbeatReportedRef.current
+    ) {
+      staleHeartbeatReportedRef.current = true;
+      appendLog('warn', `Device heartbeat is stale (${heartbeatAgeSeconds}s)`);
+    }
+  }, [appendLog, heartbeatAgeSeconds]);
+
   let resolvedConnectionState: ConnectionState = connectionState;
   if (normalizedDeviceId === '') {
     resolvedConnectionState = 'disconnected';
@@ -237,13 +841,34 @@ export const useDeviceStream = (deviceId: string): UseDeviceStreamReturn => {
     resolvedConnectionState = 'connecting';
   }
 
+  const resolvedDeviceStatus = normalizedDeviceId === '' ? null : deviceStatus;
+  const resolvedError = normalizedDeviceId === '' ? null : error;
+  const resolvedPtzError = normalizedDeviceId === '' ? null : ptzError;
+  const resolvedPtzState = normalizedDeviceId === '' ? null : ptzState;
+  const isBusy =
+    resolvedConnectionState === 'connecting' ||
+    resolvedConnectionState === 'starting' ||
+    resolvedConnectionState === 'reconnecting';
+
   return {
+    activeCameraName,
     connectionState: resolvedConnectionState,
-    deviceStatus: normalizedDeviceId === '' ? null : deviceStatus,
-    error: normalizedDeviceId === '' ? null : error,
+    deviceStatus: resolvedDeviceStatus,
+    error: resolvedError,
+    goHome,
     heartbeatAgeSeconds,
+    isBusy,
+    logs,
+    ptzError: resolvedPtzError,
+    ptzState: resolvedPtzState,
+    refreshPtzPosition,
+    refreshStatus,
+    setPtzZoom,
     startLive,
+    startPtzMove,
     stopLive,
+    stopPtzMove,
     stream,
+    streamStats,
   };
 };

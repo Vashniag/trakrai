@@ -3,6 +3,7 @@ package livefeed
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -15,23 +16,31 @@ type MessagePublisher interface {
 	Publish(subtopic string, msgType string, payload interface{}) error
 }
 
-type SessionManager struct {
-	mu         sync.Mutex
-	pc         *webrtc.PeerConnection
-	cancel     context.CancelFunc
-	publisher  MessagePublisher
-	frameSrc   *FrameSource
-	cfg        *Config
-	log        *slog.Logger
-	pendingICE []webrtc.ICECandidateInit
+type ControlPlane interface {
+	MessagePublisher
+	ReportStatus(status string, details map[string]interface{}) error
 }
 
-func NewSessionManager(cfg *Config, frameSource *FrameSource, publisher MessagePublisher) *SessionManager {
+type SessionManager struct {
+	mu              sync.Mutex
+	pc              *webrtc.PeerConnection
+	cancel          context.CancelFunc
+	control         ControlPlane
+	frameSrc        *FrameSource
+	cfg             *Config
+	log             *slog.Logger
+	disconnectTimer *time.Timer
+	pendingICE      []webrtc.ICECandidateInit
+	sessionID       string
+	cameraName      string
+}
+
+func NewSessionManager(cfg *Config, frameSource *FrameSource, control ControlPlane) *SessionManager {
 	return &SessionManager{
-		cfg:       cfg,
-		frameSrc:  frameSource,
-		publisher: publisher,
-		log:       slog.With("component", "webrtc"),
+		cfg:      cfg,
+		frameSrc: frameSource,
+		control:  control,
+		log:      slog.With("component", "webrtc"),
 	}
 }
 
@@ -41,6 +50,7 @@ func (sm *SessionManager) StartSession(cameraName string) {
 
 	sm.stopLocked()
 	sm.log.Info("starting WebRTC session", "camera", cameraName)
+	sessionID := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	iceServers := []webrtc.ICEServer{}
 	for _, stun := range sm.cfg.WebRTC.STUNServers {
@@ -58,11 +68,18 @@ func (sm *SessionManager) StartSession(cameraName string) {
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
 	if err != nil {
 		sm.log.Error("peer connection failed", "error", err)
-		sm.sendAck(cameraName, false, err.Error())
+		sm.sendAck(cameraName, sessionID, false, err.Error())
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":    cameraName,
+			"error":     err.Error(),
+			"sessionId": sessionID,
+		})
 		return
 	}
 	sm.pc = pc
 	sm.pendingICE = nil
+	sm.sessionID = sessionID
+	sm.cameraName = cameraName
 
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{
@@ -76,7 +93,14 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		sm.log.Error("create track failed", "error", err)
 		pc.Close()
 		sm.pc = nil
-		sm.sendAck(cameraName, false, err.Error())
+		sm.sessionID = ""
+		sm.cameraName = ""
+		sm.sendAck(cameraName, sessionID, false, err.Error())
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":    cameraName,
+			"error":     err.Error(),
+			"sessionId": sessionID,
+		})
 		return
 	}
 
@@ -84,7 +108,14 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		sm.log.Error("add track failed", "error", err)
 		pc.Close()
 		sm.pc = nil
-		sm.sendAck(cameraName, false, err.Error())
+		sm.sessionID = ""
+		sm.cameraName = ""
+		sm.sendAck(cameraName, sessionID, false, err.Error())
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":    cameraName,
+			"error":     err.Error(),
+			"sessionId": sessionID,
+		})
 		return
 	}
 
@@ -92,16 +123,55 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		if candidate == nil {
 			return
 		}
+		if !sm.isCurrentSession(sessionID, pc) {
+			return
+		}
 		sm.publish("webrtc/ice", "ice-candidate", map[string]interface{}{
 			"candidate": candidate.ToJSON(),
+			"sessionId": sessionID,
 		})
 	})
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		sm.log.Info("connection state changed", "state", state.String())
+		sm.log.Info("connection state changed", "state", state.String(), "session_id", sessionID, "camera", cameraName)
+		if !sm.isCurrentSession(sessionID, pc) {
+			return
+		}
+		switch state {
+		case webrtc.PeerConnectionStateConnecting:
+			sm.clearDisconnectTimer()
+			sm.reportStatus("negotiating", map[string]interface{}{
+				"camera":         cameraName,
+				"peerConnection": state.String(),
+				"sessionId":      sessionID,
+			})
+		case webrtc.PeerConnectionStateConnected:
+			sm.clearDisconnectTimer()
+			sm.reportStatus("streaming", map[string]interface{}{
+				"camera":         cameraName,
+				"peerConnection": state.String(),
+				"sessionId":      sessionID,
+			})
+		case webrtc.PeerConnectionStateDisconnected:
+			sm.log.Warn("peer connection temporarily disconnected", "session_id", sessionID, "camera", cameraName)
+			sm.reportStatus("negotiating", map[string]interface{}{
+				"camera":         cameraName,
+				"peerConnection": state.String(),
+				"phase":          "waiting-reconnect",
+				"sessionId":      sessionID,
+			})
+			sm.scheduleDisconnectTimeout(sessionID, cameraName, pc)
+			return
+		}
 		if state == webrtc.PeerConnectionStateFailed ||
-			state == webrtc.PeerConnectionStateDisconnected ||
 			state == webrtc.PeerConnectionStateClosed {
+			sm.clearDisconnectTimer()
+			sm.reportStatus("idle", map[string]interface{}{
+				"camera":         cameraName,
+				"peerConnection": state.String(),
+				"reason":         "peer-connection-closed",
+				"sessionId":      sessionID,
+			})
 			sm.StopSession()
 		}
 	})
@@ -111,7 +181,14 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		sm.log.Error("create offer failed", "error", err)
 		pc.Close()
 		sm.pc = nil
-		sm.sendAck(cameraName, false, err.Error())
+		sm.sessionID = ""
+		sm.cameraName = ""
+		sm.sendAck(cameraName, sessionID, false, err.Error())
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":    cameraName,
+			"error":     err.Error(),
+			"sessionId": sessionID,
+		})
 		return
 	}
 
@@ -119,29 +196,47 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		sm.log.Error("set local desc failed", "error", err)
 		pc.Close()
 		sm.pc = nil
-		sm.sendAck(cameraName, false, err.Error())
+		sm.sessionID = ""
+		sm.cameraName = ""
+		sm.sendAck(cameraName, sessionID, false, err.Error())
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":    cameraName,
+			"error":     err.Error(),
+			"sessionId": sessionID,
+		})
 		return
 	}
 
-	gatherComplete := webrtc.GatheringCompletePromise(pc)
-	sm.sendAck(cameraName, true, "")
+	localDesc := pc.LocalDescription()
+	if localDesc == nil {
+		pc.Close()
+		sm.pc = nil
+		sm.sessionID = ""
+		sm.cameraName = ""
+		sm.sendAck(cameraName, sessionID, false, "local description was not created")
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":    cameraName,
+			"error":     "local description was not created",
+			"sessionId": sessionID,
+		})
+		return
+	}
+
+	sm.sendAck(cameraName, sessionID, true, "")
+	sm.publish("webrtc/offer", "sdp-offer", map[string]interface{}{
+		"cameraName": cameraName,
+		"sdp":        localDesc.SDP,
+		"sessionId":  sessionID,
+	})
+	sm.reportStatus("negotiating", map[string]interface{}{
+		"camera":    cameraName,
+		"phase":     "offer-sent",
+		"sessionId": sessionID,
+	})
+	sm.log.Info("SDP offer sent", "session_id", sessionID)
 
 	sessionCtx, cancel := context.WithCancel(context.Background())
 	sm.cancel = cancel
-
-	go func() {
-		select {
-		case <-gatherComplete:
-			localDesc := pc.LocalDescription()
-			sm.publish("webrtc/offer", "sdp-offer", map[string]interface{}{
-				"sdp":        localDesc.SDP,
-				"cameraName": cameraName,
-			})
-			sm.log.Info("SDP offer sent")
-		case <-sessionCtx.Done():
-			return
-		}
-	}()
 
 	go sm.pumpFrames(sessionCtx, cameraName, videoTrack)
 }
@@ -200,12 +295,16 @@ func (sm *SessionManager) pumpFrames(
 	}
 }
 
-func (sm *SessionManager) SetRemoteAnswer(sdp string) {
+func (sm *SessionManager) SetRemoteAnswer(sessionID string, sdp string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	if sm.pc == nil {
 		sm.log.Warn("no active session for SDP answer")
+		return
+	}
+	if sessionID != "" && sessionID != sm.sessionID {
+		sm.log.Warn("ignoring SDP answer for stale session", "session_id", sessionID, "active_session_id", sm.sessionID)
 		return
 	}
 
@@ -229,15 +328,19 @@ func (sm *SessionManager) SetRemoteAnswer(sdp string) {
 		}
 	}
 	sm.pendingICE = nil
-	sm.log.Info("SDP answer applied")
+	sm.log.Info("SDP answer applied", "session_id", sm.sessionID)
 }
 
-func (sm *SessionManager) AddICECandidate(candidateJSON json.RawMessage) {
+func (sm *SessionManager) AddICECandidate(sessionID string, candidateJSON json.RawMessage) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	if sm.pc == nil {
 		sm.log.Warn("no active session for ICE candidate")
+		return
+	}
+	if sessionID != "" && sessionID != sm.sessionID {
+		sm.log.Warn("ignoring ICE candidate for stale session", "session_id", sessionID, "active_session_id", sm.sessionID)
 		return
 	}
 
@@ -268,31 +371,100 @@ func (sm *SessionManager) stopLocked() {
 		sm.cancel()
 		sm.cancel = nil
 	}
+	sm.clearDisconnectTimerLocked()
 	if sm.pc != nil {
 		sm.pc.Close()
 		sm.pc = nil
 		sm.log.Info("WebRTC session stopped")
 	}
 	sm.pendingICE = nil
+	sm.sessionID = ""
+	sm.cameraName = ""
+}
+
+func (sm *SessionManager) clearDisconnectTimer() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.clearDisconnectTimerLocked()
+}
+
+func (sm *SessionManager) clearDisconnectTimerLocked() {
+	if sm.disconnectTimer != nil {
+		sm.disconnectTimer.Stop()
+		sm.disconnectTimer = nil
+	}
+}
+
+func (sm *SessionManager) scheduleDisconnectTimeout(
+	sessionID string,
+	cameraName string,
+	pc *webrtc.PeerConnection,
+) {
+	sm.mu.Lock()
+	sm.clearDisconnectTimerLocked()
+	sm.disconnectTimer = time.AfterFunc(12*time.Second, func() {
+		shouldStop := false
+
+		sm.mu.Lock()
+		if sm.sessionID == sessionID && sm.pc == pc && pc.ConnectionState() == webrtc.PeerConnectionStateDisconnected {
+			shouldStop = true
+		}
+		sm.disconnectTimer = nil
+		sm.mu.Unlock()
+
+		if !shouldStop {
+			return
+		}
+
+		sm.log.Warn("peer connection did not recover before timeout", "session_id", sessionID, "camera", cameraName)
+		sm.reportStatus("idle", map[string]interface{}{
+			"camera":         cameraName,
+			"peerConnection": webrtc.PeerConnectionStateDisconnected.String(),
+			"reason":         "disconnect-timeout",
+			"sessionId":      sessionID,
+		})
+		sm.StopSession()
+	})
+	sm.mu.Unlock()
 }
 
 func (sm *SessionManager) publish(subtopic string, msgType string, payload interface{}) {
-	if sm.publisher == nil {
+	if sm.control == nil {
 		sm.log.Warn("publish skipped because message publisher is not configured", "subtopic", subtopic, "type", msgType)
 		return
 	}
-	if err := sm.publisher.Publish(subtopic, msgType, payload); err != nil {
+	if err := sm.control.Publish(subtopic, msgType, payload); err != nil {
 		sm.log.Warn("publish failed", "subtopic", subtopic, "type", msgType, "error", err)
 	}
 }
 
-func (sm *SessionManager) sendAck(cameraName string, ok bool, errMsg string) {
+func (sm *SessionManager) reportStatus(status string, details map[string]interface{}) {
+	if sm.control == nil {
+		return
+	}
+	if err := sm.control.ReportStatus(status, details); err != nil {
+		sm.log.Debug("status report failed", "status", status, "error", err)
+	}
+}
+
+func (sm *SessionManager) sendAck(cameraName string, sessionID string, ok bool, errMsg string) {
 	payload := map[string]interface{}{
 		"cameraName": cameraName,
 		"ok":         ok,
+		"sessionId":  sessionID,
 	}
 	if errMsg != "" {
 		payload["error"] = errMsg
 	}
 	sm.publish("response", "start-live-ack", payload)
+}
+
+func (sm *SessionManager) isCurrentSession(
+	sessionID string,
+	pc *webrtc.PeerConnection,
+) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	return sm.sessionID == sessionID && sm.pc == pc
 }

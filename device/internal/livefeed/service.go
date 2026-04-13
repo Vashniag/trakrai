@@ -31,8 +31,9 @@ func Run(ctx context.Context, cfg *Config) error {
 	}
 	defer ipcClient.Close()
 
-	if err := ipcClient.ReportStatus("running", map[string]interface{}{
-		"redis": redisconfig.Address(cfg.Redis),
+	if err := ipcClient.ReportStatus("idle", map[string]interface{}{
+		"available": true,
+		"redis":     redisconfig.Address(cfg.Redis),
 	}); err != nil {
 		slog.Warn("initial status report failed", "error", err)
 	}
@@ -126,22 +127,24 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 
 func handleWebRTCAnswer(env ipc.MQTTEnvelope, sessions *SessionManager) {
 	var payload struct {
-		SDP string `json:"sdp"`
+		SDP       string `json:"sdp"`
+		SessionID string `json:"sessionId"`
 	}
 	if err := json.Unmarshal(env.Payload, &payload); err != nil {
 		slog.Warn("invalid SDP answer payload", "error", err)
 		return
 	}
-	sessions.SetRemoteAnswer(payload.SDP)
+	sessions.SetRemoteAnswer(payload.SessionID, payload.SDP)
 }
 
 func handleWebRTCIce(env ipc.MQTTEnvelope, sessions *SessionManager) {
 	var payload struct {
 		Candidate json.RawMessage `json:"candidate"`
+		SessionID string          `json:"sessionId"`
 	}
 	if err := json.Unmarshal(env.Payload, &payload); err != nil {
 		slog.Warn("invalid ICE candidate payload", "error", err)
 		return
 	}
-	sessions.AddICECandidate(payload.Candidate)
+	sessions.AddICECandidate(payload.SessionID, payload.Candidate)
 }

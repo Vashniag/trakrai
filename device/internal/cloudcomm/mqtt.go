@@ -98,7 +98,7 @@ func (m *MQTTService) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	if route.subtopic == "command" && env.Type == "get-status" {
+	if route.service == "live-feed" && route.subtopic == "command" && env.Type == "get-status" {
 		if err := m.publishStatusResponse(); err != nil {
 			m.log.Warn("publish status response failed", "error", err)
 		}
@@ -207,13 +207,22 @@ func (m *MQTTService) Publish(req ipc.PublishMessageRequest) error {
 		return fmt.Errorf("marshal envelope: %w", err)
 	}
 
-	topic := m.topicPrefix() + "/" + strings.TrimPrefix(req.Subtopic, "/")
+	topic := m.publishTopic(req)
 	token := m.client.Publish(topic, 1, false, envData)
 	token.Wait()
 	if err := token.Error(); err != nil {
 		return fmt.Errorf("publish %s: %w", topic, err)
 	}
 	return nil
+}
+
+func (m *MQTTService) publishTopic(req ipc.PublishMessageRequest) string {
+	subtopic := strings.TrimPrefix(req.Subtopic, "/")
+	if req.Service == "" || req.Service == "live-feed" {
+		return m.topicPrefix() + "/" + subtopic
+	}
+
+	return fmt.Sprintf("%s/service/%s/%s", m.topicPrefix(), req.Service, subtopic)
 }
 
 func (m *MQTTService) StartHeartbeat(ctx context.Context, interval time.Duration) {
