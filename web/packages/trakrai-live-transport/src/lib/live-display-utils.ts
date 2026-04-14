@@ -5,6 +5,7 @@ import type { ConnectionState, DeviceServiceStatus } from './live-types';
 const FRESH_HEARTBEAT_SECONDS = 5;
 const MAX_SERVICE_DETAIL_FRAGMENTS = 4;
 const SECONDS_PER_MINUTE = 60;
+const ACCENT_STATUS_CLASSES = 'border-accent bg-accent text-accent-foreground';
 
 export const getStatusLabel = (connectionState: ConnectionState): string => {
   switch (connectionState) {
@@ -28,18 +29,18 @@ export const getStatusLabel = (connectionState: ConnectionState): string => {
 export const getStatusClasses = (connectionState: ConnectionState): string => {
   switch (connectionState) {
     case 'connected':
-      return 'border-sky-500/30 bg-sky-500/10 text-sky-600';
+      return 'border-secondary/50 bg-secondary text-secondary-foreground';
     case 'disconnected':
-      return 'border-rose-500/30 bg-rose-500/10 text-rose-600';
+      return 'border-destructive/30 bg-destructive/10 text-destructive';
     case 'streaming':
-      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600';
+      return 'border-primary/40 bg-primary/10 text-primary';
     case 'starting':
     case 'connecting':
-      return 'border-amber-500/30 bg-amber-500/10 text-amber-600';
+      return ACCENT_STATUS_CLASSES;
     case 'reconnecting':
-      return 'border-orange-500/30 bg-orange-500/10 text-orange-600';
+      return ACCENT_STATUS_CLASSES;
     default:
-      return 'border-amber-500/30 bg-amber-500/10 text-amber-600';
+      return 'border-muted bg-muted text-muted-foreground';
   }
 };
 
@@ -69,17 +70,17 @@ export const formatMetric = (value: number | null | undefined, suffix: string): 
 export const getServiceStatusClasses = (status: string): string => {
   switch (status) {
     case 'streaming':
-      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700';
+      return 'border-primary/40 bg-primary/10 text-primary';
     case 'negotiating':
     case 'starting':
     case 'running':
     case 'moving':
-      return 'border-amber-500/30 bg-amber-500/10 text-amber-700';
+      return ACCENT_STATUS_CLASSES;
     case 'idle':
     case 'registered':
-      return 'border-sky-500/30 bg-sky-500/10 text-sky-700';
+      return 'border-secondary/50 bg-secondary text-secondary-foreground';
     default:
-      return 'border-rose-500/30 bg-rose-500/10 text-rose-700';
+      return 'border-destructive/30 bg-destructive/10 text-destructive';
   }
 };
 

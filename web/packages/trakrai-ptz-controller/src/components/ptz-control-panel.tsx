@@ -180,7 +180,7 @@ export const PtzControlPanel = ({
           ) : null}
 
           {serviceRegistered && !isCameraConfigured ? (
-            <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
               {hasCamera
                 ? `${cameraName} is not configured for PTZ in the device service.`
                 : 'Choose a camera to enable PTZ.'}
@@ -188,7 +188,7 @@ export const PtzControlPanel = ({
           ) : null}
 
           {error !== null && error !== '' ? (
-            <div className="border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            <div className="border-destructive/30 bg-destructive/10 text-destructive border px-3 py-2 text-xs">
               {error}
             </div>
           ) : null}
@@ -213,7 +213,7 @@ export const PtzControlPanel = ({
                           <div className="text-xs font-semibold tracking-[0.2em] uppercase">
                             STOP
                           </div>
-                          <div className="mt-2 text-[10px] tracking-[0.18em] text-white/55 uppercase">
+                          <div className="text-muted-foreground mt-2 text-[10px] tracking-[0.18em] uppercase">
                             Brake
                           </div>
                         </button>
@@ -266,13 +266,13 @@ export const PtzControlPanel = ({
               </div>
 
               {!supportsPanTiltDrive(capabilities) ? (
-                <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
                   This camera profile does not advertise ONVIF pan / tilt drive support.
                 </div>
               ) : null}
 
               {!supportsGoHome(capabilities) ? (
-                <div className="border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <div className="bg-muted text-muted-foreground border px-3 py-2 text-xs">
                   Go home is unavailable because this camera profile does not expose a home
                   position.
                 </div>
@@ -293,7 +293,7 @@ export const PtzControlPanel = ({
                   </div>
                 </div>
                 <input
-                  className="h-2 w-full cursor-pointer accent-emerald-600"
+                  className="accent-primary h-2 w-full cursor-pointer"
                   disabled={!zoomTargetEnabled}
                   max={PTZ_ZOOM_MAX}
                   min={PTZ_ZOOM_MIN}
@@ -343,7 +343,7 @@ export const PtzControlPanel = ({
               </Button>
 
               {!supportsZoomDrive(capabilities) && !supportsZoomTarget(capabilities) ? (
-                <div className="border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <div className="bg-muted text-muted-foreground border px-3 py-2 text-xs">
                   Zoom is unavailable because this ONVIF profile does not expose zoom control.
                 </div>
               ) : null}

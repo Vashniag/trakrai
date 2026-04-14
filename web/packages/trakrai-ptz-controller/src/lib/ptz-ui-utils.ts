@@ -14,11 +14,11 @@ export const PTZ_ZOOM_HOLD_SPEED = 0.45;
 
 export const PTZ_BUTTON_BASE_CLASSES =
   'touch-none border transition disabled:cursor-not-allowed disabled:opacity-40';
-export const PTZ_BUTTON_ACTIVE_CLASSES = 'border-emerald-500 bg-emerald-50 text-emerald-700';
+export const PTZ_BUTTON_ACTIVE_CLASSES = 'border-primary/40 bg-primary/10 text-primary';
 export const PTZ_BUTTON_INACTIVE_CLASSES =
   'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 const STOP_BUTTON_CLASSES =
-  'border-border border bg-neutral-950 text-white transition hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-40';
+  'bg-card border-border text-foreground border transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40';
 
 export type PtzDirection = Readonly<{
   id: string;

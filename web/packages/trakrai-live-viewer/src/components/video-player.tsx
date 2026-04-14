@@ -73,25 +73,25 @@ export const VideoPlayer = ({
       : 'Waiting';
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden border bg-black">
+    <div className="bg-card relative aspect-video w-full overflow-hidden border">
       <video ref={videoRef} autoPlay className="h-full w-full object-contain" muted playsInline />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b from-black/70 via-black/20 to-transparent p-4 text-[11px] tracking-[0.22em] text-white/75 uppercase">
+      <div className="from-card/95 via-card/70 text-foreground/75 pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b to-transparent p-4 text-[11px] tracking-[0.22em] uppercase">
         <div className="space-y-1">
           <div>{activeCameraName ?? 'No camera selected'}</div>
-          <div className="text-white/50">{connectionState}</div>
+          <div className="text-muted-foreground">{connectionState}</div>
         </div>
         <div className="space-y-1 text-right">
           <div>{bitrateLabel}</div>
-          <div className="text-white/50">{resolution ?? 'No video stats yet'}</div>
+          <div className="text-muted-foreground">{resolution ?? 'No video stats yet'}</div>
         </div>
       </div>
 
       {!isActive ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.16),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] text-center text-sm text-white/70">
+        <div className="bg-background/80 absolute inset-0 flex items-center justify-center text-center text-sm">
           <div className="space-y-2 px-6">
-            <p className="text-lg font-semibold text-white">No stream active</p>
-            <p className="mx-auto max-w-sm text-white/55">
+            <p className="text-foreground text-lg font-semibold">No stream active</p>
+            <p className="text-muted-foreground mx-auto max-w-sm">
               Pick a camera and start a live session to attach the remote WebRTC track.
             </p>
           </div>

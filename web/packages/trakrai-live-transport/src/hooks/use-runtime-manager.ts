@@ -16,11 +16,7 @@ import type {
   RuntimeManagerStatusPayload,
 } from '../lib/runtime-manager-types';
 
-import {
-  createClientRequestId,
-  getEnvelopeType,
-  unwrapPayload,
-} from '../lib/live-transport-utils';
+import { createClientRequestId, getEnvelopeType, unwrapPayload } from '../lib/live-transport-utils';
 
 export type RuntimeManagerState = {
   activeDefinition: ManagedRuntimeServiceDefinition | null;
@@ -33,7 +29,10 @@ export type RuntimeManagerState = {
   loadServiceDefinition: (serviceName: string) => void;
   refreshLogs: (serviceName: string, lines?: number) => void;
   refreshStatus: () => void;
-  runServiceAction: (serviceName: string, action: 'restart-service' | 'start-service' | 'stop-service') => void;
+  runServiceAction: (
+    serviceName: string,
+    action: 'restart-service' | 'start-service' | 'stop-service',
+  ) => void;
   serviceName: string;
   serviceRegistered: boolean;
   services: ManagedRuntimeService[];
@@ -44,6 +43,14 @@ export type RuntimeManagerState = {
 
 const RESPONSE_SUBTOPIC = 'response';
 
+const mergeUpdatedService = (
+  currentServices: ManagedRuntimeService[],
+  updatedService: ManagedRuntimeService,
+): ManagedRuntimeService[] =>
+  currentServices.map((service) =>
+    service.name === updatedService.name ? updatedService : service,
+  );
+
 export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
   const normalizedServiceName = serviceName.trim();
   const { appendLog, deviceStatus } = useDeviceRuntime();
@@ -52,7 +59,9 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
   const [paths, setPaths] = useState<RuntimeManagerPaths | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
   const [lastLog, setLastLog] = useState<RuntimeManagerLogPayload | null>(null);
-  const [activeDefinition, setActiveDefinition] = useState<ManagedRuntimeServiceDefinition | null>(null);
+  const [activeDefinition, setActiveDefinition] = useState<ManagedRuntimeServiceDefinition | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const runtimeManagerServiceStatus = deviceStatus?.services?.[normalizedServiceName];
@@ -152,7 +161,10 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
 
   useEffect(() => {
     const unsubscribePackets = subscribeToPackets((packet) => {
-      if ((packet.service ?? '') !== normalizedServiceName || packet.subtopic !== RESPONSE_SUBTOPIC) {
+      if (
+        (packet.service ?? '') !== normalizedServiceName ||
+        packet.subtopic !== RESPONSE_SUBTOPIC
+      ) {
         return;
       }
 
@@ -192,18 +204,18 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
         return;
       }
 
-      if (responseType === 'runtime-manager-service-action' || responseType === 'runtime-manager-update') {
+      if (
+        responseType === 'runtime-manager-service-action' ||
+        responseType === 'runtime-manager-update'
+      ) {
         const payload = unwrapPayload<RuntimeManagerActionPayload>(packet.envelope);
-        if (payload.service !== undefined) {
-          setServices((currentServices) =>
-            currentServices.map((service) =>
-              service.name === payload.service?.name ? payload.service : service,
-            ),
-          );
+        const updatedService = payload.service;
+        if (updatedService !== undefined) {
+          setServices((currentServices) => mergeUpdatedService(currentServices, updatedService));
         }
         if (payload.definition !== undefined) {
           setActiveDefinition(payload.definition);
-        } else if (payload.removed && activeDefinition?.name === payload.serviceName) {
+        } else if (payload.removed === true && activeDefinition?.name === payload.serviceName) {
           setActiveDefinition(null);
         }
         setIsBusy(false);
@@ -235,8 +247,15 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
       return;
     }
 
-    refreshStatus();
-  }, [normalizedServiceName, refreshStatus, transportState]);
+    sendPacket({
+      payload: {
+        requestId: createClientRequestId(),
+      },
+      service: normalizedServiceName,
+      subtopic: 'command',
+      type: 'get-status',
+    });
+  }, [normalizedServiceName, sendPacket, transportState]);
 
   return useMemo(
     () => ({

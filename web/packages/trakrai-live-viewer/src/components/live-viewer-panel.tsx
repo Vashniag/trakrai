@@ -37,7 +37,7 @@ const FOCUS_LAYOUT_SECONDARY_TILE_IDS = [
   'focus-g',
   'focus-h',
 ] as const;
-const ACTIVE_BUTTON_CLASSES = 'border-emerald-500 bg-emerald-50 text-emerald-700';
+const ACTIVE_BUTTON_CLASSES = 'border-primary/40 bg-primary/10 text-primary';
 const INACTIVE_BUTTON_CLASSES =
   'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 
@@ -177,12 +177,12 @@ export const LiveViewerPanel = ({
   const statusClasses = getStatusClasses(connectionState);
 
   return (
-    <Card className="border bg-neutral-950 text-white">
-      <CardHeader className="border-b border-white/10">
+    <Card className="border">
+      <CardHeader className="border-b">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-xl text-white">Live monitor</CardTitle>
-            <CardDescription className="text-white/60">
+            <CardTitle className="text-xl">Live monitor</CardTitle>
+            <CardDescription>
               One stitched device stream with paging across camera sets for cloud and edge.
             </CardDescription>
           </div>
@@ -195,22 +195,24 @@ export const LiveViewerPanel = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="border border-white/10 bg-white/5 p-4">
+        <div className="bg-muted/30 border p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
                 Active layout
               </div>
-              <div className="mt-1 text-sm font-medium text-white">
+              <div className="text-foreground mt-1 text-sm font-medium">
                 {LIVE_LAYOUT_OPTIONS.find((option) => option.mode === layoutMode)?.description ??
                   'Single camera'}
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
                 Showing cameras
               </div>
-              <div className="mt-1 text-sm font-medium text-white">{visibleCameraNamesLabel}</div>
+              <div className="text-foreground mt-1 text-sm font-medium">
+                {visibleCameraNamesLabel}
+              </div>
             </div>
           </div>
 
@@ -225,37 +227,47 @@ export const LiveViewerPanel = ({
           </div>
 
           {error !== null && error !== '' ? (
-            <div className="mt-4 border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+            <div className="border-destructive/30 bg-destructive/10 text-destructive mt-4 border px-3 py-2 text-xs">
               {error}
             </div>
           ) : null}
 
           <div className="mt-4 grid gap-3 sm:grid-cols-5">
-            <div className="border border-white/10 bg-white/5 p-3">
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+            <div className="bg-card border p-3">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
                 Primary camera
               </div>
-              <div className="mt-1 text-sm font-medium text-white">{primaryCameraLabel}</div>
+              <div className="text-foreground mt-1 text-sm font-medium">{primaryCameraLabel}</div>
             </div>
-            <div className="border border-white/10 bg-white/5 p-3">
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">Camera set</div>
-              <div className="mt-1 text-sm font-medium text-white">{pageLabel}</div>
+            <div className="bg-card border p-3">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
+                Camera set
+              </div>
+              <div className="text-foreground mt-1 text-sm font-medium">{pageLabel}</div>
             </div>
-            <div className="border border-white/10 bg-white/5 p-3">
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+            <div className="bg-card border p-3">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
                 Frame source
               </div>
-              <div className="mt-1 text-sm font-medium text-white">{activeFrameSourceLabel}</div>
+              <div className="text-foreground mt-1 text-sm font-medium">
+                {activeFrameSourceLabel}
+              </div>
             </div>
-            <div className="border border-white/10 bg-white/5 p-3">
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">FPS</div>
-              <div className="mt-1 text-sm font-medium text-white">
+            <div className="bg-card border p-3">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
+                FPS
+              </div>
+              <div className="text-foreground mt-1 text-sm font-medium">
                 {formatMetric(streamStats?.fps, '')}
               </div>
             </div>
-            <div className="border border-white/10 bg-white/5 p-3">
-              <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">Resolution</div>
-              <div className="mt-1 text-sm font-medium text-white">{primaryResolutionLabel}</div>
+            <div className="bg-card border p-3">
+              <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
+                Resolution
+              </div>
+              <div className="text-foreground mt-1 text-sm font-medium">
+                {primaryResolutionLabel}
+              </div>
             </div>
           </div>
         </div>
@@ -279,15 +291,17 @@ export const LiveViewerPanel = ({
                 </div>
                 <LayoutGlyph mode={option.mode} />
               </div>
-              <span className="mt-3 text-xs text-slate-500">{option.description}</span>
+              <span className="text-muted-foreground mt-3 text-xs">{option.description}</span>
             </button>
           ))}
         </div>
 
-        <div className="border border-white/10 bg-white/5 p-3">
+        <div className="bg-muted/30 border p-3">
           <div>
-            <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">Frame source</div>
-            <div className="mt-1 text-sm font-medium text-white">
+            <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
+              Frame source
+            </div>
+            <div className="text-foreground mt-1 text-sm font-medium">
               Switch the stitched live stream between raw RTSP frames and processed AI output.
             </div>
           </div>
@@ -302,16 +316,18 @@ export const LiveViewerPanel = ({
                 }}
               >
                 <div className="font-medium">{option.label}</div>
-                <div className="mt-1 text-xs text-slate-500">{option.description}</div>
+                <div className="text-muted-foreground mt-1 text-xs">{option.description}</div>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-white/5 p-3">
+        <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-3 border p-3">
           <div>
-            <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">Paging</div>
-            <div className="mt-1 text-sm font-medium text-white">
+            <div className="text-muted-foreground text-[11px] tracking-[0.2em] uppercase">
+              Paging
+            </div>
+            <div className="text-foreground mt-1 text-sm font-medium">
               Set {activePageNumber} of {pageCount}
             </div>
           </div>
@@ -351,13 +367,13 @@ export const LiveViewerPanel = ({
                 }}
               >
                 <div className="font-medium">{camera.name}</div>
-                <div className="mt-1 text-[11px] tracking-[0.18em] text-slate-500 uppercase">
+                <div className="text-muted-foreground mt-1 text-[11px] tracking-[0.18em] uppercase">
                   {camera.name === selectedCameraName ? 'Selected' : 'Visible'}
                 </div>
               </button>
             ))
           ) : (
-            <div className="col-span-full border border-dashed border-white/10 px-4 py-3 text-sm text-white/55">
+            <div className="text-muted-foreground col-span-full border border-dashed px-4 py-3 text-sm">
               No enabled cameras available in the current device inventory yet.
             </div>
           )}

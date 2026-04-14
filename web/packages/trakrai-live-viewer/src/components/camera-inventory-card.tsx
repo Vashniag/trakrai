@@ -10,7 +10,7 @@ import {
 
 import type { DeviceCamera } from '@trakrai/live-transport/lib/live-types';
 
-const CAMERA_CARD_SELECTED_CLASSES = 'border-emerald-500 bg-emerald-50';
+const CAMERA_CARD_SELECTED_CLASSES = 'border-primary/40 bg-primary/10';
 const CAMERA_CARD_IDLE_CLASSES =
   'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 

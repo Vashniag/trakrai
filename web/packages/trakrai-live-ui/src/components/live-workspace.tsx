@@ -93,7 +93,7 @@ type LiveWorkspaceShellProps = Readonly<{
   onTogglePanel: (panelId: WorkspacePanelId) => void;
 }>;
 
-const PANEL_BUTTON_ACTIVE_CLASSES = 'border-emerald-500 bg-emerald-50 text-emerald-700';
+const PANEL_BUTTON_ACTIVE_CLASSES = 'border-primary/40 bg-primary/10 text-primary';
 const PANEL_BUTTON_IDLE_CLASSES =
   'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 
@@ -425,7 +425,7 @@ const LiveWorkspaceShell = ({
                     }}
                   >
                     <div className="font-medium">{panel.label}</div>
-                    <div className="mt-1 text-xs text-slate-500">{panel.description}</div>
+                    <div className="text-muted-foreground mt-1 text-xs">{panel.description}</div>
                   </button>
                 ))}
               </div>

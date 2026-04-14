@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Button } from '@trakrai/design-system/components/button';
 import {
@@ -35,7 +35,10 @@ type RuntimeManagerPanelProps = Readonly<{
   onRefreshLogs: (serviceName: string, lines?: number) => void;
   onRefreshStatus: () => void;
   onRemoveService: (serviceName: string, purgeFiles?: boolean) => void;
-  onRunServiceAction: (serviceName: string, action: 'restart-service' | 'start-service' | 'stop-service') => void;
+  onRunServiceAction: (
+    serviceName: string,
+    action: 'restart-service' | 'start-service' | 'stop-service',
+  ) => void;
   onUpdateService: (serviceName: string, artifactUrl: string) => void;
   onUpsertServiceDefinition: (definition: ManagedRuntimeServiceDefinition) => void;
 }>;
@@ -44,27 +47,30 @@ const statusClasses = (state: string): string => {
   switch (state) {
     case 'available':
     case 'running':
-      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700';
+      return 'border-primary/40 bg-primary/10 text-primary';
     case 'starting':
-      return 'border-amber-500/30 bg-amber-500/10 text-amber-700';
+      return 'border-accent bg-accent text-accent-foreground';
     case 'stopped':
-      return 'border-slate-400/30 bg-slate-500/10 text-slate-700';
+      return 'border-muted bg-muted text-muted-foreground';
     case 'missing':
       return 'border-orange-500/30 bg-orange-500/10 text-orange-700';
     default:
-      return 'border-rose-500/30 bg-rose-500/10 text-rose-700';
+      return 'border-destructive/30 bg-destructive/10 text-destructive';
   }
 };
 
 const formatNumber = (value: number | undefined, suffix: string): string =>
   value === undefined ? 'N/A' : `${value}${suffix}`;
 
+const BYTES_IN_MEGABYTE = Number('1024') * Number('1024');
+const LOG_TAIL_LINE_COUNT = 120;
+
 const formatMemory = (value: number | undefined): string => {
   if (value === undefined) {
     return 'N/A';
   }
 
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / BYTES_IN_MEGABYTE).toFixed(1)} MB`;
 };
 
 const formatTimestamp = (value: string | null | undefined): string => {
@@ -86,10 +92,24 @@ const createServiceTemplate = (
       description: 'Python wheel-backed service managed through pip and systemd.',
       displayName: 'New wheel service',
       enabled: true,
-      execStart: ['python3', '-m', 'trakrai_service', '--config', '/home/hacklab/trakrai-device-runtime/trakrai-service.json'],
+      execStart: [
+        'python3',
+        '-m',
+        'trakrai_service',
+        '--config',
+        '/home/hacklab/trakrai-device-runtime/trakrai-service.json',
+      ],
       kind: 'wheel',
       name: 'trakrai-service',
-      setupCommand: ['python3', '-m', 'pip', 'install', '--no-deps', '--force-reinstall', '{{artifact_path}}'],
+      setupCommand: [
+        'python3',
+        '-m',
+        'pip',
+        'install',
+        '--no-deps',
+        '--force-reinstall',
+        '{{artifact_path}}',
+      ],
       versionCommand: ['python3', '-m', 'trakrai_service', '--version'],
       workingDirectory: '/home/hacklab/trakrai-device-runtime',
     };
@@ -116,7 +136,11 @@ const createServiceTemplate = (
     description: 'Binary service managed by controller-generated systemd units.',
     displayName: 'New binary service',
     enabled: true,
-    execStart: ['{{install_path}}', '-config', '/home/hacklab/trakrai-device-runtime/new-service.json'],
+    execStart: [
+      '{{install_path}}',
+      '-config',
+      '/home/hacklab/trakrai-device-runtime/new-service.json',
+    ],
     kind: 'binary',
     name: 'new-service',
     versionCommand: ['{{install_path}}', '--version'],
@@ -142,17 +166,32 @@ export const RuntimeManagerPanel = ({
   onUpsertServiceDefinition,
 }: RuntimeManagerPanelProps) => {
   const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
-  const [definitionText, setDefinitionText] = useState('');
+  const [definitionDraft, setDefinitionDraft] = useState<{
+    sourceKey: string;
+    text: string;
+  } | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (activeDefinition === null) {
-      return;
-    }
-
-    setDefinitionText(JSON.stringify(activeDefinition, null, 2));
-    setEditorError(null);
-  }, [activeDefinition]);
+  const activeDefinitionText = useMemo(
+    () => (activeDefinition === null ? '' : JSON.stringify(activeDefinition, null, 2)),
+    [activeDefinition],
+  );
+  const activeDefinitionKey = useMemo(
+    () => (activeDefinition === null ? '' : JSON.stringify(activeDefinition)),
+    [activeDefinition],
+  );
+  const definitionText =
+    definitionDraft?.sourceKey === activeDefinitionKey
+      ? definitionDraft.text
+      : activeDefinitionText;
+  const visibleEditorError =
+    definitionDraft?.sourceKey === activeDefinitionKey ? editorError : null;
+  const setDefinitionText = (nextText: string) => {
+    setDefinitionDraft({
+      sourceKey: activeDefinitionKey,
+      text: nextText,
+    });
+  };
 
   const selectedLogSummary = useMemo(() => {
     if (lastLog === null) {
@@ -172,8 +211,7 @@ export const RuntimeManagerPanel = ({
     }
 
     try {
-      const parsed = JSON.parse(trimmed) as ManagedRuntimeServiceDefinition;
-      return parsed;
+      return JSON.parse(trimmed) as ManagedRuntimeServiceDefinition;
     } catch {
       return null;
     }
@@ -181,21 +219,26 @@ export const RuntimeManagerPanel = ({
 
   const handleSaveDefinition = () => {
     try {
-      const parsed = JSON.parse(definitionText) as ManagedRuntimeServiceDefinition;
-      if (typeof parsed !== 'object' || parsed === null || typeof parsed.name !== 'string') {
+      const parsed = JSON.parse(definitionText) as unknown;
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        !('name' in parsed) ||
+        typeof parsed.name !== 'string'
+      ) {
         setEditorError('Definition must be a JSON object with a string name.');
         return;
       }
 
       setEditorError(null);
-      onUpsertServiceDefinition(parsed);
+      onUpsertServiceDefinition(parsed as ManagedRuntimeServiceDefinition);
     } catch (nextError) {
       setEditorError(nextError instanceof Error ? nextError.message : 'Invalid JSON');
     }
   };
 
   const handleRemoveDefinition = () => {
-    const nextName = parsedDefinition?.name?.trim() ?? '';
+    const nextName = parsedDefinition?.name.trim() ?? '';
     if (nextName === '') {
       setEditorError('Load or enter a definition with a service name before removing it.');
       return;
@@ -251,19 +294,21 @@ export const RuntimeManagerPanel = ({
               <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
                 Binary dir
               </div>
-              <div className="mt-1 break-all text-xs font-medium">{paths?.binaryDir ?? 'N/A'}</div>
+              <div className="mt-1 text-xs font-medium break-all">{paths?.binaryDir ?? 'N/A'}</div>
             </div>
             <div className="border p-3">
               <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
                 Download dir
               </div>
-              <div className="mt-1 break-all text-xs font-medium">{paths?.downloadDir ?? 'N/A'}</div>
+              <div className="mt-1 text-xs font-medium break-all">
+                {paths?.downloadDir ?? 'N/A'}
+              </div>
             </div>
             <div className="border p-3">
               <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
                 Version dir
               </div>
-              <div className="mt-1 break-all text-xs font-medium">{paths?.versionDir ?? 'N/A'}</div>
+              <div className="mt-1 text-xs font-medium break-all">{paths?.versionDir ?? 'N/A'}</div>
             </div>
           </div>
 
@@ -313,7 +358,7 @@ export const RuntimeManagerPanel = ({
           ) : null}
 
           {error !== null && error !== '' ? (
-            <div className="border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            <div className="border-destructive/30 bg-destructive/10 text-destructive border px-3 py-2 text-xs">
               {error}
             </div>
           ) : null}
@@ -321,7 +366,7 @@ export const RuntimeManagerPanel = ({
           <div className="space-y-3 border p-4">
             <div className="space-y-1">
               <div className="text-sm font-semibold">Service definition editor</div>
-              <div className="text-xs text-slate-500">
+              <div className="text-muted-foreground text-xs">
                 Save a full service definition here to let the controller generate wrapper scripts,
                 unit files, and install paths centrally. State file: {paths?.stateFile ?? 'N/A'}
               </div>
@@ -329,7 +374,7 @@ export const RuntimeManagerPanel = ({
             <div className="space-y-2">
               <Label htmlFor="runtime-manager-definition">Definition JSON</Label>
               <textarea
-                className="border bg-background min-h-[280px] w-full resize-y p-3 font-mono text-xs outline-none"
+                className="bg-background min-h-[280px] w-full resize-y border p-3 font-mono text-xs outline-none"
                 id="runtime-manager-definition"
                 placeholder='{"name":"live-feed","kind":"binary"}'
                 value={definitionText}
@@ -338,9 +383,9 @@ export const RuntimeManagerPanel = ({
                 }}
               />
             </div>
-            {editorError !== null ? (
-              <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                {editorError}
+            {visibleEditorError !== null ? (
+              <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
+                {visibleEditorError}
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2">
@@ -352,7 +397,7 @@ export const RuntimeManagerPanel = ({
                 Save definition
               </Button>
               <Button
-                disabled={isBusy || (parsedDefinition?.name?.trim() ?? '') === ''}
+                disabled={isBusy || (parsedDefinition?.name.trim() ?? '') === ''}
                 type="button"
                 variant="outline"
                 onClick={handleRemoveDefinition}
@@ -381,7 +426,7 @@ export const RuntimeManagerPanel = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="text-sm font-semibold">{service.displayName}</div>
                       {service.core ? (
-                        <span className="border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[10px] tracking-[0.18em] text-sky-700 uppercase">
+                        <span className="border-secondary/50 bg-secondary text-secondary-foreground border px-2 py-1 text-[10px] tracking-[0.18em] uppercase">
                           Core
                         </span>
                       ) : null}
@@ -392,10 +437,12 @@ export const RuntimeManagerPanel = ({
                       </span>
                     </div>
                     {service.description !== undefined && service.description !== '' ? (
-                      <div className="mt-1 text-xs text-slate-500">{service.description}</div>
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        {service.description}
+                      </div>
                     ) : null}
                   </div>
-                  <div className="text-right text-xs text-slate-500">
+                  <div className="text-muted-foreground text-right text-xs">
                     <div>{service.kind}</div>
                     {service.systemdUnit !== undefined && service.systemdUnit !== '' ? (
                       <div className="mt-1">{service.systemdUnit}</div>
@@ -422,20 +469,22 @@ export const RuntimeManagerPanel = ({
                     <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
                       Memory
                     </div>
-                    <div className="mt-1 text-sm font-medium">{formatMemory(service.memoryBytes)}</div>
+                    <div className="mt-1 text-sm font-medium">
+                      {formatMemory(service.memoryBytes)}
+                    </div>
                   </div>
                   <div className="border p-3">
                     <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
                       PID / elapsed
                     </div>
                     <div className="mt-1 text-sm font-medium">
-                      {service.mainPid !== undefined ? service.mainPid : 'N/A'}
+                      {service.mainPid ?? 'N/A'}
                       {service.processElapsed !== undefined ? ` • ${service.processElapsed}` : ''}
                     </div>
                   </div>
                 </div>
 
-                <div className="grid gap-2 text-xs text-slate-500 md:grid-cols-2">
+                <div className="text-muted-foreground grid gap-2 text-xs md:grid-cols-2">
                   <div>Install path: {service.installPath ?? 'N/A'}</div>
                   <div>Working dir: {service.workingDirectory ?? 'N/A'}</div>
                   <div>Wrapper: {service.scriptPath ?? 'N/A'}</div>
@@ -443,7 +492,7 @@ export const RuntimeManagerPanel = ({
                 </div>
 
                 {service.message !== undefined && service.message !== '' ? (
-                  <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
                     {service.message}
                   </div>
                 ) : null}
@@ -484,7 +533,7 @@ export const RuntimeManagerPanel = ({
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      onRefreshLogs(service.name, 120);
+                      onRefreshLogs(service.name, LOG_TAIL_LINE_COUNT);
                     }}
                   >
                     Tail logs
@@ -535,10 +584,12 @@ export const RuntimeManagerPanel = ({
             <div className="space-y-2 border p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold">Log tail</div>
-                <div className="text-xs text-slate-500">{selectedLogSummary.label}</div>
+                <div className="text-muted-foreground text-xs">{selectedLogSummary.label}</div>
               </div>
-              <pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-slate-950 p-3 text-xs text-slate-100">
-                {selectedLogSummary.body !== '' ? selectedLogSummary.body : 'No log lines returned.'}
+              <pre className="bg-muted max-h-72 overflow-auto p-3 text-xs whitespace-pre-wrap">
+                {selectedLogSummary.body !== ''
+                  ? selectedLogSummary.body
+                  : 'No log lines returned.'}
               </pre>
             </div>
           ) : null}

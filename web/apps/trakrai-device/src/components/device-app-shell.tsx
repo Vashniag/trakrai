@@ -99,8 +99,8 @@ export const DeviceAppShell = () => {
           </DeviceRuntimeProvider>
         </EdgeTransportProvider>
       ) : (
-        <Card className="border-black/10 bg-white/90 shadow-[0_20px_70px_-45px_rgba(15,23,42,0.45)]">
-          <CardContent className="py-10 text-sm text-slate-600">
+        <Card className="border">
+          <CardContent className="text-muted-foreground py-10 text-sm">
             Loading device runtime configuration...
           </CardContent>
         </Card>

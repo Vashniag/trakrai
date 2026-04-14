@@ -31,7 +31,7 @@ const CardHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
 
 const CardTitle = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
-    className={cn('text-sm font-medium group-data-[size=sm]/card:text-sm', className)}
+    className={cn('font-heading text-sm font-medium group-data-[size=sm]/card:text-sm', className)}
     data-slot="card-title"
     {...props}
   />
