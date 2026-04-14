@@ -5,6 +5,7 @@
   "scripts": {
     "build": "turbo run build",
     "build:device": "pnpm --filter trakrai-device build",
+    "build:device:bundle": "docker buildx build --output type=local,dest=./out/trakrai-device-ui-bundle -f ./Dockerfile.trakrai-device-bundle .",
     "dev": "turbo run dev",
     "dev:device": "pnpm --filter trakrai-device dev",
     "lint": "turbo run lint --continue=always",

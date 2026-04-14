@@ -1,0 +1,27 @@
+FROM node:20-bookworm-slim AS builder
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates zip \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm --filter trakrai-device build
+
+RUN mkdir -p /bundle/ui \
+  && cp -R /workspace/apps/trakrai-device/out/. /bundle/ui/ \
+  && cd /bundle \
+  && zip -rq trakrai-device-ui.zip ui \
+  && sha256sum trakrai-device-ui.zip > trakrai-device-ui.zip.sha256
+
+FROM scratch AS export
+
+COPY --from=builder /bundle/ /

@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.turbo
+apps/*/node_modules
+apps/*/.next
+apps/*/out
+packages/*/node_modules
+packages/*/dist
+services/*/node_modules
+services/*/dist
+services/*/.turbo
+.codex-cloud-ui-dev.ps1
+.codex-cloud-ui.err.log
+.codex-cloud-ui.out.log
