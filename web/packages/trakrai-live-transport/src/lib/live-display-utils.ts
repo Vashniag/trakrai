@@ -3,6 +3,7 @@
 import type { ConnectionState, DeviceServiceStatus } from './live-types';
 
 const FRESH_HEARTBEAT_SECONDS = 5;
+const MAX_SERVICE_DETAIL_FRAGMENTS = 4;
 const SECONDS_PER_MINUTE = 60;
 
 export const getStatusLabel = (connectionState: ConnectionState): string => {
@@ -82,33 +83,43 @@ export const getServiceStatusClasses = (status: string): string => {
   }
 };
 
+const summarizeDetailValue = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const normalizedValue = value.trim();
+    return normalizedValue === '' ? null : normalizedValue;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    const normalizedItems = value
+      .map((entry) => summarizeDetailValue(entry))
+      .filter((entry): entry is string => entry !== null);
+    if (normalizedItems.length === 0) {
+      return null;
+    }
+
+    return normalizedItems.join(', ');
+  }
+
+  return null;
+};
+
 export const formatServiceDetails = (details: DeviceServiceStatus['details']): string | null => {
   if (details === undefined) {
     return null;
   }
 
-  const fragments = [
-    typeof details['camera'] === 'string' && details['camera'] !== ''
-      ? `camera ${details['camera']}`
-      : null,
-    typeof details['frameSource'] === 'string' && details['frameSource'] !== ''
-      ? `${details['frameSource']} frames`
-      : null,
-    typeof details['peerConnection'] === 'string' && details['peerConnection'] !== ''
-      ? `peer ${details['peerConnection']}`
-      : null,
-    typeof details['phase'] === 'string' && details['phase'] !== '' ? `${details['phase']}` : null,
-    typeof details['reason'] === 'string' && details['reason'] !== ''
-      ? `reason ${details['reason']}`
-      : null,
-    typeof details['error'] === 'string' && details['error'] !== ''
-      ? `error ${details['error']}`
-      : null,
-    typeof details['sessionCount'] === 'number' ? `${details['sessionCount']} live sessions` : null,
-    Array.isArray(details['configuredCameras']) && details['configuredCameras'].length > 0
-      ? `ptz ${details['configuredCameras'].length} cams`
-      : null,
-  ].filter((fragment): fragment is string => fragment !== null);
+  const fragments = Object.entries(details)
+    .filter(([key]) => key !== 'sessions')
+    .map(([key, value]) => {
+      const summary = summarizeDetailValue(value);
+      return summary === null ? null : `${key}: ${summary}`;
+    })
+    .filter((fragment): fragment is string => fragment !== null)
+    .slice(0, MAX_SERVICE_DETAIL_FRAGMENTS);
 
   return fragments.length > 0 ? fragments.join(' | ') : null;
 };

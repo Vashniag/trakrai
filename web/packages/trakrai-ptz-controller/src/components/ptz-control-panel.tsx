@@ -13,11 +13,7 @@ import {
 import { Separator } from '@trakrai/design-system/components/separator';
 import { getServiceStatusClasses } from '@trakrai/live-transport/lib/live-display-utils';
 
-import type {
-  PtzCapabilities,
-  PtzPosition,
-  PtzVelocityCommand,
-} from '@trakrai/live-transport/lib/live-types';
+import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from '../lib/ptz-types';
 
 import {
   canStartPtzMove,

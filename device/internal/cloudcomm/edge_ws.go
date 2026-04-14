@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -17,34 +16,19 @@ import (
 	"github.com/trakrai/device-services/internal/ipc"
 )
 
-const (
-	defaultCommandSubtopic = "command"
-	ptzServiceName         = "ptz-control"
-	liveFeedServiceName    = "live-feed"
-)
-
-type edgeInboundMessage struct {
-	Payload json.RawMessage `json:"payload"`
-	Type    string          `json:"type"`
+type edgeInboundFrame struct {
+	DeviceID string           `json:"deviceId,omitempty"`
+	Envelope ipc.MQTTEnvelope `json:"envelope"`
+	Kind     string           `json:"kind"`
+	Service  *string          `json:"service"`
+	Subtopic string           `json:"subtopic"`
 }
 
-type edgePublishPayload struct {
-	Payload  json.RawMessage `json:"payload"`
-	Service  string          `json:"service"`
-	Subtopic string          `json:"subtopic"`
-	Type     string          `json:"type"`
-}
-
-type edgeSetDevicePayload struct {
-	DeviceID string `json:"deviceId"`
-}
-
-type edgeOutboundMessage struct {
+type edgeOutboundPacket struct {
 	DeviceID string           `json:"deviceId"`
-	Payload  ipc.MQTTEnvelope `json:"payload"`
-	Service  string           `json:"service,omitempty"`
-	Subtopic string           `json:"subtopic,omitempty"`
-	Type     string           `json:"type"`
+	Envelope ipc.MQTTEnvelope `json:"envelope"`
+	Service  *string          `json:"service"`
+	Subtopic string           `json:"subtopic"`
 }
 
 type edgeClient struct {
@@ -153,22 +137,21 @@ func (s *EdgeWebSocketServer) Close() {
 }
 
 func (s *EdgeWebSocketServer) Broadcast(service string, subtopic string, env ipc.MQTTEnvelope) int {
-	if shouldSuppressOutboundICE(service, subtopic, env) {
+	if shouldSuppressOutboundICE(subtopic, env) {
 		return 0
 	}
 
-	message := edgeOutboundMessage{
+	packet := edgeOutboundPacket{
 		DeviceID: s.cfg.DeviceID,
-		Payload:  env,
-		Service:  normalizeLegacyServiceName(service),
-		Subtopic: strings.TrimPrefix(subtopic, "/"),
-		Type:     outboundWebSocketType(service, subtopic, env),
+		Envelope: env,
+		Service:  edgeServicePointer(service),
+		Subtopic: normalizeEdgeSubtopic(subtopic),
 	}
 
-	clients := s.broadcastTargets(message)
+	clients := s.broadcastTargets(packet)
 	delivered := 0
 	for _, client := range clients {
-		if err := client.writeJSON(message); err != nil {
+		if err := client.writeJSON(packet); err != nil {
 			s.log.Warn("edge WebSocket write failed", "error", err)
 			s.removeClient(client)
 			_ = client.conn.Close()
@@ -230,7 +213,6 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 	client := &edgeClient{conn: conn}
 	s.addClient(client)
 	defer func() {
-		s.stopClientSessions(client)
 		s.removeClient(client)
 		_ = conn.Close()
 	}()
@@ -242,22 +224,23 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 
 	if err := client.writeJSON(map[string]interface{}{
 		"deviceId": s.cfg.DeviceID,
-		"type":     "session-info",
+		"kind":     "session-info",
 	}); err != nil {
 		return
 	}
 
-	if err := client.writeJSON(edgeOutboundMessage{
+	if err := client.writeJSON(edgeOutboundPacket{
 		DeviceID: s.cfg.DeviceID,
-		Payload:  s.snapshotEnvelope(),
-		Type:     "device-status",
+		Envelope: s.snapshotEnvelope(),
+		Service:  nil,
+		Subtopic: "status",
 	}); err != nil {
 		return
 	}
 
 	conn.SetReadLimit(1024 * 1024)
 	for {
-		var message edgeInboundMessage
+		var message edgeInboundFrame
 		if err := conn.ReadJSON(&message); err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) &&
 				!errors.Is(err, net.ErrClosed) {
@@ -270,81 +253,72 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 	}
 }
 
-func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message edgeInboundMessage) {
-	if strings.TrimSpace(message.Type) == "" {
-		s.sendImmediateError(client, topicRoute{}, "", "message type is required")
+func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message edgeInboundFrame) {
+	switch strings.TrimSpace(message.Kind) {
+	case "set-device":
+		s.handleSetDevice(client, message.DeviceID)
+		return
+	case "packet":
+	default:
+		s.sendImmediateError(client, topicRoute{}, "", "message kind is required")
 		return
 	}
 
-	if message.Type == "set-device" {
-		s.handleSetDevice(client, message.Payload)
+	subtopic := normalizeEdgeSubtopic(message.Subtopic)
+	if subtopic == "" {
+		s.sendImmediateError(client, topicRoute{}, message.Envelope.Type, "subtopic is required")
 		return
 	}
 
-	if message.Type == "start-live" {
-		var requestID string
-		message, requestID = ensureEdgeLiveRequestID(message)
+	envelope, err := normalizeEdgeEnvelope(message.Envelope)
+	if err != nil {
+		s.sendImmediateError(client, topicRoute{
+			service:  normalizeInboundService(message.Service),
+			subtopic: subtopic,
+		}, "", err.Error())
+		return
+	}
+
+	requestID, sessionID := edgeEnvelopeIDs(envelope)
+	if requestID != "" {
 		s.registerRequestOwner(client, requestID)
 	}
-	if message.Type == "ice-candidate" {
-		message = ensureEdgeICEOrigin(message, "browser")
-	}
-
-	if message.Type == "sdp-answer" || message.Type == "ice-candidate" || message.Type == "stop-live" {
-		_, sessionID := edgeMessageIDs(message.Payload)
-		if sessionID != "" && !s.liveClientMatches(client, sessionID) {
-			return
-		}
-		if message.Type == "stop-live" {
-			if sessionID == "" {
-				s.clearClientLiveRoutes(client)
-			} else {
-				s.unregisterSessionOwner(sessionID)
-			}
-		}
-	}
-
-	route, env, err := translateWebSocketMessage(message)
-	if err != nil {
-		s.sendImmediateError(client, topicRoute{}, message.Type, err.Error())
+	if sessionID != "" && !s.clientOwnsSession(client, sessionID) {
 		return
 	}
 
-	if err := s.dispatch(route, env); err != nil {
+	route := topicRoute{
+		service:  normalizeInboundService(message.Service),
+		subtopic: subtopic,
+	}
+	if err := s.dispatch(route, envelope); err != nil {
 		s.log.Debug("edge dispatch failed", "service", route.service, "subtopic", route.subtopic, "error", err)
 	}
 }
 
-func (s *EdgeWebSocketServer) handleSetDevice(client *edgeClient, payload json.RawMessage) {
-	requestedDeviceID := s.cfg.DeviceID
-	if len(payload) > 0 {
-		var request edgeSetDevicePayload
-		if err := json.Unmarshal(payload, &request); err != nil {
-			s.sendImmediateError(client, topicRoute{}, "set-device", "invalid set-device payload")
-			return
-		}
-
-		if strings.TrimSpace(request.DeviceID) != "" {
-			requestedDeviceID = strings.TrimSpace(request.DeviceID)
-		}
+func (s *EdgeWebSocketServer) handleSetDevice(client *edgeClient, requestedDeviceID string) {
+	deviceID := strings.TrimSpace(requestedDeviceID)
+	if deviceID == "" {
+		deviceID = s.cfg.DeviceID
 	}
 
-	if requestedDeviceID != s.cfg.DeviceID {
+	if deviceID != s.cfg.DeviceID {
 		s.sendImmediateError(client, topicRoute{}, "set-device", "requested device is not available on this edge runtime")
 		return
 	}
 
 	if err := client.writeJSON(map[string]interface{}{
 		"deviceId": s.cfg.DeviceID,
-		"type":     "session-info",
+		"kind":     "session-info",
 	}); err != nil {
 		return
 	}
 
-	_ = client.writeJSON(edgeOutboundMessage{
+	_ = client.writeJSON(edgeOutboundPacket{
 		DeviceID: s.cfg.DeviceID,
-		Payload:  s.snapshotEnvelope(),
-		Type:     "device-status",
+		Envelope: s.snapshotEnvelope(),
+		Service:  nil,
+		Subtopic: "status",
 	})
 }
 
@@ -354,21 +328,19 @@ func (s *EdgeWebSocketServer) sendImmediateError(
 	requestType string,
 	message string,
 ) {
-	env := buildEnvelope("service-unavailable", marshalPayload(map[string]interface{}{
-		"error":       message,
-		"requestType": requestType,
-		"service":     normalizeLegacyServiceName(route.service),
-	}))
-
-	outbound := edgeOutboundMessage{
+	packet := edgeOutboundPacket{
 		DeviceID: s.cfg.DeviceID,
-		Payload:  env,
-		Service:  normalizeLegacyServiceName(route.service),
+		Envelope: buildEnvelope("service-unavailable", marshalPayload(map[string]interface{}{
+			"error":       message,
+			"requestType": requestType,
+			"service":     route.service,
+			"subtopic":    route.subtopic,
+		})),
+		Service:  edgeServicePointer(route.service),
 		Subtopic: "response",
-		Type:     outboundWebSocketType(route.service, "response", env),
 	}
 
-	if err := client.writeJSON(outbound); err != nil {
+	if err := client.writeJSON(packet); err != nil {
 		s.log.Debug("send immediate edge error failed", "error", err)
 	}
 }
@@ -457,15 +429,15 @@ func (s *EdgeWebSocketServer) snapshotClients() []*edgeClient {
 	return clients
 }
 
-func (s *EdgeWebSocketServer) broadcastTargets(message edgeOutboundMessage) []*edgeClient {
-	if client := s.liveMessageOwner(message); client != nil {
+func (s *EdgeWebSocketServer) broadcastTargets(packet edgeOutboundPacket) []*edgeClient {
+	if client := s.packetOwner(packet); client != nil {
 		return []*edgeClient{client}
 	}
 
 	return s.snapshotClients()
 }
 
-func (s *EdgeWebSocketServer) liveClientMatches(client *edgeClient, sessionID string) bool {
+func (s *EdgeWebSocketServer) clientOwnsSession(client *edgeClient, sessionID string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -473,8 +445,8 @@ func (s *EdgeWebSocketServer) liveClientMatches(client *edgeClient, sessionID st
 	return !ok || owner == client
 }
 
-func (s *EdgeWebSocketServer) liveMessageOwner(message edgeOutboundMessage) *edgeClient {
-	requestID, sessionID := edgeEnvelopeIDs(message.Payload)
+func (s *EdgeWebSocketServer) packetOwner(packet edgeOutboundPacket) *edgeClient {
+	requestID, sessionID := edgeEnvelopeIDs(packet.Envelope)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -513,65 +485,6 @@ func (s *EdgeWebSocketServer) registerRequestOwner(client *edgeClient, requestID
 	s.clientRequests[client][requestID] = struct{}{}
 }
 
-func (s *EdgeWebSocketServer) unregisterSessionOwner(sessionID string) {
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	owner, ok := s.sessionOwners[sessionID]
-	if !ok {
-		return
-	}
-
-	delete(s.sessionOwners, sessionID)
-	if sessions := s.clientSessions[owner]; sessions != nil {
-		delete(sessions, sessionID)
-	}
-}
-
-func (s *EdgeWebSocketServer) clearClientLiveRoutes(client *edgeClient) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for requestID := range s.clientRequests[client] {
-		delete(s.requestOwners, requestID)
-	}
-	clear(s.clientRequests[client])
-
-	for sessionID := range s.clientSessions[client] {
-		delete(s.sessionOwners, sessionID)
-	}
-	clear(s.clientSessions[client])
-}
-
-func (s *EdgeWebSocketServer) stopClientSessions(client *edgeClient) {
-	sessionIDs := s.snapshotClientSessionIDs(client)
-	for _, sessionID := range sessionIDs {
-		route := topicRoute{service: liveFeedServiceName, subtopic: "command"}
-		env := buildEnvelope("stop-live", marshalPayload(map[string]interface{}{
-			"sessionId": sessionID,
-		}))
-		if err := s.dispatch(route, env); err != nil {
-			s.log.Debug("edge dispatch failed while stopping client session", "sessionId", sessionID, "error", err)
-		}
-	}
-}
-
-func (s *EdgeWebSocketServer) snapshotClientSessionIDs(client *edgeClient) []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	sessionIDs := make([]string, 0, len(s.clientSessions[client]))
-	for sessionID := range s.clientSessions[client] {
-		sessionIDs = append(sessionIDs, sessionID)
-	}
-	return sessionIDs
-}
-
 func (s *EdgeWebSocketServer) bindSessionOwnerLocked(client *edgeClient, sessionID string) {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
@@ -585,18 +498,33 @@ func (s *EdgeWebSocketServer) bindSessionOwnerLocked(client *edgeClient, session
 	s.clientSessions[client][sessionID] = struct{}{}
 }
 
-func ensureEdgeLiveRequestID(message edgeInboundMessage) (edgeInboundMessage, string) {
-	requestID, _ := edgeMessageIDs(message.Payload)
-	if requestID != "" {
-		return message, requestID
+func normalizeEdgeEnvelope(env ipc.MQTTEnvelope) (ipc.MQTTEnvelope, error) {
+	msgType := strings.TrimSpace(env.Type)
+	if msgType == "" {
+		return ipc.MQTTEnvelope{}, errors.New("envelope type is required")
 	}
 
-	payload := edgePayloadMap(message.Payload)
-	requestID = fmt.Sprintf("edge-%d", time.Now().UnixNano())
-	payload["requestId"] = requestID
+	payload := env.Payload
+	if len(payload) == 0 {
+		payload = marshalPayload(map[string]interface{}{})
+	}
 
-	message.Payload = marshalPayload(payload)
-	return message, requestID
+	msgID := strings.TrimSpace(env.MsgID)
+	if msgID == "" {
+		msgID = buildEnvelope(msgType, payload).MsgID
+	}
+
+	timestamp := strings.TrimSpace(env.Timestamp)
+	if timestamp == "" {
+		timestamp = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	return ipc.MQTTEnvelope{
+		MsgID:     msgID,
+		Payload:   payload,
+		Timestamp: timestamp,
+		Type:      msgType,
+	}, nil
 }
 
 func edgePayloadMap(payload json.RawMessage) map[string]interface{} {
@@ -610,11 +538,6 @@ func edgePayloadMap(payload json.RawMessage) map[string]interface{} {
 	}
 
 	return decoded
-}
-
-func edgeMessageIDs(payload json.RawMessage) (string, string) {
-	decoded := edgePayloadMap(payload)
-	return readEdgeString(decoded["requestId"]), readEdgeString(decoded["sessionId"])
 }
 
 func edgeEnvelopeIDs(env ipc.MQTTEnvelope) (string, string) {
@@ -652,22 +575,29 @@ func readEdgeString(value interface{}) string {
 	return strings.TrimSpace(stringValue)
 }
 
-func ensureEdgeICEOrigin(message edgeInboundMessage, origin string) edgeInboundMessage {
-	payload := edgePayloadMap(message.Payload)
-	payload["origin"] = strings.TrimSpace(origin)
-	message.Payload = marshalPayload(payload)
-	return message
+func shouldSuppressOutboundICE(subtopic string, env ipc.MQTTEnvelope) bool {
+	return normalizeEdgeSubtopic(subtopic) == "webrtc/ice" && edgeEnvelopeOrigin(env) == "browser"
 }
 
-func shouldSuppressOutboundICE(service string, subtopic string, env ipc.MQTTEnvelope) bool {
-	service = strings.TrimSpace(service)
-	subtopic = strings.Trim(strings.TrimSpace(subtopic), "/")
+func normalizeEdgeSubtopic(subtopic string) string {
+	return strings.Trim(strings.TrimSpace(subtopic), "/")
+}
 
-	if !(service == "" || service == liveFeedServiceName) || subtopic != "webrtc/ice" {
-		return false
+func normalizeInboundService(service *string) string {
+	if service == nil {
+		return ""
 	}
 
-	return edgeEnvelopeOrigin(env) == "browser"
+	return strings.TrimSpace(*service)
+}
+
+func edgeServicePointer(service string) *string {
+	normalized := strings.TrimSpace(service)
+	if normalized == "" {
+		return nil
+	}
+
+	return &normalized
 }
 
 func (s *EdgeWebSocketServer) edgeICEConfigResponse() map[string]interface{} {
@@ -704,113 +634,4 @@ func (s *EdgeWebSocketServer) edgeICEConfigResponse() map[string]interface{} {
 	return map[string]interface{}{
 		"iceServers": iceServers,
 	}
-}
-
-func normalizeLegacyServiceName(service string) string {
-	service = strings.TrimSpace(service)
-	if service == "" {
-		return ""
-	}
-	if service == liveFeedServiceName {
-		return ""
-	}
-	return service
-}
-
-func outboundWebSocketType(service string, subtopic string, env ipc.MQTTEnvelope) string {
-	service = strings.TrimSpace(service)
-	subtopic = strings.Trim(strings.TrimSpace(subtopic), "/")
-
-	switch {
-	case (service == "" || service == liveFeedServiceName) && subtopic == "response":
-		if env.Type == "status" {
-			return "device-status"
-		}
-		return "device-response"
-	case (service == "" || service == liveFeedServiceName) && subtopic == "status":
-		return "device-status"
-	case (service == "" || service == liveFeedServiceName) && subtopic == "webrtc/offer":
-		return "sdp-offer"
-	case (service == "" || service == liveFeedServiceName) && subtopic == "webrtc/ice":
-		return "ice-candidate"
-	case service == ptzServiceName && subtopic == "response":
-		return "ptz-response"
-	case service == ptzServiceName && subtopic == "status":
-		return "ptz-status"
-	default:
-		return "edge-message"
-	}
-}
-
-func translateWebSocketMessage(message edgeInboundMessage) (topicRoute, ipc.MQTTEnvelope, error) {
-	switch message.Type {
-	case "publish":
-		var payload edgePublishPayload
-		if err := json.Unmarshal(message.Payload, &payload); err != nil {
-			return topicRoute{}, ipc.MQTTEnvelope{}, err
-		}
-
-		subtopic := strings.Trim(strings.TrimSpace(payload.Subtopic), "/")
-		if subtopic == "" {
-			subtopic = defaultCommandSubtopic
-		}
-
-		if strings.TrimSpace(payload.Type) == "" {
-			return topicRoute{}, ipc.MQTTEnvelope{}, errors.New("publish type is required")
-		}
-
-		return topicRoute{
-				service:  normalizeInboundService(payload.Service),
-				subtopic: subtopic,
-			},
-			buildEnvelope(payload.Type, payload.Payload),
-			nil
-
-	case "get-status", "start-live", "update-live-layout", "stop-live":
-		return topicRoute{service: liveFeedServiceName, subtopic: "command"},
-			buildEnvelope(message.Type, message.Payload),
-			nil
-	case "sdp-answer":
-		return topicRoute{service: liveFeedServiceName, subtopic: "webrtc/answer"},
-			buildEnvelope(message.Type, message.Payload),
-			nil
-	case "ice-candidate":
-		return topicRoute{service: liveFeedServiceName, subtopic: "webrtc/ice"},
-			buildEnvelope(message.Type, message.Payload),
-			nil
-	case "ptz-get-status":
-		return topicRoute{service: ptzServiceName, subtopic: "command"},
-			buildEnvelope("get-status", message.Payload),
-			nil
-	case "ptz-get-position":
-		return topicRoute{service: ptzServiceName, subtopic: "command"},
-			buildEnvelope("get-position", message.Payload),
-			nil
-	case "ptz-start-move":
-		return topicRoute{service: ptzServiceName, subtopic: "command"},
-			buildEnvelope("start-move", message.Payload),
-			nil
-	case "ptz-stop":
-		return topicRoute{service: ptzServiceName, subtopic: "command"},
-			buildEnvelope("stop-move", message.Payload),
-			nil
-	case "ptz-set-zoom":
-		return topicRoute{service: ptzServiceName, subtopic: "command"},
-			buildEnvelope("set-zoom", message.Payload),
-			nil
-	case "ptz-go-home":
-		return topicRoute{service: ptzServiceName, subtopic: "command"},
-			buildEnvelope("go-home", message.Payload),
-			nil
-	default:
-		return topicRoute{}, ipc.MQTTEnvelope{}, errors.New("unsupported edge message type")
-	}
-}
-
-func normalizeInboundService(service string) string {
-	service = strings.TrimSpace(service)
-	if service == "" {
-		return liveFeedServiceName
-	}
-	return service
 }

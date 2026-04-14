@@ -1,6 +1,7 @@
 'use client';
 
-import type { DeviceCamera, LiveLayoutMode } from '@trakrai/live-transport/lib/live-types';
+import type { LiveLayoutMode } from './live-viewer-types';
+import type { DeviceCamera } from '@trakrai/live-transport/lib/live-types';
 
 export type LiveLayoutOption = Readonly<{
   capacity: number;

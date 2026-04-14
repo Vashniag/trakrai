@@ -65,61 +65,57 @@ const resolveTurnConfig = (): { credential: string; url: string; username: strin
   }
 
   return {
+    credential: normalizeEnvValue(process.env['TURN_CREDENTIAL'], 'trakrai-secret'),
     url: turnUrl,
     username: normalizeEnvValue(process.env['TURN_USERNAME'], 'trakrai'),
-    credential: normalizeEnvValue(process.env['TURN_CREDENTIAL'], 'trakrai-secret'),
   };
 };
 
 export const serviceName = 'live-gateway';
 
 export const config = {
-  port: parseNumber(process.env['PORT'], 4000),
-  mqttBrokerUrl: normalizeEnvValue(process.env['MQTT_BROKER_URL'], 'mqtt://localhost:1883'),
   corsOrigin: normalizeEnvValue(process.env['CORS_ORIGIN'], 'http://localhost:3000'),
   defaultDeviceId: normalizeEnvValue(process.env['DEVICE_ID'], 'default'),
+  mqttBrokerUrl: normalizeEnvValue(process.env['MQTT_BROKER_URL'], 'mqtt://localhost:1883'),
+  port: parseNumber(process.env['PORT'], 4000),
   turn: resolveTurnConfig(),
 } as const;
 
-export type DeviceTopicType =
-  | 'command'
-  | 'response'
-  | 'status'
-  | 'webrtcOffer'
-  | 'webrtcAnswer'
-  | 'webrtcIce';
-
-type ParsedDeviceTopic = {
+export type ParsedDeviceTopic = {
   deviceId: string;
   service: string | null;
-  topicType: DeviceTopicType;
+  subtopic: string;
 };
 
-const topicBase = (deviceId: string, service?: string): string =>
-  service !== undefined && service.trim() !== ''
-    ? `trakrai/device/${deviceId}/service/${service}`
-    : `trakrai/device/${deviceId}`;
+const topicBase = (deviceId: string, service?: string | null): string => {
+  const normalizedDeviceId = deviceId.trim();
+  const normalizedService = service?.trim() ?? '';
+  return normalizedService !== ''
+    ? `trakrai/device/${normalizedDeviceId}/service/${normalizedService}`
+    : `trakrai/device/${normalizedDeviceId}`;
+};
 
-export const deviceTopics = (
+export const normalizeTopicSubtopic = (subtopic: string): string =>
+  subtopic.replace(/^\/+/, '').trim();
+
+export const buildDeviceTopic = (
   deviceId: string,
-  service?: string,
-): Record<DeviceTopicType, string> => ({
-  command: `${topicBase(deviceId, service)}/command`,
-  response: `${topicBase(deviceId, service)}/response`,
-  status: `${topicBase(deviceId, service)}/status`,
-  webrtcOffer: `${topicBase(deviceId, service)}/webrtc/offer`,
-  webrtcAnswer: `${topicBase(deviceId, service)}/webrtc/answer`,
-  webrtcIce: `${topicBase(deviceId, service)}/webrtc/ice`,
-});
+  subtopic: string,
+  service?: string | null,
+): string => {
+  const normalizedSubtopic = normalizeTopicSubtopic(subtopic);
+  if (normalizedSubtopic === '') {
+    throw new Error('subtopic is required');
+  }
+
+  return `${topicBase(deviceId, service)}/${normalizedSubtopic}`;
+};
 
 export const subscribeTopicsForDevice = (deviceId: string): string[] => {
-  const topics = deviceTopics(deviceId);
   const serviceWildcardBase = `${topicBase(deviceId)}/service/+`;
   return [
-    topics.response,
-    topics.status,
-    topics.webrtcOffer,
-    topics.webrtcIce,
+    buildDeviceTopic(deviceId, 'response'),
+    buildDeviceTopic(deviceId, 'status'),
     `${serviceWildcardBase}/response`,
     `${serviceWildcardBase}/status`,
     `${serviceWildcardBase}/webrtc/offer`,
@@ -136,19 +132,10 @@ export const parseDeviceTopic = (topic: string): ParsedDeviceTopic | null => {
     return null;
   }
 
-  const [, deviceId, serviceSegment, suffix] = match;
-  const topicTypeMap: Record<string, DeviceTopicType> = {
-    command: 'command',
-    response: 'response',
-    status: 'status',
-    'webrtc/offer': 'webrtcOffer',
-    'webrtc/answer': 'webrtcAnswer',
-    'webrtc/ice': 'webrtcIce',
-  };
-
+  const [, deviceId, serviceSegment, subtopic] = match;
   return {
     deviceId,
     service: serviceSegment ?? null,
-    topicType: topicTypeMap[suffix],
+    subtopic,
   };
 };

@@ -32,7 +32,7 @@ func TestTransportPublisherSucceedsWhenEdgeDeliveryExists(t *testing.T) {
 	)
 
 	err := publisher.Publish(ipc.PublishMessageRequest{
-		Service:  ptzServiceName,
+		Service:  "ptz-control",
 		Subtopic: "response",
 		Type:     "ptz-command-ack",
 		Payload:  marshalPayload(map[string]interface{}{"ok": true}),
@@ -51,7 +51,7 @@ func TestTransportPublisherFailsWhenNoTransportDelivers(t *testing.T) {
 	)
 
 	err := publisher.Publish(ipc.PublishMessageRequest{
-		Service:  liveFeedServiceName,
+		Service:  "live-feed",
 		Subtopic: "response",
 		Type:     "start-live-ack",
 		Payload:  marshalPayload(map[string]interface{}{"ok": true}),

@@ -1,11 +1,10 @@
 import mqtt from 'mqtt';
 import {
+  buildDeviceTopic,
   config,
-  deviceTopics,
   parseDeviceTopic,
   serviceName,
   subscribeTopicsForDevice,
-  type DeviceTopicType,
 } from './config.js';
 
 export type MqttMessageHandler = (topic: string, payload: string) => void;
@@ -119,17 +118,16 @@ export function unsubscribeFromDevice(deviceId: string): void {
 
 export function publishMqtt(
   deviceId: string,
-  topicType: DeviceTopicType,
+  subtopic: string,
   payload: string,
-  service?: string,
+  service?: string | null,
 ): void {
   if (!client) {
     console.error('[mqtt] not connected, cannot publish');
     return;
   }
 
-  const topics = deviceTopics(deviceId, service);
-  client.publish(topics[topicType], payload, { qos: 1 });
+  client.publish(buildDeviceTopic(deviceId, subtopic, service), payload, { qos: 1 });
 }
 
 export function getMqttClient(): mqtt.MqttClient | null {

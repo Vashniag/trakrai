@@ -11,9 +11,10 @@ import {
 } from 'react';
 
 import type {
-  LiveTransportMessage,
   TransportConnectionState,
   TransportLayer,
+  TransportPacket,
+  TransportPacketDraft,
 } from '../lib/live-types';
 
 import { LiveTransportClient, type LiveTransportStatusEvent } from '../lib/live-client';
@@ -29,10 +30,11 @@ export type LiveTransportProviderProps = Readonly<{
 export type LiveTransportContextValue = {
   deviceId: string;
   httpBaseUrl: string;
-  requestStatus: () => void;
-  sendMessage: (type: string, payload?: unknown) => void;
+  requestDeviceStatus: () => void;
+  sendPacket: (packet: TransportPacketDraft) => void;
+  setDevice: (deviceId: string) => void;
   signalingUrl: string;
-  subscribeToMessages: (handler: (message: LiveTransportMessage) => void) => () => void;
+  subscribeToPackets: (handler: (packet: TransportPacket) => void) => () => void;
   subscribeToTransportStatus: (handler: (event: LiveTransportStatusEvent) => void) => () => void;
   transportError: string | null;
   transportMode: TransportLayer;
@@ -53,7 +55,7 @@ const createTransportProvider = (transportMode: TransportLayer) => {
     const normalizedSignalingUrl = normalizeEndpointUrl(signalingUrl);
     const hasValidTransportConfig =
       normalizedDeviceId !== '' && normalizedHttpBaseUrl !== '' && normalizedSignalingUrl !== '';
-    const liveGateway = useMemo(() => {
+    const transportClient = useMemo(() => {
       if (!hasValidTransportConfig) {
         return null;
       }
@@ -65,11 +67,11 @@ const createTransportProvider = (transportMode: TransportLayer) => {
     const [transportError, setTransportError] = useState<string | null>(null);
 
     useEffect(() => {
-      if (liveGateway === null) {
+      if (transportClient === null) {
         return undefined;
       }
 
-      const unsubscribeStatus = liveGateway.onStatus((event) => {
+      const unsubscribeStatus = transportClient.onStatus((event) => {
         switch (event.type) {
           case 'connecting':
             setTransportState(event.attempt > 1 ? 'reconnecting' : 'connecting');
@@ -92,55 +94,71 @@ const createTransportProvider = (transportMode: TransportLayer) => {
         }
       });
 
-      liveGateway.connect();
+      transportClient.connect();
 
       return () => {
         unsubscribeStatus();
-        liveGateway.disconnect();
+        transportClient.disconnect();
       };
-    }, [liveGateway]);
+    }, [transportClient]);
 
-    const sendMessage = useCallback(
-      (type: string, payload?: unknown) => {
-        liveGateway?.send(type, payload);
+    useEffect(() => {
+      if (transportClient === null || normalizedDeviceId === '') {
+        return;
+      }
+
+      transportClient.setDevice(normalizedDeviceId);
+    }, [normalizedDeviceId, transportClient]);
+
+    const sendPacket = useCallback(
+      (packet: TransportPacketDraft) => {
+        transportClient?.sendPacket(packet);
       },
-      [liveGateway],
+      [transportClient],
     );
 
-    const requestStatus = useCallback(() => {
-      liveGateway?.requestStatus();
-    }, [liveGateway]);
+    const requestDeviceStatus = useCallback(() => {
+      transportClient?.requestStatus();
+    }, [transportClient]);
 
-    const subscribeToMessages = useCallback(
-      (handler: (message: LiveTransportMessage) => void) => {
-        if (liveGateway === null) {
+    const setDevice = useCallback(
+      (nextDeviceId: string) => {
+        transportClient?.setDevice(nextDeviceId);
+      },
+      [transportClient],
+    );
+
+    const subscribeToPackets = useCallback(
+      (handler: (packet: TransportPacket) => void) => {
+        if (transportClient === null) {
           return () => undefined;
         }
 
-        return liveGateway.onMessage(handler);
+        return transportClient.onMessage(handler);
       },
-      [liveGateway],
+      [transportClient],
     );
 
     const subscribeToTransportStatus = useCallback(
       (handler: (event: LiveTransportStatusEvent) => void) => {
-        if (liveGateway === null) {
+        if (transportClient === null) {
           return () => undefined;
         }
 
-        return liveGateway.onStatus(handler);
+        return transportClient.onStatus(handler);
       },
-      [liveGateway],
+      [transportClient],
     );
 
     const value = useMemo<LiveTransportContextValue>(
       () => ({
         deviceId: normalizedDeviceId,
         httpBaseUrl: normalizedHttpBaseUrl,
-        requestStatus,
-        sendMessage,
+        requestDeviceStatus,
+        sendPacket,
+        setDevice,
         signalingUrl: normalizedSignalingUrl,
-        subscribeToMessages,
+        subscribeToPackets,
         subscribeToTransportStatus,
         transportError: hasValidTransportConfig ? transportError : null,
         transportMode,
@@ -151,9 +169,10 @@ const createTransportProvider = (transportMode: TransportLayer) => {
         normalizedDeviceId,
         normalizedHttpBaseUrl,
         normalizedSignalingUrl,
-        requestStatus,
-        sendMessage,
-        subscribeToMessages,
+        requestDeviceStatus,
+        sendPacket,
+        setDevice,
+        subscribeToPackets,
         subscribeToTransportStatus,
         transportError,
         transportState,

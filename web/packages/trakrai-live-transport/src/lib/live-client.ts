@@ -1,4 +1,6 @@
-type MessageHandler = (msg: { type: string; payload: unknown }) => void;
+import type { TransportPacket, TransportPacketDraft } from './live-types';
+
+type MessageHandler = (packet: TransportPacket) => void;
 
 export type LiveTransportStatusEvent =
   | { attempt: number; type: 'connecting' }
@@ -13,6 +15,38 @@ const MAX_QUEUE_SIZE = 32;
 const RECONNECT_DELAY_MS = 1500;
 
 const normalizeGatewayUrl = (url: string): string => url.replace(/\s+(?=[?#]|$)/g, '').trim();
+
+const isTransportPacket = (value: unknown): value is TransportPacket => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const packet = value as Partial<TransportPacket>;
+  const envelope = packet.envelope as { type?: unknown } | undefined;
+  return (
+    typeof packet.deviceId === 'string' &&
+    typeof packet.subtopic === 'string' &&
+    typeof packet.envelope === 'object' &&
+    !Array.isArray(packet.envelope) &&
+    typeof envelope?.type === 'string'
+  );
+};
+
+const buildPacketFrame = (packet: TransportPacketDraft): string =>
+  JSON.stringify({
+    kind: 'packet',
+    envelope: {
+      msgId: packet.msgId,
+      payload: packet.payload ?? {},
+      timestamp: packet.timestamp,
+      type: packet.type,
+    },
+    service:
+      typeof packet.service === 'string' && packet.service.trim() !== ''
+        ? packet.service.trim()
+        : null,
+    subtopic: packet.subtopic.trim(),
+  });
 
 export class LiveTransportClient {
   private ws: WebSocket | null = null;
@@ -50,9 +84,11 @@ export class LiveTransportClient {
 
     this.ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data as string) as { payload: unknown; type: string };
-        for (const handler of this.messageHandlers) {
-          handler(msg);
+        const message = JSON.parse(event.data as string) as unknown;
+        if (isTransportPacket(message)) {
+          for (const handler of this.messageHandlers) {
+            handler(message);
+          }
         }
       } catch {
         return undefined;
@@ -82,8 +118,17 @@ export class LiveTransportClient {
     };
   }
 
-  send(type: string, payload?: unknown): void {
-    const frame = JSON.stringify({ type, payload });
+  sendPacket(packet: TransportPacketDraft): void {
+    const normalizedSubtopic = packet.subtopic.trim();
+    if (normalizedSubtopic === '' || packet.type.trim() === '') {
+      return;
+    }
+
+    const frame = buildPacketFrame({
+      ...packet,
+      subtopic: normalizedSubtopic,
+      type: packet.type.trim(),
+    });
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(frame);
       return;
@@ -96,7 +141,31 @@ export class LiveTransportClient {
   }
 
   requestStatus(): void {
-    this.send('get-status', {});
+    this.sendPacket({
+      subtopic: 'command',
+      type: 'get-status',
+    });
+  }
+
+  setDevice(deviceId: string): void {
+    const normalizedDeviceId = deviceId.trim();
+    if (normalizedDeviceId === '') {
+      return;
+    }
+
+    const frame = JSON.stringify({
+      deviceId: normalizedDeviceId,
+      kind: 'set-device',
+    });
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(frame);
+      return;
+    }
+
+    if (this.outboundQueue.length >= MAX_QUEUE_SIZE) {
+      this.outboundQueue.shift();
+    }
+    this.outboundQueue.push(frame);
   }
 
   onMessage(handler: MessageHandler): () => void {

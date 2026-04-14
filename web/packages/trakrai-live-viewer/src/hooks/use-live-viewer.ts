@@ -6,26 +6,35 @@ import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runti
 import { useLiveTransport } from '@trakrai/live-transport/hooks/use-live-transport';
 import { useWebRtc } from '@trakrai/live-transport/hooks/use-webrtc';
 import {
-  createClientRequestId,
   getEnvelopeType,
-  getReportedLiveFeedCamera,
   normalizeOptionalString,
   unwrapPayload,
 } from '@trakrai/live-transport/lib/live-transport-utils';
 
+import type { LiveFrameSource, LiveLayoutSelection } from '../lib/live-viewer-types';
 import type {
   ConnectionState,
   DeviceStatus,
-  LiveFrameSource,
-  LiveLayoutSelection,
   StreamStats,
   TransportConnectionState,
   TransportLayer,
   WebRtcConnectionState,
 } from '@trakrai/live-transport/lib/live-types';
 
+import {
+  createLiveViewerRequestId,
+  createStartLivePacket,
+  createStopLivePacket,
+  createUpdateLiveLayoutPacket,
+  createWebRtcAnswerPacket,
+  createWebRtcIcePacket,
+  getReportedLiveFeedCamera,
+  isLiveViewerPacket,
+  readLiveViewerRequestId,
+  readLiveViewerSessionId,
+} from '../lib/live-viewer-transport';
+
 const DEFAULT_LIVE_FRAME_SOURCE: LiveFrameSource = 'raw';
-const ICE_CANDIDATE_MESSAGE_TYPE = 'ice-candidate';
 
 export type LiveViewerState = {
   activeCameraName: string | null;
@@ -88,10 +97,10 @@ export const useLiveViewer = (): LiveViewerState => {
   const {
     deviceId,
     httpBaseUrl,
-    requestStatus,
-    sendMessage,
+    requestDeviceStatus,
+    sendPacket,
     signalingUrl,
-    subscribeToMessages,
+    subscribeToPackets,
     transportError,
     transportMode,
     transportState,
@@ -126,40 +135,24 @@ export const useLiveViewer = (): LiveViewerState => {
   }, [deviceId]);
 
   useEffect(() => {
-    const unsubscribeMessages = subscribeToMessages((message) => {
-      switch (message.type) {
-        case 'device-status': {
-          const nextStatus = unwrapPayload<DeviceStatus>(message.payload);
-          const reportedCamera = getReportedLiveFeedCamera(nextStatus);
-          if (reportedCamera !== null) {
-            setActiveCameraName(reportedCamera);
-          }
-          break;
-        }
-        case 'device-response': {
+    const unsubscribePackets = subscribeToPackets((packet) => {
+      if (!isLiveViewerPacket(packet)) {
+        return;
+      }
+
+      switch (packet.subtopic) {
+        case 'response': {
           const payload = unwrapPayload<{
             cameraName?: string;
             error?: string;
             ok?: boolean;
             requestId?: string;
             sessionId?: string;
-          }>(message.payload);
-          const responseType = getEnvelopeType(message.payload) ?? undefined;
-
-          if (responseType === 'status') {
-            const nextStatus = unwrapPayload<DeviceStatus>(message.payload);
-            const reportedCamera = getReportedLiveFeedCamera(nextStatus);
-            if (reportedCamera !== null) {
-              setActiveCameraName(reportedCamera);
-            }
-            return;
-          }
+          }>(packet.envelope);
+          const responseType = getEnvelopeType(packet.envelope) ?? undefined;
 
           if (responseType === 'start-live-ack') {
-            const acknowledgedRequestId =
-              typeof payload.requestId === 'string'
-                ? normalizeOptionalString(payload.requestId)
-                : null;
+            const acknowledgedRequestId = readLiveViewerRequestId(packet);
             if (
               acknowledgedRequestId !== null &&
               activeRequestIdRef.current !== null &&
@@ -177,7 +170,7 @@ export const useLiveViewer = (): LiveViewerState => {
             }
 
             const acknowledgedCameraName = normalizeOptionalString(payload.cameraName);
-            pendingSessionIdRef.current = normalizeOptionalString(payload.sessionId);
+            pendingSessionIdRef.current = readLiveViewerSessionId(packet);
             if (acknowledgedRequestId !== null) {
               activeRequestIdRef.current = acknowledgedRequestId;
             }
@@ -189,13 +182,14 @@ export const useLiveViewer = (): LiveViewerState => {
                 acknowledgedCameraName !== null ? ` for ${acknowledgedCameraName}` : ''
               }`,
             );
+            return;
           }
 
           if (responseType === 'live-layout-updated') {
             const layoutPayload = unwrapPayload<{
               cameraName?: string;
               layoutMode?: string;
-            }>(message.payload);
+            }>(packet.envelope);
             const nextCameraName = normalizeOptionalString(layoutPayload.cameraName);
             if (nextCameraName !== null) {
               setActiveCameraName(nextCameraName);
@@ -209,25 +203,27 @@ export const useLiveViewer = (): LiveViewerState => {
                   : ''
               }`,
             );
+            return;
           }
 
           if (responseType === 'service-unavailable' && payload.error !== undefined) {
             setViewerError(payload.error);
             appendLog('error', payload.error);
           }
-          break;
+          return;
         }
-        case 'sdp-offer': {
+        case 'webrtc/offer': {
+          if (packet.envelope.type !== 'sdp-offer') {
+            return;
+          }
+
           const payload = unwrapPayload<{
             cameraName?: string;
             requestId?: string;
             sdp: string;
             sessionId?: string;
-          }>(message.payload);
-          const offeredRequestId =
-            typeof payload.requestId === 'string'
-              ? normalizeOptionalString(payload.requestId)
-              : null;
+          }>(packet.envelope);
+          const offeredRequestId = readLiveViewerRequestId(packet);
           if (
             offeredRequestId !== null &&
             activeRequestIdRef.current !== null &&
@@ -237,7 +233,7 @@ export const useLiveViewer = (): LiveViewerState => {
             return;
           }
 
-          const offeredSessionId = normalizeOptionalString(payload.sessionId);
+          const offeredSessionId = readLiveViewerSessionId(packet);
           const expectedSessionId = pendingSessionIdRef.current ?? currentSessionId;
           if (
             offeredSessionId !== null &&
@@ -252,22 +248,28 @@ export const useLiveViewer = (): LiveViewerState => {
             cameraName: payload.cameraName,
             sdp: payload.sdp,
             sendSignal: (type, signalPayload) => {
-              sendMessage(type, signalPayload);
+              if (type === 'sdp-answer') {
+                sendPacket(createWebRtcAnswerPacket(signalPayload as Record<string, unknown>));
+                return;
+              }
+
+              sendPacket(createWebRtcIcePacket(signalPayload as Record<string, unknown>));
             },
             sessionId: payload.sessionId,
           });
-          break;
+          return;
         }
-        case ICE_CANDIDATE_MESSAGE_TYPE: {
+        case 'webrtc/ice': {
+          if (packet.envelope.type !== 'ice-candidate') {
+            return;
+          }
+
           const payload = unwrapPayload<{
             candidate: RTCIceCandidateInit;
             requestId?: string;
             sessionId?: string;
-          }>(message.payload);
-          const candidateRequestId =
-            typeof payload.requestId === 'string'
-              ? normalizeOptionalString(payload.requestId)
-              : null;
+          }>(packet.envelope);
+          const candidateRequestId = readLiveViewerRequestId(packet);
           if (
             candidateRequestId !== null &&
             activeRequestIdRef.current !== null &&
@@ -280,15 +282,15 @@ export const useLiveViewer = (): LiveViewerState => {
             candidate: payload.candidate,
             sessionId: payload.sessionId,
           });
-          break;
+          return;
         }
         default:
-          break;
+          return;
       }
     });
 
     return () => {
-      unsubscribeMessages();
+      unsubscribePackets();
     };
   }, [
     appendLog,
@@ -296,8 +298,8 @@ export const useLiveViewer = (): LiveViewerState => {
     currentSessionId,
     handleRemoteIceCandidate,
     handleSdpOffer,
-    sendMessage,
-    subscribeToMessages,
+    sendPacket,
+    subscribeToPackets,
   ]);
 
   useEffect(() => {
@@ -361,12 +363,12 @@ export const useLiveViewer = (): LiveViewerState => {
 
       const previousSessionId = currentSessionId ?? pendingSessionIdRef.current;
       if (previousSessionId !== null) {
-        sendMessage('stop-live', { sessionId: previousSessionId });
+        sendPacket(createStopLivePacket(previousSessionId));
         closePeer({ clearSession: true });
       }
 
       requestedCameraRef.current = primaryCameraName;
-      activeRequestIdRef.current = createClientRequestId();
+      activeRequestIdRef.current = createLiveViewerRequestId();
       pendingSessionIdRef.current = null;
       setViewerError(null);
       setViewerState('starting');
@@ -377,15 +379,9 @@ export const useLiveViewer = (): LiveViewerState => {
           normalizedSelection.cameraNames.length
         } camera${normalizedSelection.cameraNames.length === 1 ? '' : 's'}`,
       );
-      sendMessage('start-live', {
-        cameraName: primaryCameraName,
-        cameraNames: normalizedSelection.cameraNames,
-        frameSource: normalizedSelection.frameSource,
-        layoutMode: normalizedSelection.mode,
-        requestId: activeRequestIdRef.current,
-      });
+      sendPacket(createStartLivePacket(normalizedSelection, activeRequestIdRef.current));
     },
-    [appendLog, closePeer, currentSessionId, sendMessage],
+    [appendLog, closePeer, currentSessionId, sendPacket],
   );
 
   const updateLiveLayout = useCallback(
@@ -409,35 +405,27 @@ export const useLiveViewer = (): LiveViewerState => {
         'info',
         `Updating live layout to ${normalizedSelection.frameSource} ${normalizedSelection.mode} (${normalizedSelection.cameraNames.length} cameras)`,
       );
-      sendMessage('update-live-layout', {
-        cameraName: primaryCameraName,
-        cameraNames: normalizedSelection.cameraNames,
-        frameSource: normalizedSelection.frameSource,
-        layoutMode: normalizedSelection.mode,
-        sessionId,
-      });
+      sendPacket(createUpdateLiveLayoutPacket(normalizedSelection, sessionId));
     },
-    [appendLog, currentSessionId, sendMessage, startLive],
+    [appendLog, currentSessionId, sendPacket, startLive],
   );
 
   const stopLive = useCallback(() => {
     appendLog('info', 'Stopping live feed');
-    sendMessage('stop-live', {
-      sessionId: currentSessionId ?? pendingSessionIdRef.current ?? undefined,
-    });
+    sendPacket(createStopLivePacket(currentSessionId ?? pendingSessionIdRef.current ?? undefined));
     requestedCameraRef.current = null;
     pendingSessionIdRef.current = null;
     activeRequestIdRef.current = null;
     closePeer({ clearSession: true });
     setViewerState('idle');
     setActiveCameraName(null);
-    requestStatus();
-  }, [appendLog, closePeer, currentSessionId, requestStatus, sendMessage]);
+    requestDeviceStatus();
+  }, [appendLog, closePeer, currentSessionId, requestDeviceStatus, sendPacket]);
 
   const refreshStatus = useCallback(() => {
     appendLog('info', 'Requesting latest device status');
-    requestStatus();
-  }, [appendLog, requestStatus]);
+    requestDeviceStatus();
+  }, [appendLog, requestDeviceStatus]);
 
   let resolvedConnectionState: ConnectionState;
   if (deviceId === '') {
@@ -450,7 +438,10 @@ export const useLiveViewer = (): LiveViewerState => {
     resolvedConnectionState = mapTransportStateToConnectionState(transportState);
   }
 
-  const resolvedActiveCameraName = deviceId === '' ? null : activeCameraName;
+  const reportedActiveCameraName =
+    deviceStatus === null ? null : getReportedLiveFeedCamera(deviceStatus);
+  const resolvedActiveCameraName =
+    deviceId === '' ? null : (activeCameraName ?? reportedActiveCameraName);
   const resolvedStream = deviceId === '' ? null : stream;
   const resolvedStreamStats = deviceId === '' ? null : streamStats;
   const error =
@@ -488,12 +479,12 @@ export const useLiveViewer = (): LiveViewerState => {
       isBusy,
       refreshStatus,
       resolvedConnectionState,
-      signalingUrl,
-      startLive,
-      stopLive,
       resolvedActiveCameraName,
       resolvedStream,
       resolvedStreamStats,
+      signalingUrl,
+      startLive,
+      stopLive,
       transportMode,
       updateLiveLayout,
     ],

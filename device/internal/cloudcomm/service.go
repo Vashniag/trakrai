@@ -66,12 +66,31 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) handleInbound(route topicRoute, env ipc.MQTTEnvelope) error {
-	if route.service == liveFeedServiceName && route.subtopic == "command" && env.Type == "get-status" {
+	if route.service == "" && route.subtopic == "command" && env.Type == "get-status" {
 		return s.publisher.Publish(ipc.PublishMessageRequest{
 			Subtopic: "response",
 			Type:     "status",
 			Payload:  s.mqttService.statusPayload(),
 		})
+	}
+
+	if route.service == "" {
+		if route.subtopic != "command" {
+			return nil
+		}
+
+		publishErr := s.publisher.Publish(ipc.PublishMessageRequest{
+			Subtopic: "response",
+			Type:     "service-unavailable",
+			Payload: marshalPayload(map[string]interface{}{
+				"error":       "service is required for device command routing",
+				"requestType": env.Type,
+			}),
+		})
+		if publishErr != nil {
+			return publishErr
+		}
+		return nil
 	}
 
 	if err := s.ipcServer.NotifyService(route.service, ipc.MqttMessageNotification{

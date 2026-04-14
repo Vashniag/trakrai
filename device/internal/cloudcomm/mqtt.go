@@ -80,8 +80,6 @@ func (m *MQTTService) subscribe(client mqtt.Client) error {
 	prefix := m.topicPrefix()
 	topics := map[string]byte{
 		prefix + "/command":                 1,
-		prefix + "/webrtc/answer":           1,
-		prefix + "/webrtc/ice":              1,
 		prefix + "/service/+/command":       1,
 		prefix + "/service/+/webrtc/answer": 1,
 		prefix + "/service/+/webrtc/ice":    1,
@@ -117,13 +115,8 @@ func (m *MQTTService) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 
 func (m *MQTTService) routeTopic(topic string) (topicRoute, bool) {
 	prefix := m.topicPrefix()
-	switch topic {
-	case prefix + "/command":
-		return topicRoute{service: "live-feed", subtopic: "command"}, true
-	case prefix + "/webrtc/answer":
-		return topicRoute{service: "live-feed", subtopic: "webrtc/answer"}, true
-	case prefix + "/webrtc/ice":
-		return topicRoute{service: "live-feed", subtopic: "webrtc/ice"}, true
+	if topic == prefix+"/command" {
+		return topicRoute{service: "", subtopic: "command"}, true
 	}
 
 	servicePrefix := prefix + "/service/"
@@ -207,7 +200,7 @@ func (m *MQTTService) PublishEnvelope(service string, subtopic string, env ipc.M
 
 func (m *MQTTService) publishTopic(req ipc.PublishMessageRequest) string {
 	subtopic := strings.TrimPrefix(req.Subtopic, "/")
-	if req.Service == "" || req.Service == "live-feed" {
+	if req.Service == "" {
 		return m.topicPrefix() + "/" + subtopic
 	}
 

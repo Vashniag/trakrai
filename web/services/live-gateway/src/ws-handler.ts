@@ -1,6 +1,6 @@
 import type { Server } from 'http';
 
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 import { config } from './config.js';
 import {
@@ -15,24 +15,40 @@ type ClientContext = {
   deviceId: string;
 };
 
-type WsInboundMessage = {
+type TransportEnvelope = {
+  msgId?: string;
   payload?: unknown;
+  timestamp?: string;
   type: string;
 };
 
-type MessageEnvelope = {
-  payload?: unknown;
-  type?: string;
+type TransportPacket = {
+  deviceId: string;
+  envelope: TransportEnvelope;
+  service: string | null;
+  subtopic: string;
 };
 
-const PTZ_SERVICE_NAME = 'ptz-control';
+type PacketFrame = {
+  envelope: TransportEnvelope;
+  kind: 'packet';
+  service?: string | null;
+  subtopic: string;
+};
+
+type SetDeviceFrame = {
+  deviceId?: string;
+  kind: 'set-device';
+};
+
+type InboundFrame = PacketFrame | SetDeviceFrame;
 
 const clients = new Map<WebSocket, ClientContext>();
-const liveRequestOwners = new Map<string, WebSocket>();
-const liveSessionOwners = new Map<string, WebSocket>();
-const liveRequestsByClient = new Map<WebSocket, Set<string>>();
-const liveSessionsByClient = new Map<WebSocket, Set<string>>();
-const lastKnownStatuses = new Map<string, unknown>();
+const requestOwners = new Map<string, WebSocket>();
+const sessionOwners = new Map<string, WebSocket>();
+const clientRequests = new Map<WebSocket, Set<string>>();
+const clientSessions = new Map<WebSocket, Set<string>>();
+const lastKnownStatuses = new Map<string, TransportPacket>();
 
 const getDeviceIdFromRequest = (requestUrl: string | undefined): string => {
   if (requestUrl === undefined) {
@@ -50,6 +66,10 @@ const sendJson = (ws: WebSocket, message: Record<string, unknown>): void => {
   }
 };
 
+const sendPacket = (ws: WebSocket, packet: TransportPacket): void => {
+  sendJson(ws, packet as unknown as Record<string, unknown>);
+};
+
 const parsePayload = (payload: string): unknown => {
   try {
     return JSON.parse(payload) as unknown;
@@ -58,189 +78,238 @@ const parsePayload = (payload: string): unknown => {
   }
 };
 
-const getEnvelopeType = (payload: unknown): string | null => {
-  if (
-    typeof payload === 'object' &&
-    payload !== null &&
-    'type' in payload &&
-    typeof (payload as MessageEnvelope).type === 'string'
-  ) {
-    return (payload as MessageEnvelope).type ?? null;
-  }
-
-  return null;
-};
-
-const getEnvelopePayloadField = (payload: unknown, field: string): string | null => {
-  const messagePayload = unwrapEnvelopePayload(payload);
-  if (
-    typeof messagePayload !== 'object' ||
-    messagePayload === null ||
-    Array.isArray(messagePayload)
-  ) {
-    return null;
-  }
-
-  const value = (messagePayload as Record<string, unknown>)[field];
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
-};
-
-const buildEnvelope = (type: string, payload: unknown): string =>
-  JSON.stringify({
-    msgId: crypto.randomUUID(),
-    payload,
-    timestamp: new Date().toISOString(),
-    type,
-  });
-
-const requestDeviceStatus = (deviceId: string): void => {
-  publishMqtt(deviceId, 'command', buildEnvelope('get-status', {}));
-};
-
-const requestPtzStatus = (deviceId: string): void => {
-  publishMqtt(deviceId, 'command', buildEnvelope('get-status', {}), PTZ_SERVICE_NAME);
-};
-
 const normalizeOptionalString = (value: unknown): string | null =>
   typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 
-const unwrapEnvelopePayload = (payload: unknown): unknown => {
+const unwrapEnvelopePayload = (value: unknown): unknown => {
   if (
-    typeof payload === 'object' &&
-    payload !== null &&
-    'payload' in payload &&
-    (payload as MessageEnvelope).payload !== undefined
+    typeof value === 'object' &&
+    value !== null &&
+    'payload' in value &&
+    (value as { payload?: unknown }).payload !== undefined
   ) {
-    return (payload as MessageEnvelope).payload;
+    return (value as { payload?: unknown }).payload;
   }
 
-  return payload;
+  return value;
 };
 
-const getMutablePayload = (payload: unknown): Record<string, unknown> => {
-  if (typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
-    return { ...(payload as Record<string, unknown>) };
-  }
-
-  return {};
-};
-
-const getLiveRoutingIds = (
+const buildEnvelope = (
+  type: string,
   payload: unknown,
-): { requestId: string | null; sessionId: string | null } => {
-  const messagePayload = unwrapEnvelopePayload(payload);
-  if (
-    typeof messagePayload !== 'object' ||
-    messagePayload === null ||
-    Array.isArray(messagePayload)
-  ) {
+  overrides?: { msgId?: string; timestamp?: string },
+): TransportEnvelope => ({
+  msgId: normalizeOptionalString(overrides?.msgId) ?? crypto.randomUUID(),
+  payload,
+  timestamp: normalizeOptionalString(overrides?.timestamp) ?? new Date().toISOString(),
+  type,
+});
+
+const requestDeviceStatus = (deviceId: string): void => {
+  publishMqtt(deviceId, 'command', JSON.stringify(buildEnvelope('get-status', {})));
+};
+
+const readRoutingIds = (
+  value: unknown,
+): {
+  requestId: string | null;
+  sessionId: string | null;
+} => {
+  const payload = unwrapEnvelopePayload(value);
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     return { requestId: null, sessionId: null };
   }
 
   return {
-    requestId: normalizeOptionalString((messagePayload as Record<string, unknown>)['requestId']),
-    sessionId: normalizeOptionalString((messagePayload as Record<string, unknown>)['sessionId']),
+    requestId: normalizeOptionalString((payload as Record<string, unknown>)['requestId']),
+    sessionId: normalizeOptionalString((payload as Record<string, unknown>)['sessionId']),
   };
 };
 
-const registerLiveRequestOwner = (ws: WebSocket, requestId: string): void => {
-  liveRequestOwners.set(requestId, ws);
-
-  const requestsForClient = liveRequestsByClient.get(ws) ?? new Set<string>();
-  requestsForClient.add(requestId);
-  liveRequestsByClient.set(ws, requestsForClient);
-};
-
-const bindLiveSessionOwner = (ws: WebSocket, sessionId: string): void => {
-  liveSessionOwners.set(sessionId, ws);
-
-  const sessionsForClient = liveSessionsByClient.get(ws) ?? new Set<string>();
-  sessionsForClient.add(sessionId);
-  liveSessionsByClient.set(ws, sessionsForClient);
-};
-
-const unregisterLiveSessionOwner = (sessionId: string): void => {
-  const owner = liveSessionOwners.get(sessionId);
-  if (owner !== undefined) {
-    liveSessionsByClient.get(owner)?.delete(sessionId);
+const readEnvelopeField = (value: unknown, field: string): string | null => {
+  const payload = unwrapEnvelopePayload(value);
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    return null;
   }
-  liveSessionOwners.delete(sessionId);
+
+  return normalizeOptionalString((payload as Record<string, unknown>)[field]);
 };
 
-const clearClientLiveRoutes = (ws: WebSocket): void => {
-  const requestIds = liveRequestsByClient.get(ws);
-  if (requestIds !== undefined) {
-    for (const requestId of requestIds) {
-      liveRequestOwners.delete(requestId);
+const isTransportEnvelope = (value: unknown): value is TransportEnvelope =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  typeof (value as { type?: unknown }).type === 'string' &&
+  ((value as { type?: string }).type?.trim() ?? '') !== '';
+
+const isPacketFrame = (value: unknown): value is PacketFrame => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const frame = value as Partial<PacketFrame>;
+  return (
+    frame.kind === 'packet' &&
+    typeof frame.subtopic === 'string' &&
+    frame.subtopic.trim() !== '' &&
+    isTransportEnvelope(frame.envelope)
+  );
+};
+
+const isSetDeviceFrame = (value: unknown): value is SetDeviceFrame =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  (value as { kind?: unknown }).kind === 'set-device';
+
+const createPacket = (
+  deviceId: string,
+  service: string | null,
+  subtopic: string,
+  envelope: TransportEnvelope,
+): TransportPacket => ({
+  deviceId,
+  envelope,
+  service,
+  subtopic,
+});
+
+const normalizeIncomingEnvelope = (envelope: TransportEnvelope): TransportEnvelope =>
+  buildEnvelope(envelope.type.trim(), envelope.payload ?? {}, {
+    msgId: envelope.msgId,
+    timestamp: envelope.timestamp,
+  });
+
+const registerRequestOwner = (ws: WebSocket, requestId: string): void => {
+  requestOwners.set(requestId, ws);
+
+  const requests = clientRequests.get(ws) ?? new Set<string>();
+  requests.add(requestId);
+  clientRequests.set(ws, requests);
+};
+
+const bindSessionOwner = (ws: WebSocket, sessionId: string): void => {
+  sessionOwners.set(sessionId, ws);
+
+  const sessions = clientSessions.get(ws) ?? new Set<string>();
+  sessions.add(sessionId);
+  clientSessions.set(ws, sessions);
+};
+
+const clearClientRoutes = (ws: WebSocket): void => {
+  const requests = clientRequests.get(ws);
+  if (requests !== undefined) {
+    for (const requestId of requests) {
+      requestOwners.delete(requestId);
     }
-    liveRequestsByClient.delete(ws);
+    clientRequests.delete(ws);
   }
 
-  const sessionIds = liveSessionsByClient.get(ws);
-  if (sessionIds !== undefined) {
-    for (const sessionId of sessionIds) {
-      liveSessionOwners.delete(sessionId);
+  const sessions = clientSessions.get(ws);
+  if (sessions !== undefined) {
+    for (const sessionId of sessions) {
+      sessionOwners.delete(sessionId);
     }
-    liveSessionsByClient.delete(ws);
-  }
-};
-
-const stopClientLiveSessions = (ws: WebSocket, deviceId: string): void => {
-  const sessionIds = Array.from(liveSessionsByClient.get(ws) ?? []);
-  for (const sessionId of sessionIds) {
-    publishMqtt(deviceId, 'command', buildEnvelope('stop-live', { sessionId }));
+    clientSessions.delete(ws);
   }
 };
 
 const cleanupClient = (ws: WebSocket): void => {
-  const clientContext = clients.get(ws);
-  if (clientContext !== undefined) {
-    stopClientLiveSessions(ws, clientContext.deviceId);
-    unsubscribeFromDevice(clientContext.deviceId);
+  const context = clients.get(ws);
+  if (context !== undefined) {
+    unsubscribeFromDevice(context.deviceId);
   }
-  clearClientLiveRoutes(ws);
+
+  clearClientRoutes(ws);
   clients.delete(ws);
 };
 
-const ensureStartLivePayload = (payload: unknown): Record<string, unknown> => {
-  const nextPayload = getMutablePayload(payload);
-  if (normalizeOptionalString(nextPayload['requestId']) === null) {
-    nextPayload['requestId'] = crypto.randomUUID();
+const packetTargets = (packet: TransportPacket): Set<WebSocket> | null => {
+  const { requestId, sessionId } = readRoutingIds(packet.envelope);
+  if (sessionId !== null) {
+    const owner = sessionOwners.get(sessionId);
+    if (owner !== undefined) {
+      return new Set([owner]);
+    }
   }
-
-  return nextPayload;
-};
-
-const getLiveMessageTargets = (wsType: string, parsedPayload: unknown): Set<WebSocket> | null => {
-  if (wsType !== 'device-response' && wsType !== 'sdp-offer' && wsType !== 'ice-candidate') {
-    return null;
-  }
-
-  const envelopeType = getEnvelopeType(parsedPayload);
-  const { requestId, sessionId } = getLiveRoutingIds(parsedPayload);
 
   if (requestId !== null) {
-    const owner = liveRequestOwners.get(requestId);
+    const owner = requestOwners.get(requestId);
     if (owner !== undefined) {
       if (sessionId !== null) {
-        bindLiveSessionOwner(owner, sessionId);
+        bindSessionOwner(owner, sessionId);
       }
       return new Set([owner]);
     }
   }
 
-  if (sessionId !== null) {
-    const owner = liveSessionOwners.get(sessionId);
-    if (owner !== undefined) {
-      return new Set([owner]);
-    }
-  }
-
-  if (wsType === 'device-response' && envelopeType === 'service-unavailable') {
-    return null;
-  }
-
   return null;
+};
+
+const clientOwnsSession = (ws: WebSocket, sessionId: string | null): boolean => {
+  if (sessionId === null) {
+    return true;
+  }
+
+  const owner = sessionOwners.get(sessionId);
+  return owner === undefined || owner === ws;
+};
+
+const sendGatewayError = (
+  ws: WebSocket,
+  deviceId: string,
+  message: string,
+  options?: {
+    requestType?: string;
+    service?: string | null;
+    subtopic?: string;
+  },
+): void => {
+  sendPacket(
+    ws,
+    createPacket(
+      deviceId,
+      options?.service ?? null,
+      options?.subtopic ?? 'response',
+      buildEnvelope('service-unavailable', {
+        error: message,
+        requestType: options?.requestType ?? undefined,
+        service: options?.service ?? null,
+        subtopic: options?.subtopic ?? null,
+      }),
+    ),
+  );
+};
+
+const sendSessionInfo = (ws: WebSocket, deviceId: string): void => {
+  sendJson(ws, {
+    deviceId,
+    kind: 'session-info',
+  });
+};
+
+const syncClientDevice = async (ws: WebSocket, deviceId: string): Promise<void> => {
+  const nextDeviceId = deviceId.trim() !== '' ? deviceId.trim() : config.defaultDeviceId;
+  const context = clients.get(ws);
+  if (context === undefined) {
+    return;
+  }
+
+  if (context.deviceId !== nextDeviceId) {
+    await subscribeToDevice(nextDeviceId);
+    clearClientRoutes(ws);
+    unsubscribeFromDevice(context.deviceId);
+    clients.set(ws, { deviceId: nextDeviceId });
+  }
+
+  sendSessionInfo(ws, nextDeviceId);
+
+  const cachedStatus = lastKnownStatuses.get(nextDeviceId);
+  if (cachedStatus !== undefined) {
+    sendPacket(ws, cachedStatus);
+  }
+
+  requestDeviceStatus(nextDeviceId);
 };
 
 export function setupWebSocket(server: Server): void {
@@ -253,56 +322,41 @@ export function setupWebSocket(server: Server): void {
     }
 
     const parsedPayload = parsePayload(payload);
-    const envelopeType = getEnvelopeType(parsedPayload);
-    const isBaseTopic = parsedTopic.service === null;
-    const isStatusResponse =
-      isBaseTopic && parsedTopic.topicType === 'response' && envelopeType === 'status';
-
-    let wsType: string | undefined;
-    if (parsedTopic.service === PTZ_SERVICE_NAME) {
-      if (parsedTopic.topicType === 'response') {
-        wsType = 'ptz-response';
-      } else if (parsedTopic.topicType === 'status') {
-        wsType = 'ptz-status';
-      }
-    } else {
-      const topicTypeToWsType: Partial<Record<typeof parsedTopic.topicType, string>> = {
-        response: isStatusResponse ? 'device-status' : 'device-response',
-        status: 'device-status',
-        webrtcIce: 'ice-candidate',
-        webrtcOffer: 'sdp-offer',
-      };
-      wsType = topicTypeToWsType[parsedTopic.topicType];
-    }
-
-    if (wsType === undefined) {
+    if (!isTransportEnvelope(parsedPayload)) {
       return;
     }
+
     if (
-      parsedTopic.topicType === 'webrtcIce' &&
-      getEnvelopePayloadField(parsedPayload, 'origin') === 'browser'
+      parsedTopic.subtopic === 'webrtc/ice' &&
+      readEnvelopeField(parsedPayload, 'origin') === 'browser'
     ) {
       return;
     }
-    if ((parsedTopic.topicType === 'status' && isBaseTopic) || isStatusResponse) {
-      lastKnownStatuses.set(parsedTopic.deviceId, parsedPayload);
+
+    const packet = createPacket(
+      parsedTopic.deviceId,
+      parsedTopic.service,
+      parsedTopic.subtopic,
+      parsedPayload,
+    );
+
+    if (
+      packet.service === null &&
+      (packet.subtopic === 'status' ||
+        (packet.subtopic === 'response' && packet.envelope.type === 'status'))
+    ) {
+      lastKnownStatuses.set(parsedTopic.deviceId, packet);
     }
 
-    const message = {
-      deviceId: parsedTopic.deviceId,
-      payload: parsedPayload,
-      service: parsedTopic.service,
-      type: wsType,
-    };
-
-    const targetedClients = getLiveMessageTargets(wsType, parsedPayload);
-    for (const [ws, clientContext] of clients.entries()) {
-      if (clientContext.deviceId === parsedTopic.deviceId) {
-        if (targetedClients !== null && !targetedClients.has(ws)) {
-          continue;
-        }
-        sendJson(ws, message);
+    const targetedClients = packetTargets(packet);
+    for (const [ws, context] of clients.entries()) {
+      if (context.deviceId !== parsedTopic.deviceId) {
+        continue;
       }
+      if (targetedClients !== null && !targetedClients.has(ws)) {
+        continue;
+      }
+      sendPacket(ws, packet);
     }
   });
 
@@ -312,179 +366,73 @@ export function setupWebSocket(server: Server): void {
 
     try {
       await subscribeToDevice(deviceId);
-      sendJson(ws, { deviceId, type: 'session-info' });
+      sendSessionInfo(ws, deviceId);
+
       const cachedStatus = lastKnownStatuses.get(deviceId);
       if (cachedStatus !== undefined) {
-        sendJson(ws, {
-          deviceId,
-          payload: cachedStatus,
-          type: 'device-status',
-        });
+        sendPacket(ws, cachedStatus);
       }
+
       requestDeviceStatus(deviceId);
-      requestPtzStatus(deviceId);
     } catch (error) {
-      sendJson(ws, {
-        deviceId,
-        payload: { error: error instanceof Error ? error.message : 'subscribe failed' },
-        type: 'device-response',
+      sendGatewayError(ws, deviceId, error instanceof Error ? error.message : 'subscribe failed', {
+        requestType: 'set-device',
       });
     }
 
     ws.on('message', (data) => {
-      let message: WsInboundMessage;
+      let message: InboundFrame;
       try {
-        message = JSON.parse(data.toString()) as WsInboundMessage;
+        message = JSON.parse(data.toString()) as InboundFrame;
       } catch {
         return;
       }
 
-      const clientContext = clients.get(ws);
-      if (clientContext === undefined) {
+      const context = clients.get(ws);
+      if (context === undefined) {
         return;
       }
 
-      if (message.type === 'set-device') {
-        const nextDeviceId =
-          typeof message.payload === 'object' &&
-          message.payload !== null &&
-          'deviceId' in message.payload &&
-          typeof message.payload.deviceId === 'string'
-            ? message.payload.deviceId
-            : config.defaultDeviceId;
-
-        if (nextDeviceId !== clientContext.deviceId) {
-          stopClientLiveSessions(ws, clientContext.deviceId);
-          clearClientLiveRoutes(ws);
-          unsubscribeFromDevice(clientContext.deviceId);
-          void subscribeToDevice(nextDeviceId).catch((error) => {
-            sendJson(ws, {
-              deviceId: nextDeviceId,
-              payload: { error: error instanceof Error ? error.message : 'subscribe failed' },
-              type: 'device-response',
-            });
-          });
-          clients.set(ws, { deviceId: nextDeviceId });
-        }
-
-        sendJson(ws, { deviceId: nextDeviceId, type: 'session-info' });
-        const cachedStatus = lastKnownStatuses.get(nextDeviceId);
-        if (cachedStatus !== undefined) {
-          sendJson(ws, {
-            deviceId: nextDeviceId,
-            payload: cachedStatus,
-            type: 'device-status',
-          });
-        }
-        requestDeviceStatus(nextDeviceId);
-        requestPtzStatus(nextDeviceId);
+      if (isSetDeviceFrame(message)) {
+        const nextDeviceId = normalizeOptionalString(message.deviceId) ?? config.defaultDeviceId;
+        void syncClientDevice(ws, nextDeviceId).catch((error) => {
+          sendGatewayError(
+            ws,
+            context.deviceId,
+            error instanceof Error ? error.message : 'subscribe failed',
+            { requestType: 'set-device' },
+          );
+        });
         return;
       }
 
-      switch (message.type) {
-        case 'get-status':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope(message.type, message.payload ?? {}),
-          );
-          break;
-        case 'start-live': {
-          const payload = ensureStartLivePayload(message.payload);
-          const requestId = normalizeOptionalString(payload['requestId']);
-          if (requestId !== null) {
-            registerLiveRequestOwner(ws, requestId);
-          }
-          publishMqtt(clientContext.deviceId, 'command', buildEnvelope(message.type, payload));
-          break;
-        }
-        case 'update-live-layout':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope(message.type, message.payload ?? {}),
-          );
-          break;
-        case 'stop-live': {
-          const payload = getMutablePayload(message.payload);
-          const sessionId = normalizeOptionalString(payload['sessionId']);
-          if (sessionId !== null) {
-            unregisterLiveSessionOwner(sessionId);
-          } else {
-            clearClientLiveRoutes(ws);
-          }
-          publishMqtt(clientContext.deviceId, 'command', buildEnvelope(message.type, payload));
-          break;
-        }
-        case 'sdp-answer':
-          publishMqtt(
-            clientContext.deviceId,
-            'webrtcAnswer',
-            buildEnvelope('sdp-answer', message.payload),
-          );
-          break;
-        case 'ice-candidate':
-          {
-            const payload = getMutablePayload(message.payload);
-            payload['origin'] = 'browser';
-            publishMqtt(
-              clientContext.deviceId,
-              'webrtcIce',
-              buildEnvelope('ice-candidate', payload),
-            );
-          }
-          break;
-        case 'ptz-get-status':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope('get-status', message.payload ?? {}),
-            PTZ_SERVICE_NAME,
-          );
-          break;
-        case 'ptz-get-position':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope('get-position', message.payload ?? {}),
-            PTZ_SERVICE_NAME,
-          );
-          break;
-        case 'ptz-start-move':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope('start-move', message.payload ?? {}),
-            PTZ_SERVICE_NAME,
-          );
-          break;
-        case 'ptz-stop':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope('stop-move', message.payload ?? {}),
-            PTZ_SERVICE_NAME,
-          );
-          break;
-        case 'ptz-set-zoom':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope('set-zoom', message.payload ?? {}),
-            PTZ_SERVICE_NAME,
-          );
-          break;
-        case 'ptz-go-home':
-          publishMqtt(
-            clientContext.deviceId,
-            'command',
-            buildEnvelope('go-home', message.payload ?? {}),
-            PTZ_SERVICE_NAME,
-          );
-          break;
-        default:
-          break;
+      if (!isPacketFrame(message)) {
+        sendGatewayError(ws, context.deviceId, 'invalid transport packet frame');
+        return;
       }
+
+      const sessionId = readRoutingIds(message.envelope).sessionId;
+      if (!clientOwnsSession(ws, sessionId)) {
+        return;
+      }
+
+      const normalizedPacket = createPacket(
+        context.deviceId,
+        normalizeOptionalString(message.service),
+        message.subtopic.trim(),
+        normalizeIncomingEnvelope(message.envelope),
+      );
+      const requestId = readRoutingIds(normalizedPacket.envelope).requestId;
+      if (requestId !== null) {
+        registerRequestOwner(ws, requestId);
+      }
+
+      publishMqtt(
+        context.deviceId,
+        normalizedPacket.subtopic,
+        JSON.stringify(normalizedPacket.envelope),
+        normalizedPacket.service,
+      );
     });
 
     ws.on('close', () => {

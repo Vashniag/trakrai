@@ -13,29 +13,55 @@ import (
 	"github.com/trakrai/device-services/internal/ipc"
 )
 
-func TestTranslateWebSocketMessagePTZMove(t *testing.T) {
+func TestEdgeWebSocketServerDispatchesGenericPacket(t *testing.T) {
 	t.Parallel()
 
-	route, env, err := translateWebSocketMessage(edgeInboundMessage{
-		Type:    "ptz-start-move",
-		Payload: marshalPayload(map[string]interface{}{"cameraName": "Front Gate"}),
-	})
-	if err != nil {
-		t.Fatalf("translateWebSocketMessage returned error: %v", err)
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+		},
 	}
 
-	if route.service != ptzServiceName {
-		t.Fatalf("expected service %q, got %q", ptzServiceName, route.service)
+	var dispatchedRoute topicRoute
+	var dispatchedEnvelope ipc.MQTTEnvelope
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			dispatchedRoute = route
+			dispatchedEnvelope = env
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	serviceName := "ptz-control"
+	server.handleWebSocketMessage(&edgeClient{}, edgeInboundFrame{
+		Envelope: ipc.MQTTEnvelope{
+			Payload: marshalPayload(map[string]interface{}{"cameraName": "Front Gate"}),
+			Type:    "start-move",
+		},
+		Kind:     "packet",
+		Service:  &serviceName,
+		Subtopic: "command",
+	})
+
+	if dispatchedRoute.service != serviceName {
+		t.Fatalf("expected service %q, got %q", serviceName, dispatchedRoute.service)
 	}
-	if route.subtopic != "command" {
-		t.Fatalf("expected command subtopic, got %q", route.subtopic)
+	if dispatchedRoute.subtopic != "command" {
+		t.Fatalf("expected command subtopic, got %q", dispatchedRoute.subtopic)
 	}
-	if env.Type != "start-move" {
-		t.Fatalf("expected envelope type start-move, got %q", env.Type)
+	if dispatchedEnvelope.Type != "start-move" {
+		t.Fatalf("expected envelope type start-move, got %q", dispatchedEnvelope.Type)
 	}
 }
 
-func TestEdgeWebSocketServerBroadcastsLegacyMessageTypes(t *testing.T) {
+func TestEdgeWebSocketServerBroadcastsGenericPackets(t *testing.T) {
 	t.Parallel()
 
 	cfg := &Config{
@@ -64,8 +90,7 @@ func TestEdgeWebSocketServerBroadcastsLegacyMessageTypes(t *testing.T) {
 		},
 	)
 
-	mux := httpTestMux(server)
-	httpServer := httptest.NewServer(mux)
+	httpServer := httptest.NewServer(httpTestMux(server))
 	defer httpServer.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/ws?deviceId=edge-device-1"
@@ -81,10 +106,10 @@ func TestEdgeWebSocketServerBroadcastsLegacyMessageTypes(t *testing.T) {
 	}
 	_, _, err = conn.ReadMessage()
 	if err != nil {
-		t.Fatalf("failed to read initial device-status: %v", err)
+		t.Fatalf("failed to read initial device status: %v", err)
 	}
 
-	delivered := server.Broadcast(ptzServiceName, "response", buildEnvelope("ptz-command-ack", marshalPayload(map[string]interface{}{
+	delivered := server.Broadcast("ptz-control", "response", buildEnvelope("ptz-command-ack", marshalPayload(map[string]interface{}{
 		"cameraName": "Front Gate",
 		"command":    "start-move",
 	})))
@@ -93,26 +118,26 @@ func TestEdgeWebSocketServerBroadcastsLegacyMessageTypes(t *testing.T) {
 	}
 
 	type outbound struct {
-		Type    string           `json:"type"`
-		Service string           `json:"service"`
-		Payload ipc.MQTTEnvelope `json:"payload"`
+		Envelope ipc.MQTTEnvelope `json:"envelope"`
+		Service  *string          `json:"service"`
+		Subtopic string           `json:"subtopic"`
 	}
 
 	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 
 	var message outbound
 	if err := conn.ReadJSON(&message); err != nil {
-		t.Fatalf("failed to read broadcast message: %v", err)
+		t.Fatalf("failed to read broadcast packet: %v", err)
 	}
 
-	if message.Type != "ptz-response" {
-		t.Fatalf("expected ptz-response, got %q", message.Type)
+	if message.Service == nil || *message.Service != "ptz-control" {
+		t.Fatalf("expected service ptz-control, got %#v", message.Service)
 	}
-	if message.Service != ptzServiceName {
-		t.Fatalf("expected service %q, got %q", ptzServiceName, message.Service)
+	if message.Subtopic != "response" {
+		t.Fatalf("expected response subtopic, got %q", message.Subtopic)
 	}
-	if message.Payload.Type != "ptz-command-ack" {
-		t.Fatalf("expected payload type ptz-command-ack, got %q", message.Payload.Type)
+	if message.Envelope.Type != "ptz-command-ack" {
+		t.Fatalf("expected payload type ptz-command-ack, got %q", message.Envelope.Type)
 	}
 }
 
@@ -191,7 +216,7 @@ func TestEdgeWebSocketServerServesIceConfig(t *testing.T) {
 	}
 }
 
-func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
+func TestEdgeWebSocketServerRoutesSessionPacketsToOwningClient(t *testing.T) {
 	t.Parallel()
 
 	cfg := &Config{
@@ -203,12 +228,19 @@ func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
 		},
 	}
 
-	startLivePayloads := make(chan ipc.MQTTEnvelope, 1)
+	routeEvents := make(chan struct {
+		env   ipc.MQTTEnvelope
+		route topicRoute
+	}, 1)
 	server := NewEdgeWebSocketServer(
 		cfg,
 		func(route topicRoute, env ipc.MQTTEnvelope) error {
-			if route.service == liveFeedServiceName && route.subtopic == "command" && env.Type == "start-live" {
-				startLivePayloads <- env
+			routeEvents <- struct {
+				env   ipc.MQTTEnvelope
+				route topicRoute
+			}{
+				env:   env,
+				route: route,
 			}
 			return nil
 		},
@@ -245,46 +277,53 @@ func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
 	drainInitialMessages(firstConn)
 	drainInitialMessages(secondConn)
 
+	requestID := "req-1"
 	if err := firstConn.WriteJSON(map[string]interface{}{
-		"type":    "start-live",
-		"payload": map[string]interface{}{"cameraName": "LP1-Main"},
+		"envelope": map[string]interface{}{
+			"payload": map[string]interface{}{
+				"cameraName": "LP1-Main",
+				"requestId":  requestID,
+			},
+			"type": "start-live",
+		},
+		"kind":     "packet",
+		"service":  "live-feed",
+		"subtopic": "command",
 	}); err != nil {
-		t.Fatalf("failed to send start-live: %v", err)
+		t.Fatalf("failed to send start-live packet: %v", err)
 	}
 
-	var dispatchedStartLive ipc.MQTTEnvelope
+	var dispatched struct {
+		env   ipc.MQTTEnvelope
+		route topicRoute
+	}
 	select {
-	case dispatchedStartLive = <-startLivePayloads:
+	case dispatched = <-routeEvents:
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for dispatched start-live command")
+		t.Fatal("timed out waiting for dispatched packet")
 	}
 
-	var dispatchedPayload struct {
-		RequestID string `json:"requestId"`
-	}
-	if err := json.Unmarshal(dispatchedStartLive.Payload, &dispatchedPayload); err != nil {
-		t.Fatalf("failed to decode dispatched start-live payload: %v", err)
-	}
-	if strings.TrimSpace(dispatchedPayload.RequestID) == "" {
-		t.Fatal("expected generated requestId in dispatched start-live payload")
+	if dispatched.route.service != "live-feed" || dispatched.route.subtopic != "command" {
+		t.Fatalf("unexpected route %#v", dispatched.route)
 	}
 
-	server.Broadcast(liveFeedServiceName, "response", buildEnvelope("start-live-ack", marshalPayload(map[string]interface{}{
+	server.Broadcast("live-feed", "response", buildEnvelope("start-live-ack", marshalPayload(map[string]interface{}{
 		"cameraName": "LP1-Main",
 		"ok":         true,
-		"requestId":  dispatchedPayload.RequestID,
+		"requestId":  requestID,
 		"sessionId":  "session-1",
 	})))
-	server.Broadcast(liveFeedServiceName, "webrtc/offer", buildEnvelope("sdp-offer", marshalPayload(map[string]interface{}{
+	server.Broadcast("live-feed", "webrtc/offer", buildEnvelope("sdp-offer", marshalPayload(map[string]interface{}{
 		"cameraName": "LP1-Main",
-		"requestId":  dispatchedPayload.RequestID,
+		"requestId":  requestID,
 		"sdp":        "offer",
 		"sessionId":  "session-1",
 	})))
 
 	type outbound struct {
-		Type    string           `json:"type"`
-		Payload ipc.MQTTEnvelope `json:"payload"`
+		Envelope ipc.MQTTEnvelope `json:"envelope"`
+		Service  *string          `json:"service"`
+		Subtopic string           `json:"subtopic"`
 	}
 
 	_ = firstConn.SetReadDeadline(time.Now().Add(2 * time.Second))
@@ -292,21 +331,21 @@ func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
 	if err := firstConn.ReadJSON(&firstAck); err != nil {
 		t.Fatalf("failed to read first live response: %v", err)
 	}
-	if firstAck.Type != "device-response" {
-		t.Fatalf("expected device-response for owner, got %q", firstAck.Type)
+	if firstAck.Subtopic != "response" {
+		t.Fatalf("expected response subtopic for owner, got %q", firstAck.Subtopic)
 	}
 
 	var firstOffer outbound
 	if err := firstConn.ReadJSON(&firstOffer); err != nil {
-		t.Fatalf("failed to read first sdp-offer: %v", err)
+		t.Fatalf("failed to read first sdp-offer packet: %v", err)
 	}
-	if firstOffer.Type != "sdp-offer" {
-		t.Fatalf("expected sdp-offer for owner, got %q", firstOffer.Type)
+	if firstOffer.Subtopic != "webrtc/offer" {
+		t.Fatalf("expected webrtc/offer for owner, got %q", firstOffer.Subtopic)
 	}
 
 	_ = secondConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	if _, _, err := secondConn.ReadMessage(); err == nil {
-		t.Fatalf("expected non-owner websocket to receive no live-session messages")
+		t.Fatalf("expected non-owner websocket to receive no session-scoped packets")
 	}
 }
 
@@ -350,7 +389,7 @@ func TestEdgeWebSocketServerDoesNotBroadcastBrowserOriginIce(t *testing.T) {
 		}
 	}
 
-	delivered := server.Broadcast(liveFeedServiceName, "webrtc/ice", buildEnvelope("ice-candidate", marshalPayload(map[string]interface{}{
+	delivered := server.Broadcast("live-feed", "webrtc/ice", buildEnvelope("ice-candidate", marshalPayload(map[string]interface{}{
 		"candidate": map[string]interface{}{"candidate": "candidate:1"},
 		"origin":    "browser",
 		"sessionId": "session-1",

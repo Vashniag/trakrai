@@ -28,12 +28,12 @@ import {
 import { PtzControlPanel } from '@trakrai/ptz-controller/components/ptz-control-panel';
 import { usePtzController } from '@trakrai/ptz-controller/hooks/use-ptz-controller';
 
+import type { DeviceCamera } from '@trakrai/live-transport/lib/live-types';
 import type {
-  DeviceCamera,
   LiveFrameSource,
   LiveLayoutMode,
   LiveLayoutSelection,
-} from '@trakrai/live-transport/lib/live-types';
+} from '@trakrai/live-viewer/lib/live-viewer-types';
 
 export const DEFAULT_LIVE_DEVICE_ID = 'hacklab@10.8.0.50';
 

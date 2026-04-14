@@ -1,10 +1,6 @@
 'use client';
 
-import type {
-  PtzCapabilities,
-  PtzPosition,
-  PtzVelocityCommand,
-} from '@trakrai/live-transport/lib/live-types';
+import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from './ptz-types';
 
 const PTZ_LIMIT_EPSILON = 0.01;
 const PTZ_METRIC_DECIMALS = 3;

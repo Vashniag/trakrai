@@ -16,11 +16,10 @@ import {
 
 import { VideoPlayer } from './video-player';
 
+import type { LiveFrameSource, LiveLayoutMode } from '../lib/live-viewer-types';
 import type {
   ConnectionState,
   DeviceCamera,
-  LiveFrameSource,
-  LiveLayoutMode,
   StreamStats,
 } from '@trakrai/live-transport/lib/live-types';
 
