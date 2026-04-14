@@ -36,6 +36,13 @@ type liveSession struct {
 	state           string
 }
 
+type framePumpMode string
+
+const (
+	framePumpModeCompositeRGBA framePumpMode = "composite-rgba"
+	framePumpModeSingleJPEG    framePumpMode = "single-jpeg"
+)
+
 type SessionManager struct {
 	api      *webrtc.API
 	mu       sync.Mutex
@@ -325,17 +332,17 @@ func (sm *SessionManager) pumpFrames(
 		fps = 10
 	}
 
-	encoder, err := NewH264Encoder(sm.cfg.Composite.Width, sm.cfg.Composite.Height, fps)
-	if err != nil {
-		sm.log.Error("encoder creation failed", "error", err)
-		return
-	}
-	defer encoder.Stop()
-
 	frameDuration := time.Duration(float64(time.Second) / float64(fps))
 	var pts uint64
 	ticker := time.NewTicker(frameDuration)
 	defer ticker.Stop()
+	var encoder PacketEncoder
+	var encoderMode framePumpMode
+	defer func() {
+		if encoder != nil {
+			encoder.Stop()
+		}
+	}()
 
 	sm.log.Info("frame pump started",
 		"session_id", sessionID,
@@ -355,14 +362,44 @@ func (sm *SessionManager) pumpFrames(
 				return
 			}
 
-			rgbaFrame, err := sm.composer.ComposeRGBAFrame(ctx, plan)
+			nextEncoderMode := framePumpModeForPlan(plan)
+			if encoder == nil || nextEncoderMode != encoderMode {
+				if encoder != nil {
+					encoder.Stop()
+				}
+
+				nextEncoder, err := sm.newPacketEncoder(nextEncoderMode, fps)
+				if err != nil {
+					sm.log.Error(
+						"encoder creation failed",
+						"error", err,
+						"mode", nextEncoderMode,
+						"session_id", sessionID,
+					)
+					encoder = nil
+					pts += uint64(frameDuration.Nanoseconds())
+					continue
+				}
+				encoder = nextEncoder
+				encoderMode = nextEncoderMode
+				sm.log.Info(
+					"frame pump encoder mode selected",
+					"mode", encoderMode,
+					"session_id", sessionID,
+					"camera", plan.PrimaryCamera(),
+					"layoutMode", plan.Mode,
+					"frameSource", plan.FrameSource,
+				)
+			}
+
+			frame, err := sm.nextEncodedFrameInput(ctx, plan, encoderMode)
 			if err != nil {
-				sm.log.Debug("composite frame failed", "error", err, "session_id", sessionID)
+				sm.log.Debug("frame input preparation failed", "error", err, "session_id", sessionID, "mode", encoderMode)
 				pts += uint64(frameDuration.Nanoseconds())
 				continue
 			}
 
-			h264Data, err := encoder.Encode(rgbaFrame, pts)
+			h264Data, err := encoder.Encode(frame, pts)
 			if err != nil {
 				sm.log.Debug("encode failed", "error", err)
 				pts += uint64(frameDuration.Nanoseconds())
@@ -378,6 +415,44 @@ func (sm *SessionManager) pumpFrames(
 
 			pts += uint64(frameDuration.Nanoseconds())
 		}
+	}
+}
+
+func framePumpModeForPlan(plan LiveLayoutPlan) framePumpMode {
+	if plan.Mode == LiveLayoutSingle && len(plan.CameraNames) == 1 {
+		return framePumpModeSingleJPEG
+	}
+
+	return framePumpModeCompositeRGBA
+}
+
+func (sm *SessionManager) newPacketEncoder(mode framePumpMode, fps int) (PacketEncoder, error) {
+	switch mode {
+	case framePumpModeSingleJPEG:
+		return NewJPEGH264Encoder(sm.cfg.Composite.Width, sm.cfg.Composite.Height, fps)
+	case framePumpModeCompositeRGBA:
+		fallthrough
+	default:
+		return NewH264Encoder(sm.cfg.Composite.Width, sm.cfg.Composite.Height, fps)
+	}
+}
+
+func (sm *SessionManager) nextEncodedFrameInput(
+	ctx context.Context,
+	plan LiveLayoutPlan,
+	mode framePumpMode,
+) ([]byte, error) {
+	switch mode {
+	case framePumpModeSingleJPEG:
+		frameData, _, err := sm.frameSrc.ReadFrame(ctx, plan.PrimaryCamera(), plan.FrameSource)
+		if err != nil {
+			return nil, err
+		}
+		return frameData, nil
+	case framePumpModeCompositeRGBA:
+		fallthrough
+	default:
+		return sm.composer.ComposeRGBAFrame(ctx, plan)
 	}
 }
 

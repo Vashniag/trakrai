@@ -50,17 +50,23 @@ type MosaicComposer struct {
 	frameSrc *FrameSource
 	log      *slog.Logger
 
-	mu    sync.Mutex
-	cache map[string]cachedDecodedFrame
+	mu         sync.Mutex
+	cache      map[string]cachedDecodedFrame
+	canvasPool sync.Pool
 }
 
 func NewMosaicComposer(cfg CompositeConfig, frameSrc *FrameSource) *MosaicComposer {
-	return &MosaicComposer{
+	composer := &MosaicComposer{
 		cfg:      cfg,
 		frameSrc: frameSrc,
 		log:      slog.With("component", "mosaic-composer"),
 		cache:    make(map[string]cachedDecodedFrame),
 	}
+	composer.canvasPool.New = func() interface{} {
+		return image.NewRGBA(image.Rect(0, 0, cfg.Width, cfg.Height))
+	}
+
+	return composer
 }
 
 func (mc *MosaicComposer) ComposeRGBAFrame(ctx context.Context, plan LiveLayoutPlan) ([]byte, error) {
@@ -69,14 +75,19 @@ func (mc *MosaicComposer) ComposeRGBAFrame(ctx context.Context, plan LiveLayoutP
 		return nil, fmt.Errorf("no composite regions generated")
 	}
 
-	canvas := image.NewRGBA(image.Rect(0, 0, mc.cfg.Width, mc.cfg.Height))
+	canvas, _ := mc.canvasPool.Get().(*image.RGBA)
+	if canvas == nil || canvas.Rect.Dx() != mc.cfg.Width || canvas.Rect.Dy() != mc.cfg.Height {
+		canvas = image.NewRGBA(image.Rect(0, 0, mc.cfg.Width, mc.cfg.Height))
+	}
 	fillRect(canvas, canvas.Bounds(), compositeBackgroundColor)
 
 	for _, region := range regions {
 		mc.drawRegion(ctx, canvas, region, plan.FrameSource)
 	}
 
-	return bytes.Clone(canvas.Pix), nil
+	frame := bytes.Clone(canvas.Pix)
+	mc.canvasPool.Put(canvas)
+	return frame, nil
 }
 
 func (mc *MosaicComposer) drawRegion(
@@ -101,7 +112,11 @@ func (mc *MosaicComposer) drawRegion(
 
 	targetRect := fitRect(frame.Bounds().Dx(), frame.Bounds().Dy(), insetRect(region.Bounds, 2))
 	fillRect(canvas, targetRect, color.Black)
-	draw.CatmullRom.Scale(canvas, targetRect, frame, frame.Bounds(), imagedraw.Over, nil)
+	if frame.Bounds().Dx() == targetRect.Dx() && frame.Bounds().Dy() == targetRect.Dy() {
+		imagedraw.Draw(canvas, targetRect, frame, frame.Bounds().Min, imagedraw.Over)
+	} else {
+		draw.ApproxBiLinear.Scale(canvas, targetRect, frame, frame.Bounds(), imagedraw.Over, nil)
+	}
 	drawCameraLabel(canvas, region.Bounds, region.CameraName)
 }
 
