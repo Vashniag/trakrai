@@ -1,8 +1,9 @@
-.PHONY: build build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm clean
+.PHONY: build build-ai-inference-wheel build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm clean
 
 GO_LDFLAGS ?=
+AI_INFERENCE_VERSION ?= 0.1.0
 
-build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm
+build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm build-ai-inference-wheel
 
 build-cloud-comm:
 	docker buildx build --output type=local,dest=./out/cloud-comm -f Dockerfile --build-arg CMD_PATH=./cmd/cloud-comm --build-arg BINARY_NAME=cloud-comm --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
@@ -23,6 +24,10 @@ build-rtsp-feeder:
 build-workflow-comm:
 	docker buildx build --output type=local,dest=./out/workflow-comm -f Dockerfile --build-arg CMD_PATH=./cmd/workflow-comm --build-arg BINARY_NAME=workflow-comm --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
 	@echo "Binary: out/workflow-comm/workflow-comm"
+
+build-ai-inference-wheel:
+	docker buildx build --output type=local,dest=./out/ai-inference-wheel -f python/ai_inference/Dockerfile.wheel --build-arg PACKAGE_VERSION="$(AI_INFERENCE_VERSION)" ./python/ai_inference
+	@echo "Wheel: out/ai-inference-wheel/"
 
 clean:
 	rm -rf out/

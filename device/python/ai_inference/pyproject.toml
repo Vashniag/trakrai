@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trakrai-ai-inference"
+description = "Standalone Redis-driven AI inference worker for TrakrAI edge devices"
+readme = "README.md"
+requires-python = ">=3.8"
+dynamic = ["version"]
+authors = [
+  { name = "TrakrAI" },
+]
+license = { text = "Proprietary" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Operating System :: POSIX :: Linux",
+]
+
+[project.scripts]
+trakrai-ai-inference = "ai_inference.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "ai_inference._version.__version__" }

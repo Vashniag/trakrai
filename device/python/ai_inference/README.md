@@ -5,7 +5,7 @@ This service is the first split-out Python worker for device AI inference.
 What it does:
 
 - reads the latest JPEG frame from Redis at `<key_prefix>:<camera_name>:latest`
-- reuses the legacy `TRAKR_AI_PTZ/server_batch.py` model runtime
+- reuses the legacy `server_batch.py` model runtime from the configured legacy AI repo
 - draws bounding boxes on the processed frame
 - writes annotated images back to Redis using the existing keys:
   - `<key_prefix>:<camera_name>:processed`
@@ -15,16 +15,40 @@ What it does:
   - `<key_prefix>:<camera_name>:detections`
   - `<key_prefix>:<camera_name>:detections_time`
 
-Run from the repo root:
+Local source run from the repo root:
 
 ```powershell
 python device\python\ai_inference\main.py -config device\configs\ai-inference.sample.json
+```
+
+Build a versioned wheel from `D:\trakrbi\trakrai\device`:
+
+```powershell
+make build-ai-inference-wheel AI_INFERENCE_VERSION=0.1.0
+```
+
+The Docker-based build drops artifacts into:
+
+- `device/out/ai-inference-wheel/`
+
+Install on the Jetson without modifying the existing dependency set:
+
+```bash
+python3 -m pip install --no-deps --force-reinstall ./trakrai_ai_inference-0.1.0-py3-none-any.whl
+```
+
+Run the installed package:
+
+```bash
+trakrai-ai-inference -config /home/hacklab/trakrai-device-runtime/ai-inference.json
 ```
 
 Notes:
 
 - No Python libraries are installed or changed by this service.
 - `requirements.txt` pins the validated Jetson package versions for this worker and the legacy PyTorch inference path it imports.
+- The wheel intentionally assumes a pre-provisioned runtime and should be installed with `--no-deps` on the Jetson so the working device libraries stay untouched.
+- Package code lives under `src/ai_inference/`, and the repo-root `main.py` is only a thin local-development wrapper.
 - The service expects the legacy AI repo path through `inference.legacy_code_root`.
 - Model paths are configured in JSON under `inference.models`.
 - The current recommended Jetson profile is `yolov5s.pt`, `fp16_inference=true`, `inference_image_size=[512, 512]`, `poll_interval_ms=5`, and `idle_sleep_ms=40`.
