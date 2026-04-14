@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 
-import type { ConnectionState, StreamStats } from '../lib/live-types';
+import type { ConnectionState, StreamStats } from '@trakrai/live-transport/lib/live-types';
 
-type Props = Readonly<{
+type VideoPlayerProps = Readonly<{
   activeCameraName: string | null;
   connectionState: ConnectionState;
   isActive: boolean;
@@ -30,7 +30,7 @@ export const VideoPlayer = ({
   isActive,
   stream,
   streamStats,
-}: Props) => {
+}: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {

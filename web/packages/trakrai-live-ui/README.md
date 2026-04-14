@@ -1,5 +1,5 @@
 # @trakrai/live-ui
 
-Import `@trakrai/design-system/globals.css` and `@trakrai/live-ui/styles.css` once from the consuming app entrypoint so Tailwind picks up the shared live/PTZ package classes consistently in both cloud and edge builds.
+Import `@trakrai/design-system/globals.css` and `@trakrai/live-ui/styles.css` once from the consuming app entrypoint so Tailwind picks up the composed workspace classes consistently in both cloud and edge builds.
 
-Shared live-view, PTZ, diagnostics, and device transport abstractions for the TrakrAI web apps.
+This package is now the thin composition shell for the live workspace. The transport/WebRTC providers live in `@trakrai/live-transport`, the viewer layer lives in `@trakrai/live-viewer`, and PTZ controls live in `@trakrai/ptz-controller`.

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button } from '@trakrai/design-system/components/button';
 import {
   Card,
   CardContent,
@@ -12,149 +11,87 @@ import {
 } from '@trakrai/design-system/components/card';
 import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
-import { Separator } from '@trakrai/design-system/components/separator';
-
-import { CameraInventoryCard } from './camera-inventory-card';
-import { DiagnosticsCard } from './diagnostics-card';
-import { PtzControlPanel } from './ptz-control-panel';
-import { VideoPlayer } from './video-player';
+import { DeviceServicesPanel } from '@trakrai/live-transport/components/device-services-panel';
+import { DiagnosticsPanel } from '@trakrai/live-transport/components/diagnostics-panel';
+import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runtime';
+import { formatMetric } from '@trakrai/live-transport/lib/live-display-utils';
+import { CameraInventoryCard } from '@trakrai/live-viewer/components/camera-inventory-card';
+import { LiveViewerPanel } from '@trakrai/live-viewer/components/live-viewer-panel';
+import { useLiveViewer } from '@trakrai/live-viewer/hooks/use-live-viewer';
+import {
+  clampLiveLayoutStartIndex,
+  getLiveLayoutCapacity,
+  getLiveLayoutPageCount,
+  getLiveLayoutPageLabel,
+  getVisibleLayoutCameras,
+} from '@trakrai/live-viewer/lib/live-layout-utils';
+import { PtzControlPanel } from '@trakrai/ptz-controller/components/ptz-control-panel';
+import { usePtzController } from '@trakrai/ptz-controller/hooks/use-ptz-controller';
 
 import type {
   DeviceCamera,
   LiveFrameSource,
   LiveLayoutMode,
   LiveLayoutSelection,
-  PtzVelocityCommand,
-} from '../lib/live-types';
+} from '@trakrai/live-transport/lib/live-types';
 
-import { useLiveWorkspace } from '../hooks/use-live-workspace';
-import {
-  LIVE_LAYOUT_OPTIONS,
-  clampLiveLayoutStartIndex,
-  getLiveLayoutCapacity,
-  getLiveLayoutPageCount,
-  getLiveLayoutPageLabel,
-  getVisibleLayoutCameras,
-} from '../lib/live-layout-utils';
-import {
-  DEFAULT_LIVE_DEVICE_ID,
-  formatHeartbeatAge,
-  formatMetric,
-  formatServiceDetails,
-  formatUptime,
-  getServiceStatusClasses,
-  getStatusClasses,
-  getStatusLabel,
-} from '../lib/live-ui-utils';
-import { LiveWorkspaceProvider } from '../providers/live-workspace-provider';
+export const DEFAULT_LIVE_DEVICE_ID = 'hacklab@10.8.0.50';
 
-export type LiveWorkspaceProps = Readonly<{
-  defaultDeviceId?: string;
-  deviceIdEditable?: boolean;
-  diagnosticsEnabled?: boolean;
-  httpBaseUrl: string;
-  iceTransportPolicy?: RTCIceTransportPolicy;
-  signalingUrl: string;
-}>;
+type WorkspacePanelId = 'diagnostics' | 'inventory' | 'ptz' | 'services';
 
-type LiveWorkspaceBodyProps = Readonly<{
-  defaultDeviceId: string;
-  deviceId: string;
-  deviceIdEditable: boolean;
-  onDeviceIdChange: (nextValue: string) => void;
-  onToggleDiagnostics: () => void;
-  showDiagnostics: boolean;
-}>;
+type PanelVisibility = Record<WorkspacePanelId, boolean>;
 
-const GRID_LAYOUT_SMALL = 2;
-const GRID_LAYOUT_MEDIUM = 3;
-const GRID_LAYOUT_LARGE = 4;
-const FOCUS_LAYOUT_SECONDARY_TILE_IDS = [
-  'focus-b',
-  'focus-c',
-  'focus-d',
-  'focus-e',
-  'focus-f',
-  'focus-g',
-  'focus-h',
-] as const;
-const ACTIVE_BUTTON_CLASSES = 'border-emerald-500 bg-emerald-50 text-emerald-700';
-const INACTIVE_BUTTON_CLASSES =
-  'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
-
-const getLayoutButtonClasses = (isActive: boolean): string =>
-  `flex min-h-28 flex-col justify-between border p-4 text-left transition ${
-    isActive ? ACTIVE_BUTTON_CLASSES : INACTIVE_BUTTON_CLASSES
-  }`;
-
-const getCameraChipClasses = (isActive: boolean): string =>
-  `border px-3 py-2 text-left text-xs transition ${isActive ? ACTIVE_BUTTON_CLASSES : INACTIVE_BUTTON_CLASSES}`;
-
-const getFrameSourceButtonClasses = (isActive: boolean): string =>
-  `border px-4 py-3 text-left transition ${isActive ? ACTIVE_BUTTON_CLASSES : INACTIVE_BUTTON_CLASSES}`;
-
-const LIVE_FRAME_SOURCE_OPTIONS: ReadonlyArray<
-  Readonly<{
-    description: string;
-    label: string;
-    value: LiveFrameSource;
-  }>
+const PANEL_OPTIONS: ReadonlyArray<
+  Readonly<{ description: string; id: WorkspacePanelId; label: string }>
 > = [
   {
-    description: 'Direct JPEG frames written by the RTSP feeder.',
-    label: 'Raw frames',
-    value: 'raw',
+    description: 'Service health, heartbeats, and route metadata.',
+    id: 'services',
+    label: 'Services',
   },
   {
-    description: 'Annotated AI output with detections and overlays from Redis.',
-    label: 'Processed frames',
-    value: 'processed',
+    description: 'Inventory announced by the device and quick camera picks.',
+    id: 'inventory',
+    label: 'Inventory',
+  },
+  {
+    description: 'Directional PTZ, zoom, and camera position controls.',
+    id: 'ptz',
+    label: 'PTZ',
+  },
+  {
+    description: 'Stream metrics and rolling diagnostic events.',
+    id: 'diagnostics',
+    label: 'Diagnostics',
   },
 ];
 
-const LayoutGlyph = ({ mode }: Readonly<{ mode: LiveLayoutMode }>) => {
-  if (mode === 'single') {
-    return <div className="h-10 w-full border border-current/40 bg-current/10" />;
-  }
+export type LiveWorkspaceProps = Readonly<{
+  defaultDeviceId?: string;
+  deviceId: string;
+  deviceIdEditable?: boolean;
+  diagnosticsEnabled?: boolean;
+  onDeviceIdChange: (nextValue: string) => void;
+}>;
 
-  if (mode === 'focus-8') {
-    return (
-      <div className="grid h-10 grid-cols-[1.6fr_1fr] gap-1">
-        <div className="border border-current/40 bg-current/10" />
-        <div className="grid grid-cols-2 grid-rows-4 gap-1">
-          {FOCUS_LAYOUT_SECONDARY_TILE_IDS.map((tileId) => (
-            <div key={tileId} className="border border-current/35 bg-current/10" />
-          ))}
-          <div className="border border-dashed border-current/25 bg-transparent" />
-        </div>
-      </div>
-    );
-  }
+type LiveWorkspaceShellProps = Readonly<{
+  defaultDeviceId: string;
+  diagnosticsEnabled: boolean;
+  deviceId: string;
+  deviceIdEditable: boolean;
+  onDeviceIdChange: (nextValue: string) => void;
+  panelVisibility: PanelVisibility;
+  onTogglePanel: (panelId: WorkspacePanelId) => void;
+}>;
 
-  let gridSize = GRID_LAYOUT_LARGE;
-  if (mode === 'grid-4') {
-    gridSize = GRID_LAYOUT_SMALL;
-  } else if (mode === 'grid-9') {
-    gridSize = GRID_LAYOUT_MEDIUM;
-  }
-  const tileIds = Array.from(
-    { length: gridSize * gridSize },
-    (_, tileIndex) => `${mode}-tile-${tileIndex + 1}`,
-  );
-  return (
-    <div
-      className="grid h-10 gap-1"
-      style={{
-        gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-        gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
-      }}
-    >
-      {tileIds.map((tileId) => (
-        <div key={tileId} className="border border-current/35 bg-current/10" />
-      ))}
-    </div>
-  );
-};
+const PANEL_BUTTON_ACTIVE_CLASSES = 'border-emerald-500 bg-emerald-50 text-emerald-700';
+const PANEL_BUTTON_IDLE_CLASSES =
+  'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
+
+const getPanelButtonClasses = (isActive: boolean): string =>
+  `border px-4 py-3 text-left transition ${
+    isActive ? PANEL_BUTTON_ACTIVE_CLASSES : PANEL_BUTTON_IDLE_CLASSES
+  }`;
 
 const reorderVisibleCameras = (
   visibleCameras: readonly DeviceCamera[],
@@ -196,45 +133,23 @@ const getPageStartForCamera = (
   );
 };
 
-const LiveWorkspaceBody = ({
+const LiveWorkspaceShell = ({
   defaultDeviceId,
+  diagnosticsEnabled,
   deviceId,
   deviceIdEditable,
   onDeviceIdChange,
-  onToggleDiagnostics,
-  showDiagnostics,
-}: LiveWorkspaceBodyProps) => {
+  panelVisibility,
+  onTogglePanel,
+}: LiveWorkspaceShellProps) => {
   const [selectedCamera, setSelectedCamera] = useState('');
   const [frameSource, setFrameSource] = useState<LiveFrameSource>('raw');
   const [layoutMode, setLayoutMode] = useState<LiveLayoutMode>('single');
   const [layoutStartIndex, setLayoutStartIndex] = useState(0);
-  const [activePtzDirection, setActivePtzDirection] = useState<string | null>(null);
   const lastAppliedSelectionRef = useRef<string | null>(null);
 
-  const {
-    activeCameraName,
-    connectionState,
-    deviceStatus,
-    heartbeatAgeSeconds,
-    stream,
-    streamStats,
-    startLive,
-    stopLive,
-    updateLiveLayout,
-    startPtzMove,
-    stopPtzMove,
-    setPtzZoom,
-    goHome,
-    ptzState,
-    ptzError,
-    refreshPtzPosition,
-    refreshStatus,
-    error,
-    logs,
-    isBusy,
-    transport,
-  } = useLiveWorkspace();
-
+  const viewer = useLiveViewer();
+  const { deviceStatus, heartbeatAgeSeconds, logs } = useDeviceRuntime();
   const enabledCameras = useMemo(
     () => (deviceStatus?.cameras ?? []).filter((camera) => camera.enabled),
     [deviceStatus?.cameras],
@@ -278,13 +193,12 @@ const LiveWorkspaceBody = ({
     [frameSource, layoutMode, visibleCameras],
   );
   const layoutSelectionKey = useMemo(() => JSON.stringify(layoutSelection), [layoutSelection]);
-  const isStreamSessionActive = connectionState === 'starting' || connectionState === 'streaming';
+  const isStreamSessionActive =
+    viewer.connectionState === 'starting' || viewer.connectionState === 'streaming';
   const primaryCameraLabel =
-    activeCameraName ?? layoutSelection.cameraNames[0] ?? 'No camera selected';
+    viewer.activeCameraName ?? layoutSelection.cameraNames[0] ?? 'No camera selected';
   const visibleCameraNamesLabel =
     layoutSelection.cameraNames.length > 0 ? layoutSelection.cameraNames.join(', ') : 'No cameras';
-  const statusClasses = getStatusClasses(connectionState);
-  const serviceStatuses = Object.values(deviceStatus?.services ?? {});
   const pageLabel = getLiveLayoutPageLabel(
     pageCameras,
     enabledCameras.length,
@@ -296,27 +210,10 @@ const LiveWorkspaceBody = ({
     layoutSelection.cameraNames.length === 0
       ? 1
       : Math.floor(safeLayoutStartIndex / getLiveLayoutCapacity(layoutMode)) + 1;
-  const ptzCamera =
-    selectedCameraName !== ''
-      ? selectedCameraName
-      : (layoutSelection.cameraNames[0] ?? ptzState?.activeCamera ?? '');
-  const ptzServiceStatus = deviceStatus?.services?.['ptz-control'];
-  const ptzConfiguredCameras = ptzState?.configuredCameras ?? [];
-  const isPtzCameraConfigured =
-    ptzCamera !== '' &&
-    (ptzConfiguredCameras.length === 0 || ptzConfiguredCameras.includes(ptzCamera));
-  const ptzControlsEnabled =
-    ptzServiceStatus !== undefined && ptzCamera !== '' && isPtzCameraConfigured;
-  const ptzPosition = ptzState?.position?.cameraName === ptzCamera ? ptzState.position : null;
-  const ptzCapabilities = ptzPosition?.capabilities ?? ptzState?.capabilities ?? null;
-  const ptzStatusLabel = ptzState?.status ?? ptzServiceStatus?.status ?? 'offline';
-  const lastPtzCommand = ptzState?.lastCommand ?? 'none';
-  const lastPtzMovement =
-    ptzPosition?.moveStatus?.panTilt ?? ptzPosition?.moveStatus?.zoom ?? ptzState?.status ?? 'idle';
   const primaryResolutionLabel =
-    streamStats?.frameWidth == null || streamStats.frameHeight == null
+    viewer.streamStats?.frameWidth == null || viewer.streamStats.frameHeight == null
       ? 'N/A'
-      : `${streamStats.frameWidth}x${streamStats.frameHeight}`;
+      : `${viewer.streamStats.frameWidth}x${viewer.streamStats.frameHeight}`;
   const liveFeedFrameSourceDetail = deviceStatus?.services?.['live-feed']?.details?.['frameSource'];
   let reportedFrameSource: LiveFrameSource | null = null;
   if (liveFeedFrameSourceDetail === 'processed' || liveFeedFrameSourceDetail === 'raw') {
@@ -325,23 +222,19 @@ const LiveWorkspaceBody = ({
   const activeFrameSource = reportedFrameSource ?? frameSource;
   const activeFrameSourceLabel =
     activeFrameSource === 'processed' ? 'Processed frames' : 'Raw frames';
+  const visiblePanels = diagnosticsEnabled
+    ? panelVisibility
+    : {
+        ...panelVisibility,
+        diagnostics: false,
+      };
+  const panelOptions = diagnosticsEnabled
+    ? PANEL_OPTIONS
+    : PANEL_OPTIONS.filter((panel) => panel.id !== 'diagnostics');
   const canPageBackward = safeLayoutStartIndex > 0;
   const canPageForward =
     safeLayoutStartIndex + getLiveLayoutCapacity(layoutMode) < enabledCameras.length;
-
-  useEffect(() => {
-    if (ptzCamera !== '') {
-      refreshPtzPosition(ptzCamera);
-    }
-  }, [ptzCamera, refreshPtzPosition]);
-
-  useEffect(() => {
-    return () => {
-      if (activePtzDirection !== null && ptzCamera !== '') {
-        stopPtzMove(ptzCamera);
-      }
-    };
-  }, [activePtzDirection, ptzCamera, stopPtzMove]);
+  const ptz = usePtzController(selectedCameraName);
 
   useEffect(() => {
     if (!isStreamSessionActive || layoutSelection.cameraNames.length === 0) {
@@ -356,26 +249,8 @@ const LiveWorkspaceBody = ({
     }
 
     lastAppliedSelectionRef.current = layoutSelectionKey;
-    updateLiveLayout(layoutSelection);
-  }, [isStreamSessionActive, layoutSelection, layoutSelectionKey, updateLiveLayout]);
-
-  const beginPtzMove = (directionId: string, velocity: PtzVelocityCommand) => {
-    if (!ptzControlsEnabled) {
-      return;
-    }
-
-    startPtzMove(ptzCamera, velocity);
-    setActivePtzDirection(directionId);
-  };
-
-  const endPtzMove = () => {
-    if (ptzCamera === '') {
-      return;
-    }
-
-    stopPtzMove(ptzCamera);
-    setActivePtzDirection(null);
-  };
+    viewer.updateLiveLayout(layoutSelection);
+  }, [isStreamSessionActive, layoutSelection, layoutSelectionKey, viewer]);
 
   const handleCameraSelect = (cameraName: string) => {
     setSelectedCamera(cameraName);
@@ -411,239 +286,72 @@ const LiveWorkspaceBody = ({
   return (
     <div className="flex w-full max-w-7xl flex-col gap-5">
       <section className="grid items-start gap-5 xl:grid-cols-[1.45fr_0.95fr]">
-        <Card className="border bg-neutral-950 text-white">
-          <CardHeader className="border-b border-white/10">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-xl text-white">Live monitor</CardTitle>
-                <CardDescription className="text-white/60">
-                  One stitched device stream with paging across camera sets for cloud and edge.
-                </CardDescription>
-              </div>
-              <div
-                className={`inline-flex items-center gap-2 border px-3 py-1 text-[11px] tracking-[0.22em] uppercase ${statusClasses}`}
-              >
-                <span className="h-2 w-2 rounded-full bg-current" />
-                {getStatusLabel(connectionState)}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="border border-white/10 bg-white/5 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                    Active layout
-                  </div>
-                  <div className="mt-1 text-sm font-medium text-white">
-                    {LIVE_LAYOUT_OPTIONS.find((option) => option.mode === layoutMode)
-                      ?.description ?? 'Single camera'}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                    Showing cameras
-                  </div>
-                  <div className="mt-1 text-sm font-medium text-white">
-                    {visibleCameraNamesLabel}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <VideoPlayer
-                  activeCameraName={primaryCameraLabel}
-                  connectionState={connectionState}
-                  isActive={isStreamSessionActive}
-                  stream={stream}
-                  streamStats={streamStats}
-                />
-              </div>
-
-              {error !== null && error !== '' ? (
-                <div className="mt-4 border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-                  {error}
-                </div>
-              ) : null}
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-5">
-                <div className="border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                    Primary camera
-                  </div>
-                  <div className="mt-1 text-sm font-medium text-white">{primaryCameraLabel}</div>
-                </div>
-                <div className="border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                    Camera set
-                  </div>
-                  <div className="mt-1 text-sm font-medium text-white">{pageLabel}</div>
-                </div>
-                <div className="border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                    Frame source
-                  </div>
-                  <div className="mt-1 text-sm font-medium text-white">
-                    {activeFrameSourceLabel}
-                  </div>
-                </div>
-                <div className="border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">FPS</div>
-                  <div className="mt-1 text-sm font-medium text-white">
-                    {formatMetric(streamStats?.fps, '')}
-                  </div>
-                </div>
-                <div className="border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                    Resolution
-                  </div>
-                  <div className="mt-1 text-sm font-medium text-white">
-                    {primaryResolutionLabel}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {LIVE_LAYOUT_OPTIONS.map((option) => (
-                <button
-                  key={option.mode}
-                  className={getLayoutButtonClasses(option.mode === layoutMode)}
-                  type="button"
-                  onClick={() => {
-                    handleLayoutChange(option.mode);
-                  }}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium">{option.label}</span>
-                      <span className="text-[11px] tracking-[0.2em] uppercase">
-                        {option.shortLabel}
-                      </span>
-                    </div>
-                    <LayoutGlyph mode={option.mode} />
-                  </div>
-                  <span className="mt-3 text-xs text-slate-500">{option.description}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="border border-white/10 bg-white/5 p-3">
-              <div>
-                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                  Frame source
-                </div>
-                <div className="mt-1 text-sm font-medium text-white">
-                  Switch the stitched live stream between raw RTSP frames and processed AI output.
-                </div>
-              </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {LIVE_FRAME_SOURCE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    className={getFrameSourceButtonClasses(frameSource === option.value)}
-                    type="button"
-                    onClick={() => {
-                      setFrameSource(option.value);
-                    }}
-                  >
-                    <div className="font-medium">{option.label}</div>
-                    <div className="mt-1 text-xs text-slate-500">{option.description}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-white/5 p-3">
-              <div>
-                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">Paging</div>
-                <div className="mt-1 text-sm font-medium text-white">
-                  Set {activePageNumber} of {pageCount}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={!canPageBackward}
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    handlePageShift(-1);
-                  }}
-                >
-                  Previous set
-                </Button>
-                <Button
-                  disabled={!canPageForward}
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    handlePageShift(1);
-                  }}
-                >
-                  Next set
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {visibleCameras.length > 0 ? (
-                visibleCameras.map((camera) => (
-                  <button
-                    key={camera.name}
-                    className={getCameraChipClasses(camera.name === selectedCameraName)}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCamera(camera.name);
-                    }}
-                  >
-                    <div className="font-medium">{camera.name}</div>
-                    <div className="mt-1 text-[11px] tracking-[0.18em] text-slate-500 uppercase">
-                      {camera.name === layoutSelection.cameraNames[0] ? 'Primary tile' : 'Visible'}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="col-span-full border border-dashed border-white/10 px-4 py-3 text-sm text-white/55">
-                  No enabled cameras available in the current device inventory yet.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <PtzControlPanel
-          key={ptzCamera !== '' ? ptzCamera : 'no-ptz-camera'}
-          activeDirection={activePtzDirection}
-          cameraName={ptzCamera}
-          capabilities={ptzCapabilities}
-          controlsEnabled={ptzControlsEnabled}
-          error={ptzError}
-          isCameraConfigured={isPtzCameraConfigured}
-          lastCommand={lastPtzCommand}
-          lastMovement={lastPtzMovement}
-          position={ptzPosition}
-          serviceRegistered={ptzServiceStatus !== undefined}
-          statusLabel={ptzStatusLabel}
-          onBeginMove={beginPtzMove}
-          onEndMove={endPtzMove}
-          onGoHome={() => {
-            goHome(ptzCamera);
+        <LiveViewerPanel
+          activeCameraName={viewer.activeCameraName}
+          activeFrameSourceLabel={activeFrameSourceLabel}
+          activePageNumber={activePageNumber}
+          canPageBackward={canPageBackward}
+          canPageForward={canPageForward}
+          connectionState={viewer.connectionState}
+          error={viewer.error}
+          frameSource={frameSource}
+          isBusy={viewer.isBusy}
+          isStreamSessionActive={isStreamSessionActive}
+          layoutMode={layoutMode}
+          pageCount={pageCount}
+          pageLabel={pageLabel}
+          primaryCameraLabel={primaryCameraLabel}
+          primaryResolutionLabel={primaryResolutionLabel}
+          selectedCameraName={selectedCameraName}
+          stream={viewer.stream}
+          streamStats={viewer.streamStats}
+          visibleCameraNamesLabel={visibleCameraNamesLabel}
+          visibleCameras={visibleCameras}
+          onFrameSourceChange={setFrameSource}
+          onLayoutChange={handleLayoutChange}
+          onPageShift={handlePageShift}
+          onRefreshStatus={viewer.refreshStatus}
+          onSelectCamera={handleCameraSelect}
+          onStartLive={() => {
+            lastAppliedSelectionRef.current = layoutSelectionKey;
+            viewer.startLive(layoutSelection);
           }}
-          onRefreshPosition={() => {
-            refreshPtzPosition(ptzCamera);
-          }}
-          onSetZoom={(zoom) => {
-            setPtzZoom(ptzCamera, zoom);
+          onStopLive={() => {
+            lastAppliedSelectionRef.current = null;
+            viewer.stopLive();
           }}
         />
+
+        {visiblePanels.ptz ? (
+          <PtzControlPanel
+            key={ptz.cameraName !== '' ? ptz.cameraName : 'no-ptz-camera'}
+            activeDirection={ptz.activeDirection}
+            cameraName={ptz.cameraName}
+            capabilities={ptz.capabilities}
+            controlsEnabled={ptz.controlsEnabled}
+            error={ptz.error}
+            isCameraConfigured={ptz.isCameraConfigured}
+            lastCommand={ptz.lastCommand}
+            lastMovement={ptz.lastMovement}
+            position={ptz.position}
+            serviceRegistered={ptz.serviceRegistered}
+            statusLabel={ptz.statusLabel}
+            onBeginMove={ptz.beginMove}
+            onEndMove={ptz.endMove}
+            onGoHome={ptz.goHome}
+            onRefreshPosition={ptz.refreshPosition}
+            onSetZoom={ptz.setZoom}
+          />
+        ) : null}
       </section>
 
       <section className="grid items-start gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <Card className="border">
           <CardHeader className="border-b">
-            <CardTitle className="text-base">Controls</CardTitle>
+            <CardTitle className="text-base">Workspace controls</CardTitle>
             <CardDescription>
-              Pick a layout, move across camera sets, and keep PTZ anchored to the selected camera.
+              The shell composes independent viewer, PTZ, inventory, services, and diagnostics
+              panels on top of the shared transport and WebRTC providers.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -661,21 +369,6 @@ const LiveWorkspaceBody = ({
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1 border p-3">
-                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                  Last heartbeat
-                </div>
-                <div className="text-sm font-medium">{formatHeartbeatAge(heartbeatAgeSeconds)}</div>
-              </div>
-              <div className="space-y-1 border p-3">
-                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                  Uptime
-                </div>
-                <div className="text-sm font-medium">{formatUptime(deviceStatus?.uptime)}</div>
-              </div>
-            </div>
-
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="border p-3">
                 <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
@@ -690,139 +383,105 @@ const LiveWorkspaceBody = ({
                   Bitrate
                 </div>
                 <div className="mt-1 text-sm font-medium">
-                  {formatMetric(streamStats?.bitrateKbps, ' kbps')}
+                  {formatMetric(viewer.streamStats?.bitrateKbps, ' kbps')}
                 </div>
               </div>
               <div className="border p-3">
                 <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                  Route
+                  Transport
                 </div>
-                <div className="mt-1 text-sm font-medium">{transport.httpBaseUrl}</div>
+                <div className="mt-1 text-sm font-medium capitalize">
+                  {viewer.transport.transportMode}
+                </div>
               </div>
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={isBusy || layoutSelection.cameraNames.length === 0}
-                type="button"
-                onClick={() => {
-                  lastAppliedSelectionRef.current = layoutSelectionKey;
-                  startLive(layoutSelection);
-                }}
-              >
-                {isStreamSessionActive ? 'Restart live view' : 'Start live view'}
-              </Button>
-              <Button
-                disabled={!isStreamSessionActive && activeCameraName === null}
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  lastAppliedSelectionRef.current = null;
-                  stopLive();
-                }}
-              >
-                Stop live view
-              </Button>
-              <Button type="button" variant="outline" onClick={refreshStatus}>
-                Refresh status
-              </Button>
-            </div>
-
-            <Separator />
 
             <div className="space-y-2">
               <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                Device services
+                Visible panels
               </div>
-              <div className="space-y-2">
-                {serviceStatuses.length > 0 ? (
-                  serviceStatuses.map((serviceStatus) => {
-                    const details = formatServiceDetails(serviceStatus.details);
-
-                    return (
-                      <div
-                        key={serviceStatus.service}
-                        className="flex items-start justify-between gap-3 border px-3 py-2 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-medium">{serviceStatus.service}</div>
-                          {details !== null ? (
-                            <div className="text-muted-foreground mt-1 text-[11px]">{details}</div>
-                          ) : null}
-                        </div>
-                        <span
-                          className={`shrink-0 border px-2 py-1 text-[10px] tracking-[0.18em] uppercase ${getServiceStatusClasses(serviceStatus.status)}`}
-                        >
-                          {serviceStatus.status}
-                        </span>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-muted-foreground border px-3 py-2 text-xs">
-                    No service status has been published yet.
-                  </div>
-                )}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {panelOptions.map((panel) => (
+                  <button
+                    key={panel.id}
+                    className={getPanelButtonClasses(visiblePanels[panel.id])}
+                    type="button"
+                    onClick={() => {
+                      onTogglePanel(panel.id);
+                    }}
+                  >
+                    <div className="font-medium">{panel.label}</div>
+                    <div className="mt-1 text-xs text-slate-500">{panel.description}</div>
+                  </button>
+                ))}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <CameraInventoryCard
-          cameras={enabledCameras}
-          currentCamera={selectedCameraName}
-          onSelectCamera={handleCameraSelect}
-        />
+        {visiblePanels.inventory ? (
+          <CameraInventoryCard
+            cameras={enabledCameras}
+            currentCamera={selectedCameraName}
+            onSelectCamera={handleCameraSelect}
+          />
+        ) : null}
       </section>
 
-      <section>
-        <DiagnosticsCard
-          logs={logs}
-          showDiagnostics={showDiagnostics}
-          streamStats={streamStats}
-          onToggle={onToggleDiagnostics}
-        />
-      </section>
+      {visiblePanels.services ? (
+        <section>
+          <DeviceServicesPanel
+            deviceStatus={viewer.deviceStatus}
+            heartbeatAgeSeconds={heartbeatAgeSeconds}
+            routeLabel={viewer.transport.httpBaseUrl}
+          />
+        </section>
+      ) : null}
+
+      {visiblePanels.diagnostics ? (
+        <section>
+          <DiagnosticsPanel
+            logs={logs}
+            showDiagnostics={visiblePanels.diagnostics}
+            streamStats={viewer.streamStats}
+            onToggle={() => {
+              onTogglePanel('diagnostics');
+            }}
+          />
+        </section>
+      ) : null}
     </div>
   );
 };
 
 export const LiveWorkspace = ({
   defaultDeviceId = DEFAULT_LIVE_DEVICE_ID,
+  deviceId,
   deviceIdEditable = true,
   diagnosticsEnabled = true,
-  httpBaseUrl,
-  iceTransportPolicy,
-  signalingUrl,
+  onDeviceIdChange,
 }: LiveWorkspaceProps) => {
-  const [deviceId, setDeviceId] = useState(defaultDeviceId);
-  const [showDiagnostics, setShowDiagnostics] = useState(diagnosticsEnabled);
-
-  useEffect(() => {
-    setDeviceId(defaultDeviceId);
-  }, [defaultDeviceId]);
-
-  useEffect(() => {
-    setShowDiagnostics(diagnosticsEnabled);
-  }, [diagnosticsEnabled]);
+  const [panelVisibility, setPanelVisibility] = useState<PanelVisibility>({
+    diagnostics: diagnosticsEnabled,
+    inventory: true,
+    ptz: true,
+    services: true,
+  });
 
   return (
-    <LiveWorkspaceProvider
+    <LiveWorkspaceShell
+      defaultDeviceId={defaultDeviceId}
       deviceId={deviceId}
-      httpBaseUrl={httpBaseUrl}
-      iceTransportPolicy={iceTransportPolicy}
-      signalingUrl={signalingUrl}
-    >
-      <LiveWorkspaceBody
-        defaultDeviceId={defaultDeviceId}
-        deviceId={deviceId}
-        deviceIdEditable={deviceIdEditable}
-        showDiagnostics={showDiagnostics}
-        onDeviceIdChange={setDeviceId}
-        onToggleDiagnostics={() => {
-          setShowDiagnostics((currentValue) => !currentValue);
-        }}
-      />
-    </LiveWorkspaceProvider>
+      deviceIdEditable={deviceIdEditable}
+      diagnosticsEnabled={diagnosticsEnabled}
+      panelVisibility={panelVisibility}
+      onDeviceIdChange={onDeviceIdChange}
+      onTogglePanel={(panelId) => {
+        setPanelVisibility((currentState) => ({
+          ...currentState,
+          [panelId]: !currentState[panelId],
+        }));
+      }}
+    />
   );
 };

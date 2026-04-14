@@ -11,8 +11,13 @@ import {
   CardTitle,
 } from '@trakrai/design-system/components/card';
 import { Separator } from '@trakrai/design-system/components/separator';
+import { getServiceStatusClasses } from '@trakrai/live-transport/lib/live-display-utils';
 
-import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from '../lib/live-types';
+import type {
+  PtzCapabilities,
+  PtzPosition,
+  PtzVelocityCommand,
+} from '@trakrai/live-transport/lib/live-types';
 
 import {
   canStartPtzMove,
@@ -28,15 +33,14 @@ import {
   formatSignedMetric,
   formatUpdatedAt,
   getPtzStopButtonClasses,
-  getServiceStatusClasses,
   supportsGoHome,
   supportsPanTiltDrive,
   supportsZoomDrive,
   supportsZoomTarget,
   toNormalizedZoomValue,
-} from '../lib/live-ui-utils';
+} from '../lib/ptz-ui-utils';
 
-type Props = Readonly<{
+type PtzControlPanelProps = Readonly<{
   activeDirection: string | null;
   cameraName: string;
   capabilities: PtzCapabilities | null;
@@ -85,7 +89,7 @@ export const PtzControlPanel = ({
   position,
   serviceRegistered,
   statusLabel,
-}: Props) => {
+}: PtzControlPanelProps) => {
   const [zoomTargetDraft, setZoomTargetDraft] = useState<number | null>(null);
 
   const hasCamera = cameraName.trim() !== '';

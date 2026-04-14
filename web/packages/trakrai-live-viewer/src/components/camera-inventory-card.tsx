@@ -8,19 +8,23 @@ import {
   CardTitle,
 } from '@trakrai/design-system/components/card';
 
-import type { DeviceCamera } from '../lib/live-types';
+import type { DeviceCamera } from '@trakrai/live-transport/lib/live-types';
 
 const CAMERA_CARD_SELECTED_CLASSES = 'border-emerald-500 bg-emerald-50';
 const CAMERA_CARD_IDLE_CLASSES =
   'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 
-type Props = Readonly<{
+type CameraInventoryCardProps = Readonly<{
   cameras: DeviceCamera[];
   currentCamera: string;
   onSelectCamera: (cameraName: string) => void;
 }>;
 
-export const CameraInventoryCard = ({ cameras, currentCamera, onSelectCamera }: Props) => (
+export const CameraInventoryCard = ({
+  cameras,
+  currentCamera,
+  onSelectCamera,
+}: CameraInventoryCardProps) => (
   <Card className="border">
     <CardHeader className="border-b">
       <CardTitle className="text-base">Camera inventory</CardTitle>

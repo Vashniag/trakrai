@@ -68,9 +68,18 @@ importers:
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../../packages/trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-live-transport
       '@trakrai/live-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-ui
+      '@trakrai/live-viewer':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-live-viewer
+      '@trakrai/ptz-controller':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-ptz-controller
       '@trpc/client':
         specifier: ^11.16.0
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.2))(typescript@6.0.2)
@@ -180,9 +189,18 @@ importers:
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../../packages/trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-live-transport
       '@trakrai/live-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-ui
+      '@trakrai/live-viewer':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-live-viewer
+      '@trakrai/ptz-controller':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-ptz-controller
       next:
         specifier: 16.2.3
         version: 16.2.3(@opentelemetry/api@1.9.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -414,11 +432,155 @@ importers:
         specifier: ^6
         version: 6.0.2
 
+  packages/trakrai-live-transport:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../trakrai-design-system
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@tailwindcss/cli':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^10.2.0
+        version: 10.2.0(jiti@2.6.1)
+      tailwindcss:
+        specifier: ^4.2.2
+        version: 4.2.2
+      tsdown:
+        specifier: ^0.21.7
+        version: 0.21.7(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+      typescript:
+        specifier: ^6
+        version: 6.0.2
+
   packages/trakrai-live-ui:
     dependencies:
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../trakrai-live-transport
+      '@trakrai/live-viewer':
+        specifier: workspace:*
+        version: link:../trakrai-live-viewer
+      '@trakrai/ptz-controller':
+        specifier: workspace:*
+        version: link:../trakrai-ptz-controller
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@tailwindcss/cli':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^10.2.0
+        version: 10.2.0(jiti@2.6.1)
+      tailwindcss:
+        specifier: ^4.2.2
+        version: 4.2.2
+      tsdown:
+        specifier: ^0.21.7
+        version: 0.21.7(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+      typescript:
+        specifier: ^6
+        version: 6.0.2
+
+  packages/trakrai-live-viewer:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../trakrai-live-transport
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@tailwindcss/cli':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^10.2.0
+        version: 10.2.0(jiti@2.6.1)
+      tailwindcss:
+        specifier: ^4.2.2
+        version: 4.2.2
+      tsdown:
+        specifier: ^0.21.7
+        version: 0.21.7(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+      typescript:
+        specifier: ^6
+        version: 6.0.2
+
+  packages/trakrai-ptz-controller:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../trakrai-live-transport
       react:
         specifier: ^18.0.0 || ^19.0.0
         version: 19.2.5

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Card, CardContent } from '@trakrai/design-system/components/card';
+import { DeviceRuntimeProvider } from '@trakrai/live-transport/providers/device-runtime-provider';
+import { EdgeTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
+import { WebRtcProvider } from '@trakrai/live-transport/providers/webrtc-provider';
 import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 import { LiveWorkspace } from '@trakrai/live-ui/components/live-workspace';
 
@@ -68,14 +71,24 @@ export const DeviceAppShell = () => {
       title="Live feed and PTZ"
     >
       {showLiveWorkspace ? (
-        <LiveWorkspace
+        <EdgeTransportProvider
           key={transportKey}
-          defaultDeviceId={runtimeConfig.deviceId}
-          deviceIdEditable={false}
-          diagnosticsEnabled={runtimeConfig.diagnosticsEnabled}
+          deviceId={runtimeConfig.deviceId}
           httpBaseUrl={activeTransport.httpBaseUrl}
           signalingUrl={activeTransport.signalingUrl}
-        />
+        >
+          <DeviceRuntimeProvider>
+            <WebRtcProvider httpBaseUrl={activeTransport.httpBaseUrl}>
+              <LiveWorkspace
+                defaultDeviceId={runtimeConfig.deviceId}
+                deviceId={runtimeConfig.deviceId}
+                deviceIdEditable={false}
+                diagnosticsEnabled={runtimeConfig.diagnosticsEnabled}
+                onDeviceIdChange={() => undefined}
+              />
+            </WebRtcProvider>
+          </DeviceRuntimeProvider>
+        </EdgeTransportProvider>
       ) : (
         <Card className="border-black/10 bg-white/90 shadow-[0_20px_70px_-45px_rgba(15,23,42,0.45)]">
           <CardContent className="py-10 text-sm text-slate-600">

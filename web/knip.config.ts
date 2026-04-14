@@ -26,6 +26,15 @@ const config: KnipConfig = {
     'packages/trakrai-live-ui': {
       project: ['src/**/*.{ts,tsx}'],
     },
+    'packages/trakrai-live-transport': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-live-viewer': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-ptz-controller': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
     'packages/eslint-config': {
       entry: ['*.js'],
       project: ['**/*.js'],

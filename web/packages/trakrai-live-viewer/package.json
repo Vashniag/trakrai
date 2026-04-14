@@ -1,5 +1,5 @@
 {
-  "name": "@trakrai/live-ui",
+  "name": "@trakrai/live-viewer",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": [
@@ -20,9 +20,7 @@
   },
   "dependencies": {
     "@trakrai/design-system": "workspace:*",
-    "@trakrai/live-transport": "workspace:*",
-    "@trakrai/live-viewer": "workspace:*",
-    "@trakrai/ptz-controller": "workspace:*"
+    "@trakrai/live-transport": "workspace:*"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -42,6 +40,8 @@
   },
   "exports": {
     "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts",
     "./styles.css": "./src/styles.css"
   },
   "publishConfig": {
@@ -50,6 +50,14 @@
       "./components/*": {
         "import": "./dist/components/*.js",
         "types": "./dist/components/*.d.ts"
+      },
+      "./hooks/*": {
+        "import": "./dist/hooks/*.js",
+        "types": "./dist/hooks/*.d.ts"
+      },
+      "./lib/*": {
+        "import": "./dist/lib/*.js",
+        "types": "./dist/lib/*.d.ts"
       },
       "./styles.css": "./dist/styles.css"
     }

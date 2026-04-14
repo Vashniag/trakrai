@@ -2,9 +2,9 @@
 
 import type {
   ActivityLogEntry,
-  PtzCapabilities,
   DeviceServiceStatus,
   DeviceStatus,
+  PtzCapabilities,
   PtzPosition,
   PtzState,
 } from './live-types';
@@ -36,6 +36,22 @@ export const MS_PER_SECOND = 1000;
 export const STALE_HEARTBEAT_SECONDS = 15;
 export const STATS_INTERVAL_MS = 1000;
 export const DISCONNECT_GRACE_MS = 12_000;
+
+const REQUEST_ID_RADIX = 36;
+let fallbackRequestCounter = 0;
+let fallbackLogEntryCounter = 0;
+
+export const createClientRequestId = (): string => {
+  const randomUuid = globalThis.crypto.randomUUID;
+  if (typeof randomUuid === 'function') {
+    return randomUuid.call(globalThis.crypto);
+  }
+
+  fallbackRequestCounter += 1;
+  return `trakrai-${Date.now().toString(REQUEST_ID_RADIX)}-${fallbackRequestCounter.toString(
+    REQUEST_ID_RADIX,
+  )}`;
+};
 
 export const unwrapPayload = <TPayload>(envelope: unknown): TPayload => {
   if (
@@ -97,6 +113,9 @@ export const createLogEntry = (
   message: string,
 ): ActivityLogEntry => ({
   at: new Date().toISOString(),
+  id: `log-${Date.now().toString(REQUEST_ID_RADIX)}-${(fallbackLogEntryCounter++).toString(
+    REQUEST_ID_RADIX,
+  )}`,
   level,
   message,
 });

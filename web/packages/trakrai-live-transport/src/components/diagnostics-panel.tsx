@@ -12,9 +12,9 @@ import { Separator } from '@trakrai/design-system/components/separator';
 
 import type { ActivityLogEntry, StreamStats } from '../lib/live-types';
 
-import { formatMetric } from '../lib/live-ui-utils';
+import { formatMetric } from '../lib/live-display-utils';
 
-type Props = Readonly<{
+type DiagnosticsPanelProps = Readonly<{
   logs: ActivityLogEntry[];
   onToggle: () => void;
   showDiagnostics: boolean;
@@ -35,7 +35,12 @@ const getRouteLabel = (streamStats: StreamStats | null): string => {
   return `${streamStats?.candidateType ?? 'N/A'}${routeSuffix}`;
 };
 
-export const DiagnosticsCard = ({ logs, onToggle, showDiagnostics, streamStats }: Props) => (
+export const DiagnosticsPanel = ({
+  logs,
+  onToggle,
+  showDiagnostics,
+  streamStats,
+}: DiagnosticsPanelProps) => (
   <Card className="border">
     <CardHeader className="border-b">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -115,10 +120,7 @@ export const DiagnosticsCard = ({ logs, onToggle, showDiagnostics, streamStats }
           <div className="max-h-[320px] space-y-2 overflow-y-auto border p-3">
             {logs.length > 0 ? (
               logs.map((entry) => (
-                <div
-                  key={`${entry.at}-${entry.message}`}
-                  className="border-b pb-2 last:border-b-0 last:pb-0"
-                >
+                <div key={entry.id} className="border-b pb-2 last:border-b-0 last:pb-0">
                   <div className="text-muted-foreground flex items-center justify-between gap-3 text-[11px] tracking-[0.18em] uppercase">
                     <span>{entry.level}</span>
                     <span>{new Date(entry.at).toLocaleTimeString()}</span>

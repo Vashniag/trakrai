@@ -1,5 +1,9 @@
 'use client';
 
+export type TransportLayer = 'cloud' | 'edge';
+
+export type TransportConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
+
 export type ConnectionState =
   | 'disconnected'
   | 'connecting'
@@ -7,6 +11,8 @@ export type ConnectionState =
   | 'starting'
   | 'streaming'
   | 'reconnecting';
+
+export type WebRtcConnectionState = 'idle' | 'starting' | 'streaming';
 
 export type LiveLayoutMode = 'single' | 'grid-4' | 'grid-9' | 'focus-8' | 'grid-16';
 export type LiveFrameSource = 'raw' | 'processed';
@@ -85,6 +91,7 @@ export type DeviceStatus = {
 
 export type ActivityLogEntry = {
   at: string;
+  id: string;
   level: 'error' | 'info' | 'warn';
   message: string;
 };
@@ -102,3 +109,16 @@ export type StreamStats = {
   roundTripTimeMs: number | null;
   transport: string | null;
 };
+
+export type LiveTransportMessage = {
+  payload: unknown;
+  type: string;
+};
+
+export type WebRtcEvent =
+  | { cameraName: string | null; sessionId: string | null; type: 'offer-received' }
+  | { type: 'track-attached' }
+  | { type: 'peer-connected' }
+  | { type: 'peer-temporarily-disconnected' }
+  | { reason: 'closed' | 'failed' | 'timeout'; type: 'peer-closed' }
+  | { message: string; type: 'error' };
