@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add Workspace Package"
+  short_description: "Add a new web workspace package"
+  default_prompt: "Use $add-workspace-package to scaffold a new reusable package in the TrakrAI web workspace."

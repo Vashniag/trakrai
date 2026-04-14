@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add Shared Device Component"
+  short_description: "Build shared edge/cloud device components"
+  default_prompt: "Use $add-shared-device-communication-component to add a shared component that works across the TrakrAI cloud and edge device communication layers."

@@ -161,7 +161,7 @@ Current live-view flow:
 
 ### Design/architecture docs
 
-- `web/docs/communication-layer-plan.md`
+- `web/docs/README.md`
 
 ## Device Access And Runtime Details
 
@@ -762,7 +762,7 @@ If you are investigating a live-view issue, start here:
 
 If you are extending the architecture, also read:
 
-- `web/docs/communication-layer-plan.md`
+- `web/docs/README.md`
 
 ## Practical Rules For Future Agents
 
