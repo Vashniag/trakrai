@@ -26,11 +26,18 @@ type WebRTCConfig struct {
 	FramerateFPS             int          `json:"framerate_fps"`
 }
 
+type CompositeConfig struct {
+	Height      int `json:"height"`
+	TilePadding int `json:"tile_padding"`
+	Width       int `json:"width"`
+}
+
 type Config struct {
-	LogLevel string             `json:"log_level"`
-	Redis    redisconfig.Config `json:"redis"`
-	IPC      IPCConfig          `json:"ipc"`
-	WebRTC   WebRTCConfig       `json:"webrtc"`
+	LogLevel  string             `json:"log_level"`
+	Redis     redisconfig.Config `json:"redis"`
+	IPC       IPCConfig          `json:"ipc"`
+	WebRTC    WebRTCConfig       `json:"webrtc"`
+	Composite CompositeConfig    `json:"composite"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -48,6 +55,11 @@ func LoadConfig(path string) (*Config, error) {
 		WebRTC: WebRTCConfig{
 			FramerateFPS: 10,
 		},
+		Composite: CompositeConfig{
+			Width:       960,
+			Height:      540,
+			TilePadding: 8,
+		},
 	}
 
 	if err := configjson.Load(path, cfg); err != nil {
@@ -58,6 +70,15 @@ func LoadConfig(path string) (*Config, error) {
 
 	if cfg.IPC.SocketPath == "" {
 		return nil, fmt.Errorf("ipc.socket_path is required")
+	}
+	if cfg.Composite.Width <= 0 {
+		return nil, fmt.Errorf("composite.width must be greater than 0")
+	}
+	if cfg.Composite.Height <= 0 {
+		return nil, fmt.Errorf("composite.height must be greater than 0")
+	}
+	if cfg.Composite.TilePadding < 0 {
+		return nil, fmt.Errorf("composite.tile_padding must be zero or greater")
 	}
 
 	return cfg, nil

@@ -10,6 +10,15 @@ import (
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
 )
 
+type liveLayoutPayload struct {
+	CameraName  string   `json:"cameraName"`
+	Camera      string   `json:"camera"`
+	CameraNames []string `json:"cameraNames"`
+	LayoutMode  string   `json:"layoutMode"`
+	RequestID   string   `json:"requestId"`
+	SessionID   string   `json:"sessionId"`
+}
+
 func Run(ctx context.Context, cfg *Config) error {
 	slog.Info("trakrai live-feed starting",
 		"redis", redisconfig.Address(cfg.Redis),
@@ -87,31 +96,46 @@ func handleNotifications(ctx context.Context, ipcClient *ipc.Client, sessions *S
 func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTTEnvelope) {
 	switch env.Type {
 	case "start-live", "start":
-		var payload struct {
-			CameraName string `json:"cameraName"`
-			Camera     string `json:"camera"`
-			RequestID  string `json:"requestId"`
-		}
+		var payload liveLayoutPayload
 		if err := json.Unmarshal(env.Payload, &payload); err != nil {
 			slog.Warn("invalid start-live payload", "error", err)
 			_ = ipcClient.ReportError(fmt.Sprintf("invalid start-live payload: %v", err), false)
 			return
 		}
 
-		cameraName := payload.CameraName
-		if cameraName == "" {
-			cameraName = payload.Camera
-		}
-		if cameraName == "" {
-			slog.Warn("start-live payload missing camera name")
-			_ = ipcClient.ReportError("start-live payload missing cameraName", false)
+		plan, err := layoutPlanFromPayload(payload)
+		if err != nil {
+			slog.Warn("start-live payload invalid", "error", err)
+			_ = ipcClient.ReportError(fmt.Sprintf("invalid start-live payload: %v", err), false)
 			return
 		}
 
-		if err := ipcClient.ReportStatus("starting", map[string]interface{}{"camera": cameraName}); err != nil {
+		if err := ipcClient.ReportStatus("starting", mergeLayoutDetails(plan, map[string]interface{}{
+			"camera": plan.PrimaryCamera(),
+		})); err != nil {
 			slog.Debug("status report failed", "error", err)
 		}
-		go sessions.StartSession(cameraName, payload.RequestID)
+		go sessions.StartSession(plan, payload.RequestID)
+
+	case "update-live-layout":
+		var payload liveLayoutPayload
+		if err := json.Unmarshal(env.Payload, &payload); err != nil {
+			slog.Warn("invalid update-live-layout payload", "error", err)
+			_ = ipcClient.ReportError(fmt.Sprintf("invalid update-live-layout payload: %v", err), false)
+			return
+		}
+
+		plan, err := layoutPlanFromPayload(payload)
+		if err != nil {
+			slog.Warn("update-live-layout payload invalid", "error", err)
+			_ = ipcClient.ReportError(fmt.Sprintf("invalid update-live-layout payload: %v", err), false)
+			return
+		}
+
+		if err := sessions.UpdateSessionLayout(payload.SessionID, plan); err != nil {
+			slog.Warn("update-live-layout failed", "error", err)
+			_ = ipcClient.ReportError(fmt.Sprintf("update-live-layout failed: %v", err), false)
+		}
 
 	case "stop-live", "stop":
 		var payload struct {
@@ -128,6 +152,15 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 	default:
 		slog.Warn("unknown live-feed command", "type", env.Type)
 	}
+}
+
+func layoutPlanFromPayload(payload liveLayoutPayload) (LiveLayoutPlan, error) {
+	cameraName := payload.CameraName
+	if cameraName == "" {
+		cameraName = payload.Camera
+	}
+
+	return NormalizeLiveLayoutPlan(payload.LayoutMode, cameraName, payload.CameraNames)
 }
 
 func handleWebRTCAnswer(env ipc.MQTTEnvelope, sessions *SessionManager) {

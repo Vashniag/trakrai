@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ type liveSession struct {
 	cameraName      string
 	cancel          context.CancelFunc
 	disconnectTimer *time.Timer
+	layoutPlan      LiveLayoutPlan
 	pc              *webrtc.PeerConnection
 	pendingICE      []webrtc.ICECandidateInit
 	requestID       string
@@ -37,6 +39,7 @@ type liveSession struct {
 type SessionManager struct {
 	mu       sync.Mutex
 	control  ControlPlane
+	composer *MosaicComposer
 	frameSrc *FrameSource
 	cfg      *Config
 	log      *slog.Logger
@@ -47,14 +50,20 @@ func NewSessionManager(cfg *Config, frameSource *FrameSource, control ControlPla
 	return &SessionManager{
 		cfg:      cfg,
 		frameSrc: frameSource,
+		composer: NewMosaicComposer(cfg.Composite, frameSource),
 		control:  control,
 		log:      slog.With("component", "webrtc"),
 		sessions: make(map[string]*liveSession),
 	}
 }
 
-func (sm *SessionManager) StartSession(cameraName string, requestID string) {
-	sm.log.Info("starting WebRTC session", "camera", cameraName)
+func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
+	cameraName := plan.PrimaryCamera()
+	sm.log.Info("starting WebRTC session",
+		"camera", cameraName,
+		"layoutMode", plan.Mode,
+		"cameraCount", len(plan.CameraNames),
+	)
 	sessionID := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	iceServers := []webrtc.ICEServer{}
@@ -76,17 +85,18 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 	if err != nil {
 		sm.log.Error("peer connection failed", "error", err)
 		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
-		sm.reportAggregateStatus(map[string]interface{}{
+		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
 			"requestId": requestID,
 			"sessionId": sessionID,
-		})
+		}))
 		return
 	}
 
 	session := &liveSession{
 		cameraName: cameraName,
+		layoutPlan: plan,
 		pc:         pc,
 		requestID:  strings.TrimSpace(requestID),
 		sessionID:  sessionID,
@@ -105,12 +115,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		sm.log.Error("create track failed", "error", err)
 		_ = pc.Close()
 		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
-		sm.reportAggregateStatus(map[string]interface{}{
+		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
 			"requestId": requestID,
 			"sessionId": sessionID,
-		})
+		}))
 		return
 	}
 
@@ -118,12 +128,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		sm.log.Error("add track failed", "error", err)
 		_ = pc.Close()
 		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
-		sm.reportAggregateStatus(map[string]interface{}{
+		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
 			"requestId": requestID,
 			"sessionId": sessionID,
-		})
+		}))
 		return
 	}
 
@@ -182,43 +192,43 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		case webrtc.PeerConnectionStateConnecting:
 			sm.clearDisconnectTimer(sessionID)
 			sm.setSessionState(sessionID, "negotiating")
-			sm.reportAggregateStatus(map[string]interface{}{
+			sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
 				"requestId":      session.requestID,
 				"sessionId":      sessionID,
-			})
+			}))
 		case webrtc.PeerConnectionStateConnected:
 			sm.clearDisconnectTimer(sessionID)
 			sm.setSessionState(sessionID, "streaming")
-			sm.reportAggregateStatus(map[string]interface{}{
+			sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
 				"requestId":      session.requestID,
 				"sessionId":      sessionID,
-			})
+			}))
 		case webrtc.PeerConnectionStateDisconnected:
 			sm.log.Warn("peer connection temporarily disconnected", "session_id", sessionID, "camera", cameraName)
 			sm.setSessionState(sessionID, "negotiating")
-			sm.reportAggregateStatus(map[string]interface{}{
+			sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
 				"phase":          "waiting-reconnect",
 				"requestId":      session.requestID,
 				"sessionId":      sessionID,
-			})
+			}))
 			sm.scheduleDisconnectTimeout(sessionID, cameraName, pc, session.requestID)
 			return
 		}
 		if state == webrtc.PeerConnectionStateFailed ||
 			state == webrtc.PeerConnectionStateClosed {
-			sm.stopSessionWithDetails(sessionID, map[string]interface{}{
+			sm.stopSessionWithDetails(sessionID, mergeLayoutDetails(plan, map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
 				"reason":         "peer-connection-closed",
 				"requestId":      session.requestID,
 				"sessionId":      sessionID,
-			})
+			}))
 		}
 	})
 
@@ -228,12 +238,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		sm.removeSession(sessionID)
 		_ = pc.Close()
 		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
-		sm.reportAggregateStatus(map[string]interface{}{
+		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
 			"requestId": requestID,
 			"sessionId": sessionID,
-		})
+		}))
 		return
 	}
 
@@ -242,12 +252,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		sm.removeSession(sessionID)
 		_ = pc.Close()
 		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
-		sm.reportAggregateStatus(map[string]interface{}{
+		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
 			"requestId": requestID,
 			"sessionId": sessionID,
-		})
+		}))
 		return
 	}
 
@@ -256,12 +266,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		sm.removeSession(sessionID)
 		_ = pc.Close()
 		sm.sendAck(cameraName, sessionID, requestID, false, "local description was not created")
-		sm.reportAggregateStatus(map[string]interface{}{
+		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     "local description was not created",
 			"requestId": requestID,
 			"sessionId": sessionID,
-		})
+		}))
 		return
 	}
 
@@ -276,12 +286,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 		offerPayload["requestId"] = session.requestID
 	}
 	sm.publish("webrtc/offer", "sdp-offer", offerPayload)
-	sm.reportAggregateStatus(map[string]interface{}{
+	sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 		"camera":    cameraName,
 		"phase":     "offer-sent",
 		"requestId": requestID,
 		"sessionId": sessionID,
-	})
+	}))
 	sm.log.Info("SDP offer sent", "session_id", sessionID)
 
 	sessionCtx, cancel := context.WithCancel(context.Background())
@@ -291,12 +301,12 @@ func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 	}
 	sm.mu.Unlock()
 
-	go sm.pumpFrames(sessionCtx, cameraName, videoTrack)
+	go sm.pumpFrames(sessionCtx, sessionID, videoTrack)
 }
 
 func (sm *SessionManager) pumpFrames(
 	ctx context.Context,
-	cameraName string,
+	sessionID string,
 	track *webrtc.TrackLocalStaticSample,
 ) {
 	fps := sm.cfg.WebRTC.FramerateFPS
@@ -304,32 +314,44 @@ func (sm *SessionManager) pumpFrames(
 		fps = 10
 	}
 
-	encoder, err := NewH264Encoder(fps)
+	encoder, err := NewH264Encoder(sm.cfg.Composite.Width, sm.cfg.Composite.Height, fps)
 	if err != nil {
 		sm.log.Error("encoder creation failed", "error", err)
 		return
 	}
 	defer encoder.Stop()
 
-	frameCh := make(chan []byte, 2)
-	go sm.frameSrc.FramePump(ctx, cameraName, fps, frameCh)
-
 	frameDuration := time.Duration(float64(time.Second) / float64(fps))
 	var pts uint64
+	ticker := time.NewTicker(frameDuration)
+	defer ticker.Stop()
 
-	sm.log.Info("frame pump started", "camera", cameraName, "fps", fps)
+	sm.log.Info("frame pump started",
+		"session_id", sessionID,
+		"fps", fps,
+		"width", sm.cfg.Composite.Width,
+		"height", sm.cfg.Composite.Height,
+	)
 
 	for {
 		select {
 		case <-ctx.Done():
 			sm.log.Info("frame pump stopped")
 			return
-		case jpeg, ok := <-frameCh:
+		case <-ticker.C:
+			plan, ok := sm.sessionPlan(sessionID)
 			if !ok {
 				return
 			}
 
-			h264Data, err := encoder.Encode(jpeg, pts)
+			rgbaFrame, err := sm.composer.ComposeRGBAFrame(ctx, plan)
+			if err != nil {
+				sm.log.Debug("composite frame failed", "error", err, "session_id", sessionID)
+				pts += uint64(frameDuration.Nanoseconds())
+				continue
+			}
+
+			h264Data, err := encoder.Encode(rgbaFrame, pts)
 			if err != nil {
 				sm.log.Debug("encode failed", "error", err)
 				pts += uint64(frameDuration.Nanoseconds())
@@ -426,6 +448,37 @@ func (sm *SessionManager) AddICECandidate(sessionID string, candidateJSON json.R
 		return
 	}
 	sm.mu.Unlock()
+}
+
+func (sm *SessionManager) UpdateSessionLayout(sessionID string, plan LiveLayoutPlan) error {
+	sm.mu.Lock()
+	session := sm.lookupSessionLocked(sessionID)
+	if session == nil {
+		sm.mu.Unlock()
+		return fmt.Errorf("no active live session")
+	}
+
+	session.layoutPlan = plan
+	session.cameraName = plan.PrimaryCamera()
+	requestID := session.requestID
+	activeSessionID := session.sessionID
+	sm.mu.Unlock()
+
+	sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
+		"camera":    plan.PrimaryCamera(),
+		"phase":     "layout-updated",
+		"requestId": requestID,
+		"sessionId": activeSessionID,
+	}))
+	sm.publish("response", "live-layout-updated", map[string]interface{}{
+		"cameraName":  plan.PrimaryCamera(),
+		"cameraNames": slices.Clone(plan.CameraNames),
+		"layoutMode":  string(plan.Mode),
+		"requestId":   requestID,
+		"sessionId":   activeSessionID,
+	})
+
+	return nil
 }
 
 func (sm *SessionManager) StopSession(sessionID string) {
@@ -611,6 +664,18 @@ func (sm *SessionManager) setSessionState(sessionID string, state string) {
 	}
 }
 
+func (sm *SessionManager) sessionPlan(sessionID string) (LiveLayoutPlan, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	session, ok := sm.sessions[sessionID]
+	if !ok || session == nil {
+		return LiveLayoutPlan{}, false
+	}
+
+	return session.layoutPlan, true
+}
+
 func (sm *SessionManager) lookupSessionLocked(sessionID string) *liveSession {
 	if strings.TrimSpace(sessionID) != "" {
 		return sm.sessions[strings.TrimSpace(sessionID)]
@@ -660,6 +725,9 @@ func (sm *SessionManager) buildStatusSnapshotLocked(
 			"sessionId": session.sessionID,
 			"status":    session.state,
 		}
+		for key, value := range session.layoutPlan.Details() {
+			summary[key] = value
+		}
 		if session.requestID != "" {
 			summary["requestId"] = session.requestID
 		}
@@ -690,6 +758,9 @@ func (sm *SessionManager) buildStatusSnapshotLocked(
 
 	if len(sessionSummaries) > 0 {
 		details["camera"] = sessionSummaries[0]["camera"]
+		details["cameraNames"] = sessionSummaries[0]["cameraNames"]
+		details["layoutMode"] = sessionSummaries[0]["layoutMode"]
+		details["primaryCamera"] = sessionSummaries[0]["primaryCamera"]
 		details["sessionCount"] = len(sessionSummaries)
 		details["sessions"] = sessionSummaries
 	}
@@ -724,4 +795,16 @@ func candidateSummary(candidate webrtc.ICECandidateInit) string {
 	}
 
 	return candidateValue
+}
+
+func mergeLayoutDetails(plan LiveLayoutPlan, details map[string]interface{}) map[string]interface{} {
+	if details == nil {
+		details = make(map[string]interface{}, len(plan.CameraNames)+2)
+	}
+
+	for key, value := range plan.Details() {
+		details[key] = value
+	}
+
+	return details
 }

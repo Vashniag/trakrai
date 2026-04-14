@@ -21,5 +21,10 @@
       }
     ],
     "framerate_fps": 10
+  },
+  "composite": {
+    "width": 960,
+    "height": 540,
+    "tile_padding": 8
   }
 }

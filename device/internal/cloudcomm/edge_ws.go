@@ -728,7 +728,7 @@ func translateWebSocketMessage(message edgeInboundMessage) (topicRoute, ipc.MQTT
 			buildEnvelope(payload.Type, payload.Payload),
 			nil
 
-	case "get-status", "start-live", "stop-live":
+	case "get-status", "start-live", "update-live-layout", "stop-live":
 		return topicRoute{service: liveFeedServiceName, subtopic: "command"},
 			buildEnvelope(message.Type, message.Payload),
 			nil

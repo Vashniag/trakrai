@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@trakrai/design-system/components/button';
 import {
@@ -16,13 +16,25 @@ import { Separator } from '@trakrai/design-system/components/separator';
 
 import { CameraInventoryCard } from './camera-inventory-card';
 import { DiagnosticsCard } from './diagnostics-card';
-import { LiveStreamTileCard } from './live-stream-tile-card';
 import { PtzControlPanel } from './ptz-control-panel';
 import { VideoPlayer } from './video-player';
 
-import type { PtzVelocityCommand } from '../lib/live-types';
+import type {
+  DeviceCamera,
+  LiveLayoutMode,
+  LiveLayoutSelection,
+  PtzVelocityCommand,
+} from '../lib/live-types';
 
 import { useLiveWorkspace } from '../hooks/use-live-workspace';
+import {
+  LIVE_LAYOUT_OPTIONS,
+  clampLiveLayoutStartIndex,
+  getLiveLayoutCapacity,
+  getLiveLayoutPageCount,
+  getLiveLayoutPageLabel,
+  getVisibleLayoutCameras,
+} from '../lib/live-layout-utils';
 import {
   DEFAULT_LIVE_DEVICE_ID,
   formatHeartbeatAge,
@@ -52,47 +64,116 @@ type LiveWorkspaceBodyProps = Readonly<{
   showDiagnostics: boolean;
 }>;
 
-const SINGLE_VIEW_MODE_VALUE = 1;
-const DUAL_VIEW_MODE_VALUE = 2;
-const TRIPLE_VIEW_MODE_VALUE = 3;
-const LIVE_VIEW_MODE_VALUES = [
-  SINGLE_VIEW_MODE_VALUE,
-  DUAL_VIEW_MODE_VALUE,
-  TRIPLE_VIEW_MODE_VALUE,
+const GRID_LAYOUT_SMALL = 2;
+const GRID_LAYOUT_MEDIUM = 3;
+const GRID_LAYOUT_LARGE = 4;
+const FOCUS_LAYOUT_SECONDARY_TILE_IDS = [
+  'focus-b',
+  'focus-c',
+  'focus-d',
+  'focus-e',
+  'focus-f',
+  'focus-g',
+  'focus-h',
 ] as const;
-type LiveViewMode = (typeof LIVE_VIEW_MODE_VALUES)[number];
-const [SINGLE_VIEW_MODE, DUAL_VIEW_MODE, TRIPLE_VIEW_MODE] = LIVE_VIEW_MODE_VALUES;
-const COMPARE_SLOT_KEYS = ['compare-slot-a', 'compare-slot-b'] as const;
 
-const LIVE_VIEW_OPTIONS: ReadonlyArray<
-  Readonly<{ description: string; label: string; value: LiveViewMode }>
-> = [
-  { description: 'Single operator stream', label: '1-up', value: SINGLE_VIEW_MODE },
-  { description: 'Compare two cameras together', label: '2-up', value: DUAL_VIEW_MODE },
-  { description: 'Watch three cameras at once', label: '3-up', value: TRIPLE_VIEW_MODE },
-];
-
-const getLiveGridClasses = (tileCount: number): string => {
-  if (tileCount <= 1) {
-    return 'grid gap-4';
-  }
-
-  if (tileCount === 2) {
-    return 'grid gap-4 xl:grid-cols-2';
-  }
-
-  return 'grid gap-4 xl:grid-cols-2 2xl:grid-cols-3';
-};
-
-const getViewModeButtonClasses = (isActive: boolean): string =>
-  `flex items-start justify-between gap-3 border px-4 py-3 text-left transition ${
+const getLayoutButtonClasses = (isActive: boolean): string =>
+  `flex min-h-28 flex-col justify-between border p-4 text-left transition ${
     isActive
       ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
       : 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50'
   }`;
 
-const renderSelectOptionLabel = (cameraName: string): string =>
-  cameraName.trim() === '' ? 'Select camera...' : cameraName;
+const getCameraChipClasses = (isActive: boolean): string =>
+  `border px-3 py-2 text-left text-xs transition ${
+    isActive
+      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+      : 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50'
+  }`;
+
+const LayoutGlyph = ({ mode }: Readonly<{ mode: LiveLayoutMode }>) => {
+  if (mode === 'single') {
+    return <div className="h-10 w-full border border-current/40 bg-current/10" />;
+  }
+
+  if (mode === 'focus-8') {
+    return (
+      <div className="grid h-10 grid-cols-[1.6fr_1fr] gap-1">
+        <div className="border border-current/40 bg-current/10" />
+        <div className="grid grid-cols-2 grid-rows-4 gap-1">
+          {FOCUS_LAYOUT_SECONDARY_TILE_IDS.map((tileId) => (
+            <div key={tileId} className="border border-current/35 bg-current/10" />
+          ))}
+          <div className="border border-dashed border-current/25 bg-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  let gridSize = GRID_LAYOUT_LARGE;
+  if (mode === 'grid-4') {
+    gridSize = GRID_LAYOUT_SMALL;
+  } else if (mode === 'grid-9') {
+    gridSize = GRID_LAYOUT_MEDIUM;
+  }
+  const tileIds = Array.from(
+    { length: gridSize * gridSize },
+    (_, tileIndex) => `${mode}-tile-${tileIndex + 1}`,
+  );
+  return (
+    <div
+      className="grid h-10 gap-1"
+      style={{
+        gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
+      }}
+    >
+      {tileIds.map((tileId) => (
+        <div key={tileId} className="border border-current/35 bg-current/10" />
+      ))}
+    </div>
+  );
+};
+
+const reorderVisibleCameras = (
+  visibleCameras: readonly DeviceCamera[],
+  selectedCamera: string,
+): DeviceCamera[] => {
+  if (selectedCamera.trim() === '') {
+    return [...visibleCameras];
+  }
+
+  const selectedIndex = visibleCameras.findIndex((camera) => camera.name === selectedCamera);
+  if (selectedIndex <= 0) {
+    return [...visibleCameras];
+  }
+
+  const nextVisible = [...visibleCameras];
+  const [selected] = nextVisible.splice(selectedIndex, 1);
+  if (selected === undefined) {
+    return nextVisible;
+  }
+  nextVisible.unshift(selected);
+  return nextVisible;
+};
+
+const getPageStartForCamera = (
+  cameraName: string,
+  cameras: readonly DeviceCamera[],
+  mode: LiveLayoutMode,
+): number => {
+  const selectedIndex = cameras.findIndex((camera) => camera.name === cameraName);
+  if (selectedIndex < 0) {
+    return 0;
+  }
+
+  const capacity = getLiveLayoutCapacity(mode);
+  return clampLiveLayoutStartIndex(
+    Math.floor(selectedIndex / capacity) * capacity,
+    cameras.length,
+    mode,
+  );
+};
 
 const LiveWorkspaceBody = ({
   defaultDeviceId,
@@ -103,9 +184,11 @@ const LiveWorkspaceBody = ({
   showDiagnostics,
 }: LiveWorkspaceBodyProps) => {
   const [selectedCamera, setSelectedCamera] = useState('');
-  const [compareCameras, setCompareCameras] = useState<[string, string]>(['', '']);
-  const [viewMode, setViewMode] = useState<LiveViewMode>(SINGLE_VIEW_MODE);
+  const [layoutMode, setLayoutMode] = useState<LiveLayoutMode>('single');
+  const [layoutStartIndex, setLayoutStartIndex] = useState(0);
   const [activePtzDirection, setActivePtzDirection] = useState<string | null>(null);
+  const lastAppliedSelectionRef = useRef<string | null>(null);
+
   const {
     activeCameraName,
     connectionState,
@@ -115,6 +198,7 @@ const LiveWorkspaceBody = ({
     streamStats,
     startLive,
     stopLive,
+    updateLiveLayout,
     startPtzMove,
     stopPtzMove,
     setPtzZoom,
@@ -133,58 +217,66 @@ const LiveWorkspaceBody = ({
     () => (deviceStatus?.cameras ?? []).filter((camera) => camera.enabled),
     [deviceStatus?.cameras],
   );
-  const currentCamera =
-    selectedCamera.trim() !== '' ? selectedCamera : (enabledCameras[0]?.name ?? '');
-  const sanitizedCompareCameras = useMemo<[string, string]>(() => {
-    const availableCameraNames = new Set(enabledCameras.map((camera) => camera.name));
-    const reservedCameraNames = new Set(currentCamera !== '' ? [currentCamera] : []);
-
-    return compareCameras.map((cameraName) => {
-      const normalizedCameraName = cameraName.trim();
-      if (
-        normalizedCameraName === '' ||
-        !availableCameraNames.has(normalizedCameraName) ||
-        reservedCameraNames.has(normalizedCameraName)
-      ) {
-        return '';
-      }
-
-      reservedCameraNames.add(normalizedCameraName);
-      return normalizedCameraName;
-    }) as [string, string];
-  }, [compareCameras, currentCamera, enabledCameras]);
-  const visibleCompareCameras = sanitizedCompareCameras.slice(
-    0,
-    Math.max(0, viewMode - SINGLE_VIEW_MODE),
+  const enabledCameraNames = useMemo(
+    () => enabledCameras.map((camera) => camera.name),
+    [enabledCameras],
   );
-  const activeTileCameraNames = useMemo(() => {
-    const uniqueCameras: string[] = [];
-    const maybeAddCamera = (cameraName: string) => {
-      const normalizedCameraName = cameraName.trim();
-      if (normalizedCameraName === '' || uniqueCameras.includes(normalizedCameraName)) {
-        return;
-      }
-
-      uniqueCameras.push(normalizedCameraName);
-    };
-
-    maybeAddCamera(currentCamera);
-    for (const cameraName of visibleCompareCameras) {
-      maybeAddCamera(cameraName);
-    }
-
-    return uniqueCameras;
-  }, [currentCamera, visibleCompareCameras]);
-  const isPrimaryStreamActive = connectionState === 'starting' || connectionState === 'streaming';
-  const isStreaming = connectionState === 'streaming';
+  const selectedCameraName =
+    selectedCamera.trim() !== '' && enabledCameraNames.includes(selectedCamera)
+      ? selectedCamera
+      : (enabledCameras[0]?.name ?? '');
+  const baseLayoutStartIndex = clampLiveLayoutStartIndex(
+    layoutStartIndex,
+    enabledCameras.length,
+    layoutMode,
+  );
+  const baseVisibleCameras = useMemo(
+    () => getVisibleLayoutCameras(enabledCameras, baseLayoutStartIndex, layoutMode),
+    [baseLayoutStartIndex, enabledCameras, layoutMode],
+  );
+  const safeLayoutStartIndex =
+    selectedCameraName !== '' &&
+    !baseVisibleCameras.some((camera) => camera.name === selectedCameraName)
+      ? getPageStartForCamera(selectedCameraName, enabledCameras, layoutMode)
+      : baseLayoutStartIndex;
+  const pageCameras = useMemo(
+    () => getVisibleLayoutCameras(enabledCameras, safeLayoutStartIndex, layoutMode),
+    [enabledCameras, layoutMode, safeLayoutStartIndex],
+  );
+  const visibleCameras = useMemo(
+    () => reorderVisibleCameras(pageCameras, selectedCameraName),
+    [pageCameras, selectedCameraName],
+  );
+  const layoutSelection = useMemo<LiveLayoutSelection>(
+    () => ({
+      cameraNames: visibleCameras.map((camera) => camera.name),
+      mode: layoutMode,
+    }),
+    [layoutMode, visibleCameras],
+  );
+  const layoutSelectionKey = useMemo(() => JSON.stringify(layoutSelection), [layoutSelection]);
+  const isStreamSessionActive = connectionState === 'starting' || connectionState === 'streaming';
   const primaryCameraLabel =
-    activeCameraName ?? (currentCamera !== '' ? currentCamera : 'Not selected');
-  const serviceStatuses = Object.values(deviceStatus?.services ?? {});
+    activeCameraName ?? layoutSelection.cameraNames[0] ?? 'No camera selected';
+  const visibleCameraNamesLabel =
+    layoutSelection.cameraNames.length > 0 ? layoutSelection.cameraNames.join(', ') : 'No cameras';
   const statusClasses = getStatusClasses(connectionState);
+  const serviceStatuses = Object.values(deviceStatus?.services ?? {});
+  const pageLabel = getLiveLayoutPageLabel(
+    pageCameras,
+    enabledCameras.length,
+    safeLayoutStartIndex,
+    layoutMode,
+  );
+  const pageCount = getLiveLayoutPageCount(enabledCameras.length, layoutMode);
+  const activePageNumber =
+    layoutSelection.cameraNames.length === 0
+      ? 1
+      : Math.floor(safeLayoutStartIndex / getLiveLayoutCapacity(layoutMode)) + 1;
   const ptzCamera =
-    currentCamera !== ''
-      ? currentCamera
-      : (ptzState?.activeCamera ?? enabledCameras[0]?.name ?? '');
+    selectedCameraName !== ''
+      ? selectedCameraName
+      : (layoutSelection.cameraNames[0] ?? ptzState?.activeCamera ?? '');
   const ptzServiceStatus = deviceStatus?.services?.['ptz-control'];
   const ptzConfiguredCameras = ptzState?.configuredCameras ?? [];
   const isPtzCameraConfigured =
@@ -202,6 +294,9 @@ const LiveWorkspaceBody = ({
     streamStats?.frameWidth == null || streamStats.frameHeight == null
       ? 'N/A'
       : `${streamStats.frameWidth}x${streamStats.frameHeight}`;
+  const canPageBackward = safeLayoutStartIndex > 0;
+  const canPageForward =
+    safeLayoutStartIndex + getLiveLayoutCapacity(layoutMode) < enabledCameras.length;
 
   useEffect(() => {
     if (ptzCamera !== '') {
@@ -216,6 +311,22 @@ const LiveWorkspaceBody = ({
       }
     };
   }, [activePtzDirection, ptzCamera, stopPtzMove]);
+
+  useEffect(() => {
+    if (!isStreamSessionActive || layoutSelection.cameraNames.length === 0) {
+      if (!isStreamSessionActive) {
+        lastAppliedSelectionRef.current = null;
+      }
+      return;
+    }
+
+    if (lastAppliedSelectionRef.current === layoutSelectionKey) {
+      return;
+    }
+
+    lastAppliedSelectionRef.current = layoutSelectionKey;
+    updateLiveLayout(layoutSelection);
+  }, [isStreamSessionActive, layoutSelection, layoutSelectionKey, updateLiveLayout]);
 
   const beginPtzMove = (directionId: string, velocity: PtzVelocityCommand) => {
     if (!ptzControlsEnabled) {
@@ -235,33 +346,35 @@ const LiveWorkspaceBody = ({
     setActivePtzDirection(null);
   };
 
-  const getCompareCameraOptions = (slotIndex: number) =>
-    enabledCameras.filter((camera) => {
-      if (camera.name === sanitizedCompareCameras[slotIndex]) {
-        return true;
-      }
+  const handleCameraSelect = (cameraName: string) => {
+    setSelectedCamera(cameraName);
+    setLayoutStartIndex(getPageStartForCamera(cameraName, enabledCameras, layoutMode));
+  };
 
-      if (camera.name === currentCamera) {
-        return false;
-      }
+  const handleLayoutChange = (mode: LiveLayoutMode) => {
+    setLayoutMode(mode);
+    if (selectedCameraName !== '') {
+      setLayoutStartIndex(getPageStartForCamera(selectedCameraName, enabledCameras, mode));
+      return;
+    }
 
-      return sanitizedCompareCameras.every(
-        (selectedCompareCamera, compareIndex) =>
-          compareIndex === slotIndex || selectedCompareCamera !== camera.name,
-      );
-    });
+    setLayoutStartIndex(clampLiveLayoutStartIndex(layoutStartIndex, enabledCameras.length, mode));
+  };
 
-  const updateCompareCamera = (slotIndex: number, nextCameraName: string) => {
-    setCompareCameras(
-      (currentSelection) =>
-        currentSelection.map((cameraName, compareIndex) => {
-          if (compareIndex === slotIndex) {
-            return nextCameraName;
-          }
-
-          return cameraName === nextCameraName ? '' : cameraName;
-        }) as [string, string],
+  const handlePageShift = (direction: -1 | 1) => {
+    const capacity = getLiveLayoutCapacity(layoutMode);
+    const nextStartIndex = clampLiveLayoutStartIndex(
+      safeLayoutStartIndex + direction * capacity,
+      enabledCameras.length,
+      layoutMode,
     );
+    setLayoutStartIndex(nextStartIndex);
+
+    const nextVisible = getVisibleLayoutCameras(enabledCameras, nextStartIndex, layoutMode);
+    const nextPrimaryCamera = nextVisible[0]?.name;
+    if (nextPrimaryCamera !== undefined) {
+      setSelectedCamera(nextPrimaryCamera);
+    }
   };
 
   return (
@@ -271,10 +384,9 @@ const LiveWorkspaceBody = ({
           <CardHeader className="border-b border-white/10">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle className="text-xl text-white">Live feeds</CardTitle>
+                <CardTitle className="text-xl text-white">Live monitor</CardTitle>
                 <CardDescription className="text-white/60">
-                  One shared workspace that can watch one, two, or three cameras together while
-                  keeping the same cloud and edge transport contract.
+                  One stitched device stream with paging across camera sets for cloud and edge.
                 </CardDescription>
               </div>
               <div
@@ -286,104 +398,150 @@ const LiveWorkspaceBody = ({
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className={getLiveGridClasses(activeTileCameraNames.length)}>
-              <div className="space-y-4 border border-white/10 bg-white/5 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                      Primary stream
-                    </div>
-                    <div className="mt-1 text-sm font-medium text-white">{primaryCameraLabel}</div>
+            <div className="border border-white/10 bg-white/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                    Active layout
                   </div>
-                  <div className="text-right text-[11px] tracking-[0.18em] text-white/45 uppercase">
-                    {viewMode}-up layout
+                  <div className="mt-1 text-sm font-medium text-white">
+                    {LIVE_LAYOUT_OPTIONS.find((option) => option.mode === layoutMode)
+                      ?.description ?? 'Single camera'}
                   </div>
                 </div>
+                <div className="text-right">
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                    Showing cameras
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-white">
+                    {visibleCameraNamesLabel}
+                  </div>
+                </div>
+              </div>
 
+              <div className="mt-4">
                 <VideoPlayer
-                  activeCameraName={activeCameraName}
+                  activeCameraName={primaryCameraLabel}
                   connectionState={connectionState}
-                  isActive={isPrimaryStreamActive}
+                  isActive={isStreamSessionActive}
                   stream={stream}
                   streamStats={streamStats}
                 />
+              </div>
 
-                {error !== null && error !== '' ? (
-                  <div className="border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-                    {error}
-                  </div>
-                ) : null}
+              {error !== null && error !== '' ? (
+                <div className="mt-4 border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                  {error}
+                </div>
+              ) : null}
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="border border-white/10 bg-white/5 p-3">
-                    <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">FPS</div>
-                    <div className="mt-1 text-sm font-medium text-white">
-                      {formatMetric(streamStats?.fps, '')}
-                    </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <div className="border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                    Primary camera
                   </div>
-                  <div className="border border-white/10 bg-white/5 p-3">
-                    <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                      Bitrate
-                    </div>
-                    <div className="mt-1 text-sm font-medium text-white">
-                      {formatMetric(streamStats?.bitrateKbps, ' kbps')}
-                    </div>
+                  <div className="mt-1 text-sm font-medium text-white">{primaryCameraLabel}</div>
+                </div>
+                <div className="border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                    Camera set
                   </div>
-                  <div className="border border-white/10 bg-white/5 p-3">
-                    <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                      Resolution
-                    </div>
-                    <div className="mt-1 text-sm font-medium text-white">
-                      {primaryResolutionLabel}
-                    </div>
+                  <div className="mt-1 text-sm font-medium text-white">{pageLabel}</div>
+                </div>
+                <div className="border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">FPS</div>
+                  <div className="mt-1 text-sm font-medium text-white">
+                    {formatMetric(streamStats?.fps, '')}
+                  </div>
+                </div>
+                <div className="border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                    Resolution
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-white">
+                    {primaryResolutionLabel}
                   </div>
                 </div>
               </div>
-
-              {visibleCompareCameras.map((cameraName, index) =>
-                cameraName.trim() !== '' ? (
-                  <LiveStreamTileCard
-                    key={COMPARE_SLOT_KEYS[index]}
-                    cameraName={cameraName}
-                    deviceId={deviceId}
-                    enabled={isPrimaryStreamActive}
-                    httpBaseUrl={transport.httpBaseUrl}
-                    signalingUrl={transport.signalingUrl}
-                    slotLabel={`Comparison slot ${index + 2}`}
-                  />
-                ) : null,
-              )}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-4">
-              <div className="border border-white/10 bg-white/5 p-3">
-                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                  Primary camera
-                </div>
-                <div className="mt-1 text-sm font-medium text-white">{primaryCameraLabel}</div>
-              </div>
-              <div className="border border-white/10 bg-white/5 p-3">
-                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                  Active tiles
-                </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {LIVE_LAYOUT_OPTIONS.map((option) => (
+                <button
+                  key={option.mode}
+                  className={getLayoutButtonClasses(option.mode === layoutMode)}
+                  type="button"
+                  onClick={() => {
+                    handleLayoutChange(option.mode);
+                  }}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium">{option.label}</span>
+                      <span className="text-[11px] tracking-[0.2em] uppercase">
+                        {option.shortLabel}
+                      </span>
+                    </div>
+                    <LayoutGlyph mode={option.mode} />
+                  </div>
+                  <span className="mt-3 text-xs text-slate-500">{option.description}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-white/5 p-3">
+              <div>
+                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">Paging</div>
                 <div className="mt-1 text-sm font-medium text-white">
-                  {activeTileCameraNames.length}
+                  Set {activePageNumber} of {pageCount}
                 </div>
               </div>
-              <div className="border border-white/10 bg-white/5 p-3">
-                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                  Heartbeat
-                </div>
-                <div className="mt-1 text-sm font-medium text-white">
-                  {formatHeartbeatAge(heartbeatAgeSeconds)}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={!canPageBackward}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    handlePageShift(-1);
+                  }}
+                >
+                  Previous set
+                </Button>
+                <Button
+                  disabled={!canPageForward}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    handlePageShift(1);
+                  }}
+                >
+                  Next set
+                </Button>
               </div>
-              <div className="border border-white/10 bg-white/5 p-3">
-                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
-                  Published cameras
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {visibleCameras.length > 0 ? (
+                visibleCameras.map((camera) => (
+                  <button
+                    key={camera.name}
+                    className={getCameraChipClasses(camera.name === selectedCameraName)}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCamera(camera.name);
+                    }}
+                  >
+                    <div className="font-medium">{camera.name}</div>
+                    <div className="mt-1 text-[11px] tracking-[0.18em] text-slate-500 uppercase">
+                      {camera.name === layoutSelection.cameraNames[0] ? 'Primary tile' : 'Visible'}
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="col-span-full border border-dashed border-white/10 px-4 py-3 text-sm text-white/55">
+                  No enabled cameras available in the current device inventory yet.
                 </div>
-                <div className="mt-1 text-sm font-medium text-white">{enabledCameras.length}</div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -420,8 +578,7 @@ const LiveWorkspaceBody = ({
           <CardHeader className="border-b">
             <CardTitle className="text-base">Controls</CardTitle>
             <CardDescription>
-              Select the device, choose the primary camera, and expand the grid to compare two or
-              three streams together.
+              Pick a layout, move across camera sets, and keep PTZ anchored to the selected camera.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -439,92 +596,6 @@ const LiveWorkspaceBody = ({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="live-camera">Primary camera</Label>
-              <select
-                className="border-input focus-visible:border-ring h-8 w-full rounded-none border bg-transparent px-2.5 py-1 text-xs transition-colors outline-none"
-                disabled={isBusy || enabledCameras.length === 0}
-                id="live-camera"
-                value={currentCamera}
-                onChange={(event) => {
-                  setSelectedCamera(event.target.value);
-                }}
-              >
-                <option value="">Select camera...</option>
-                {enabledCameras.map((camera) => (
-                  <option key={camera.name} value={camera.name}>
-                    {camera.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-3">
-              <Label>Live layout</Label>
-              <div className="grid gap-3">
-                {LIVE_VIEW_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    className={getViewModeButtonClasses(viewMode === option.value)}
-                    type="button"
-                    onClick={() => {
-                      setViewMode(option.value);
-                    }}
-                  >
-                    <span className="text-sm font-medium">{option.label}</span>
-                    <span className="text-xs text-slate-500">{option.description}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {visibleCompareCameras.map((cameraName, index) => (
-              <div key={COMPARE_SLOT_KEYS[index]} className="space-y-2">
-                <Label htmlFor={COMPARE_SLOT_KEYS[index]}>Comparison slot {index + 2}</Label>
-                <select
-                  className="border-input focus-visible:border-ring h-8 w-full rounded-none border bg-transparent px-2.5 py-1 text-xs transition-colors outline-none"
-                  disabled={isBusy || enabledCameras.length === 0}
-                  id={COMPARE_SLOT_KEYS[index]}
-                  value={cameraName}
-                  onChange={(event) => {
-                    updateCompareCamera(index, event.target.value);
-                  }}
-                >
-                  <option value="">{renderSelectOptionLabel('')}</option>
-                  {getCompareCameraOptions(index).map((camera) => (
-                    <option key={camera.name} value={camera.name}>
-                      {renderSelectOptionLabel(camera.name)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={isBusy || currentCamera.trim() === ''}
-                type="button"
-                onClick={() => {
-                  startLive(currentCamera);
-                }}
-              >
-                {isStreaming ? 'Restart live views' : 'Start live views'}
-              </Button>
-              <Button
-                disabled={!isPrimaryStreamActive && activeCameraName === null}
-                type="button"
-                variant="outline"
-                onClick={stopLive}
-              >
-                Stop live views
-              </Button>
-              <Button type="button" variant="outline" onClick={refreshStatus}>
-                Refresh status
-              </Button>
-            </div>
-
-            <Separator />
-
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 border p-3">
                 <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
@@ -539,6 +610,60 @@ const LiveWorkspaceBody = ({
                 <div className="text-sm font-medium">{formatUptime(deviceStatus?.uptime)}</div>
               </div>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Selected camera
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {selectedCameraName !== '' ? selectedCameraName : 'Select a camera'}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Bitrate
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatMetric(streamStats?.bitrateKbps, ' kbps')}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Route
+                </div>
+                <div className="mt-1 text-sm font-medium">{transport.httpBaseUrl}</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={isBusy || layoutSelection.cameraNames.length === 0}
+                type="button"
+                onClick={() => {
+                  lastAppliedSelectionRef.current = layoutSelectionKey;
+                  startLive(layoutSelection);
+                }}
+              >
+                {isStreamSessionActive ? 'Restart live view' : 'Start live view'}
+              </Button>
+              <Button
+                disabled={!isStreamSessionActive && activeCameraName === null}
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  lastAppliedSelectionRef.current = null;
+                  stopLive();
+                }}
+              >
+                Stop live view
+              </Button>
+              <Button type="button" variant="outline" onClick={refreshStatus}>
+                Refresh status
+              </Button>
+            </div>
+
+            <Separator />
 
             <div className="space-y-2">
               <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
@@ -580,8 +705,8 @@ const LiveWorkspaceBody = ({
 
         <CameraInventoryCard
           cameras={enabledCameras}
-          currentCamera={currentCamera}
-          onSelectCamera={setSelectedCamera}
+          currentCamera={selectedCameraName}
+          onSelectCamera={handleCameraSelect}
         />
       </section>
 

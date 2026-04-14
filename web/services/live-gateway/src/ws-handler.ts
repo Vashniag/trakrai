@@ -378,6 +378,13 @@ export function setupWebSocket(server: Server): void {
           publishMqtt(clientContext.deviceId, 'command', buildEnvelope(message.type, payload));
           break;
         }
+        case 'update-live-layout':
+          publishMqtt(
+            clientContext.deviceId,
+            'command',
+            buildEnvelope(message.type, message.payload ?? {}),
+          );
+          break;
         case 'stop-live': {
           const payload = getMutablePayload(message.payload);
           const sessionId = normalizeOptionalString(payload['sessionId']);

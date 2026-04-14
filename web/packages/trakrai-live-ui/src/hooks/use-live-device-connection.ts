@@ -6,6 +6,7 @@ import type {
   ActivityLogEntry,
   ConnectionState,
   DeviceStatus,
+  LiveLayoutSelection,
   PtzCapabilities,
   PtzPosition,
   PtzState,
@@ -71,16 +72,49 @@ export type LiveDeviceConnectionState = {
   refreshPtzPosition: (cameraName: string) => void;
   refreshStatus: () => void;
   setPtzZoom: (cameraName: string, zoom: number) => void;
-  startLive: (cameraName: string) => void;
+  startLive: (selection: LiveLayoutSelection) => void;
   startPtzMove: (cameraName: string, velocity: PtzVelocityCommand) => void;
   stopLive: () => void;
   stopPtzMove: (cameraName: string) => void;
   stream: MediaStream | null;
   streamStats: StreamStats | null;
+  updateLiveLayout: (selection: LiveLayoutSelection) => void;
   transport: {
     httpBaseUrl: string;
     signalingUrl: string;
   };
+};
+
+const normalizeLiveLayoutSelection = (selection: LiveLayoutSelection): LiveLayoutSelection => {
+  const cameraNames: string[] = [];
+  for (const candidate of selection.cameraNames) {
+    const normalizedCameraName = normalizeOptionalString(candidate);
+    if (normalizedCameraName === null || cameraNames.includes(normalizedCameraName)) {
+      continue;
+    }
+
+    cameraNames.push(normalizedCameraName);
+  }
+
+  return {
+    cameraNames,
+    mode: selection.mode,
+  };
+};
+
+const REQUEST_ID_RADIX = 36;
+let fallbackRequestCounter = 0;
+
+const createClientRequestId = (): string => {
+  const randomUuid = globalThis.crypto.randomUUID;
+  if (typeof randomUuid === 'function') {
+    return randomUuid.call(globalThis.crypto);
+  }
+
+  fallbackRequestCounter += 1;
+  return `trakrai-${Date.now().toString(REQUEST_ID_RADIX)}-${fallbackRequestCounter.toString(
+    REQUEST_ID_RADIX,
+  )}`;
 };
 
 export const useLiveDeviceConnection = ({
@@ -291,7 +325,7 @@ export const useLiveDeviceConnection = ({
         }
 
         const nextSessionId =
-          offeredSessionId ?? pendingSessionIdRef.current ?? crypto.randomUUID();
+          offeredSessionId ?? pendingSessionIdRef.current ?? createClientRequestId();
         const cameraName = normalizeOptionalString(payload.cameraName);
 
         cleanupPc(false);
@@ -582,6 +616,28 @@ export const useLiveDeviceConnection = ({
             );
           }
 
+          if (responseType === 'live-layout-updated') {
+            const layoutPayload = unwrapPayload<{
+              cameraName?: string;
+              cameraNames?: string[];
+              layoutMode?: string;
+              sessionId?: string;
+            }>(message.payload);
+            const nextCameraName = normalizeOptionalString(layoutPayload.cameraName);
+            if (nextCameraName !== null) {
+              setActiveCameraName(nextCameraName);
+            }
+            appendLog(
+              'info',
+              `Live layout updated${
+                typeof layoutPayload.layoutMode === 'string' &&
+                layoutPayload.layoutMode.trim() !== ''
+                  ? ` to ${layoutPayload.layoutMode}`
+                  : ''
+              }`,
+            );
+          }
+
           if (responseType === 'service-unavailable' && payload.error !== undefined) {
             setError(payload.error);
             appendLog('error', payload.error);
@@ -817,9 +873,10 @@ export const useLiveDeviceConnection = ({
   }, [normalizedDeviceId]);
 
   const startLive = useCallback(
-    (cameraName: string) => {
-      const normalizedCameraName = cameraName.trim();
-      if (normalizedCameraName === '') {
+    (selection: LiveLayoutSelection) => {
+      const normalizedSelection = normalizeLiveLayoutSelection(selection);
+      const primaryCameraName = normalizedSelection.cameraNames[0] ?? null;
+      if (primaryCameraName === null) {
         return;
       }
 
@@ -829,19 +886,57 @@ export const useLiveDeviceConnection = ({
         cleanupPc(true);
       }
 
-      requestedCameraRef.current = normalizedCameraName;
-      activeRequestIdRef.current = crypto.randomUUID();
+      requestedCameraRef.current = primaryCameraName;
+      activeRequestIdRef.current = createClientRequestId();
       pendingSessionIdRef.current = null;
       setError(null);
       setConnectionState('starting');
-      setActiveCameraName(normalizedCameraName);
-      appendLog('info', `Requesting live feed for ${normalizedCameraName}`);
+      setActiveCameraName(primaryCameraName);
+      appendLog(
+        'info',
+        `Requesting ${normalizedSelection.mode} live view with ${normalizedSelection.cameraNames.length} camera${
+          normalizedSelection.cameraNames.length === 1 ? '' : 's'
+        }`,
+      );
       liveGatewayRef.current?.send('start-live', {
-        cameraName: normalizedCameraName,
+        cameraName: primaryCameraName,
+        cameraNames: normalizedSelection.cameraNames,
+        layoutMode: normalizedSelection.mode,
         requestId: activeRequestIdRef.current,
       });
     },
     [appendLog, cleanupPc],
+  );
+
+  const updateLiveLayout = useCallback(
+    (selection: LiveLayoutSelection) => {
+      const normalizedSelection = normalizeLiveLayoutSelection(selection);
+      const primaryCameraName = normalizedSelection.cameraNames[0] ?? null;
+      if (primaryCameraName === null) {
+        return;
+      }
+
+      const sessionId = activeSessionIdRef.current ?? pendingSessionIdRef.current;
+      if (sessionId === null) {
+        startLive(normalizedSelection);
+        return;
+      }
+
+      requestedCameraRef.current = primaryCameraName;
+      setActiveCameraName(primaryCameraName);
+      setError(null);
+      appendLog(
+        'info',
+        `Updating live layout to ${normalizedSelection.mode} (${normalizedSelection.cameraNames.length} cameras)`,
+      );
+      liveGatewayRef.current?.send('update-live-layout', {
+        cameraName: primaryCameraName,
+        cameraNames: normalizedSelection.cameraNames,
+        layoutMode: normalizedSelection.mode,
+        sessionId,
+      });
+    },
+    [appendLog, startLive],
   );
 
   const stopLive = useCallback(() => {
@@ -988,6 +1083,7 @@ export const useLiveDeviceConnection = ({
     stopPtzMove,
     stream,
     streamStats,
+    updateLiveLayout,
     transport: {
       httpBaseUrl: normalizedHttpBaseUrl,
       signalingUrl: normalizedSignalingUrl,

@@ -37,6 +37,7 @@ require (
 	github.com/rs/zerolog v1.26.1 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	golang.org/x/crypto v0.29.0 // indirect
+	golang.org/x/image v0.23.0 // indirect
 	golang.org/x/net v0.31.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect

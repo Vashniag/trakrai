@@ -8,6 +8,13 @@ export type ConnectionState =
   | 'streaming'
   | 'reconnecting';
 
+export type LiveLayoutMode = 'single' | 'grid-4' | 'grid-9' | 'focus-8' | 'grid-16';
+
+export type LiveLayoutSelection = {
+  cameraNames: string[];
+  mode: LiveLayoutMode;
+};
+
 export type DeviceCamera = {
   enabled: boolean;
   name: string;
