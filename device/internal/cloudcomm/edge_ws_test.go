@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -216,6 +218,148 @@ func TestEdgeWebSocketServerServesIceConfig(t *testing.T) {
 	}
 }
 
+func TestEdgeWebSocketServerServesRuntimeConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+			UI: EdgeUIConfig{
+				DiagnosticsEnabled: true,
+				ManagementService:  "runtime-manager",
+				TransportMode:      "edge",
+			},
+		},
+	}
+
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			_ = route
+			_ = env
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/runtime-config", nil)
+	req.Host = "edge.local:8080"
+	recorder := httptest.NewRecorder()
+
+	server.handleRuntimeConfig(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200 response, got %d", recorder.Code)
+	}
+
+	var response struct {
+		CloudBridgeURL     string `json:"cloudBridgeUrl"`
+		DeviceID           string `json:"deviceId"`
+		DiagnosticsEnabled bool   `json:"diagnosticsEnabled"`
+		EdgeBridgeURL      string `json:"edgeBridgeUrl"`
+		ManagementService  string `json:"managementService"`
+		TransportMode      string `json:"transportMode"`
+	}
+
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode runtime-config response: %v", err)
+	}
+
+	if response.DeviceID != cfg.DeviceID {
+		t.Fatalf("expected device ID %q, got %q", cfg.DeviceID, response.DeviceID)
+	}
+	if response.EdgeBridgeURL != "http://edge.local:8080" {
+		t.Fatalf("expected edge bridge URL to use request host, got %q", response.EdgeBridgeURL)
+	}
+	if response.ManagementService != "runtime-manager" {
+		t.Fatalf("expected runtime-manager management service, got %q", response.ManagementService)
+	}
+	if response.TransportMode != "edge" {
+		t.Fatalf("expected edge transport mode, got %q", response.TransportMode)
+	}
+}
+
+func TestEdgeWebSocketServerServesStaticUIBundle(t *testing.T) {
+	t.Parallel()
+
+	staticDir := t.TempDir()
+	indexPath := filepath.Join(staticDir, "index.html")
+	appPath := filepath.Join(staticDir, "_next", "static", "app.js")
+
+	if err := os.MkdirAll(filepath.Dir(appPath), 0o755); err != nil {
+		t.Fatalf("create asset directories failed: %v", err)
+	}
+	if err := os.WriteFile(indexPath, []byte("<html><body>trakrai edge</body></html>"), 0o644); err != nil {
+		t.Fatalf("write index failed: %v", err)
+	}
+	if err := os.WriteFile(appPath, []byte("console.log('trakrai')"), 0o644); err != nil {
+		t.Fatalf("write app asset failed: %v", err)
+	}
+
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+			UI: EdgeUIConfig{
+				Enabled:   true,
+				StaticDir: staticDir,
+			},
+		},
+	}
+
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			_ = route
+			_ = env
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	httpServer := httptest.NewServer(httpTestMux(server))
+	defer httpServer.Close()
+
+	indexResp, err := http.Get(httpServer.URL + "/")
+	if err != nil {
+		t.Fatalf("fetch index failed: %v", err)
+	}
+	defer indexResp.Body.Close()
+
+	if indexResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for index, got %d", indexResp.StatusCode)
+	}
+
+	nestedResp, err := http.Get(httpServer.URL + "/runtime")
+	if err != nil {
+		t.Fatalf("fetch nested route failed: %v", err)
+	}
+	defer nestedResp.Body.Close()
+
+	if nestedResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for nested route fallback, got %d", nestedResp.StatusCode)
+	}
+
+	assetResp, err := http.Get(httpServer.URL + "/_next/static/app.js")
+	if err != nil {
+		t.Fatalf("fetch asset failed: %v", err)
+	}
+	defer assetResp.Body.Close()
+
+	if assetResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for asset, got %d", assetResp.StatusCode)
+	}
+}
+
 func TestEdgeWebSocketServerRoutesSessionPacketsToOwningClient(t *testing.T) {
 	t.Parallel()
 
@@ -406,8 +550,6 @@ func TestEdgeWebSocketServerDoesNotBroadcastBrowserOriginIce(t *testing.T) {
 
 func httpTestMux(server *EdgeWebSocketServer) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/health", server.handleHealth)
-	mux.HandleFunc("/api/ice-config", server.handleIceConfig)
-	mux.HandleFunc("/ws", server.handleWebSocket)
+	server.registerRoutes(mux)
 	return mux
 }

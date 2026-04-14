@@ -13,7 +13,9 @@ import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
 import { DeviceServicesPanel } from '@trakrai/live-transport/components/device-services-panel';
 import { DiagnosticsPanel } from '@trakrai/live-transport/components/diagnostics-panel';
+import { RuntimeManagerPanel } from '@trakrai/live-transport/components/runtime-manager-panel';
 import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runtime';
+import { useRuntimeManager } from '@trakrai/live-transport/hooks/use-runtime-manager';
 import { formatMetric } from '@trakrai/live-transport/lib/live-display-utils';
 import { CameraInventoryCard } from '@trakrai/live-viewer/components/camera-inventory-card';
 import { LiveViewerPanel } from '@trakrai/live-viewer/components/live-viewer-panel';
@@ -37,7 +39,7 @@ import type {
 
 export const DEFAULT_LIVE_DEVICE_ID = 'hacklab@10.8.0.50';
 
-type WorkspacePanelId = 'diagnostics' | 'inventory' | 'ptz' | 'services';
+type WorkspacePanelId = 'diagnostics' | 'inventory' | 'ptz' | 'runtime' | 'services';
 
 type PanelVisibility = Record<WorkspacePanelId, boolean>;
 
@@ -53,6 +55,11 @@ const PANEL_OPTIONS: ReadonlyArray<
     description: 'Inventory announced by the device and quick camera picks.',
     id: 'inventory',
     label: 'Inventory',
+  },
+  {
+    description: 'Systemd service control, versions, updates, and log tails.',
+    id: 'runtime',
+    label: 'Runtime',
   },
   {
     description: 'Directional PTZ, zoom, and camera position controls.',
@@ -71,6 +78,7 @@ export type LiveWorkspaceProps = Readonly<{
   deviceId: string;
   deviceIdEditable?: boolean;
   diagnosticsEnabled?: boolean;
+  managementServiceName?: string;
   onDeviceIdChange: (nextValue: string) => void;
 }>;
 
@@ -79,6 +87,7 @@ type LiveWorkspaceShellProps = Readonly<{
   diagnosticsEnabled: boolean;
   deviceId: string;
   deviceIdEditable: boolean;
+  managementServiceName: string;
   onDeviceIdChange: (nextValue: string) => void;
   panelVisibility: PanelVisibility;
   onTogglePanel: (panelId: WorkspacePanelId) => void;
@@ -138,6 +147,7 @@ const LiveWorkspaceShell = ({
   diagnosticsEnabled,
   deviceId,
   deviceIdEditable,
+  managementServiceName,
   onDeviceIdChange,
   panelVisibility,
   onTogglePanel,
@@ -231,10 +241,14 @@ const LiveWorkspaceShell = ({
   const panelOptions = diagnosticsEnabled
     ? PANEL_OPTIONS
     : PANEL_OPTIONS.filter((panel) => panel.id !== 'diagnostics');
+  const filteredPanelOptions = panelOptions.filter(
+    (panel) => panel.id !== 'runtime' || managementServiceName.trim() !== '',
+  );
   const canPageBackward = safeLayoutStartIndex > 0;
   const canPageForward =
     safeLayoutStartIndex + getLiveLayoutCapacity(layoutMode) < enabledCameras.length;
   const ptz = usePtzController(selectedCameraName);
+  const runtimeManager = useRuntimeManager(managementServiceName);
 
   useEffect(() => {
     if (!isStreamSessionActive || layoutSelection.cameraNames.length === 0) {
@@ -350,8 +364,8 @@ const LiveWorkspaceShell = ({
           <CardHeader className="border-b">
             <CardTitle className="text-base">Workspace controls</CardTitle>
             <CardDescription>
-              The shell composes independent viewer, PTZ, inventory, services, and diagnostics
-              panels on top of the shared transport and WebRTC providers.
+              The shell composes independent viewer, PTZ, runtime, inventory, services, and
+              diagnostics panels on top of the shared transport and WebRTC providers.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -401,7 +415,7 @@ const LiveWorkspaceShell = ({
                 Visible panels
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {panelOptions.map((panel) => (
+                {filteredPanelOptions.map((panel) => (
                   <button
                     key={panel.id}
                     className={getPanelButtonClasses(visiblePanels[panel.id])}
@@ -438,6 +452,27 @@ const LiveWorkspaceShell = ({
         </section>
       ) : null}
 
+      {visiblePanels.runtime && managementServiceName.trim() !== '' ? (
+        <RuntimeManagerPanel
+          activeDefinition={runtimeManager.activeDefinition}
+          error={runtimeManager.error}
+          isBusy={runtimeManager.isBusy}
+          lastLog={runtimeManager.lastLog}
+          lastRefreshedAt={runtimeManager.lastRefreshedAt}
+          paths={runtimeManager.paths}
+          serviceRegistered={runtimeManager.serviceRegistered}
+          services={runtimeManager.services}
+          statusLabel={runtimeManager.statusLabel}
+          onLoadServiceDefinition={runtimeManager.loadServiceDefinition}
+          onRefreshLogs={runtimeManager.refreshLogs}
+          onRefreshStatus={runtimeManager.refreshStatus}
+          onRemoveService={runtimeManager.removeService}
+          onRunServiceAction={runtimeManager.runServiceAction}
+          onUpdateService={runtimeManager.updateService}
+          onUpsertServiceDefinition={runtimeManager.upsertServiceDefinition}
+        />
+      ) : null}
+
       {visiblePanels.diagnostics ? (
         <section>
           <DiagnosticsPanel
@@ -459,12 +494,14 @@ export const LiveWorkspace = ({
   deviceId,
   deviceIdEditable = true,
   diagnosticsEnabled = true,
+  managementServiceName = '',
   onDeviceIdChange,
 }: LiveWorkspaceProps) => {
   const [panelVisibility, setPanelVisibility] = useState<PanelVisibility>({
     diagnostics: diagnosticsEnabled,
     inventory: true,
     ptz: true,
+    runtime: managementServiceName.trim() !== '',
     services: true,
   });
 
@@ -474,6 +511,7 @@ export const LiveWorkspace = ({
       deviceId={deviceId}
       deviceIdEditable={deviceIdEditable}
       diagnosticsEnabled={diagnosticsEnabled}
+      managementServiceName={managementServiceName}
       panelVisibility={panelVisibility}
       onDeviceIdChange={onDeviceIdChange}
       onTogglePanel={(panelId) => {

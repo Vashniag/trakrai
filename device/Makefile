@@ -1,9 +1,9 @@
-.PHONY: build build-ai-inference-wheel build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm clean
+.PHONY: build build-ai-inference-wheel build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-runtime-manager build-workflow-comm clean
 
 GO_LDFLAGS ?=
 AI_INFERENCE_VERSION ?= 0.1.0
 
-build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-workflow-comm build-ai-inference-wheel
+build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-runtime-manager build-workflow-comm build-ai-inference-wheel
 
 build-cloud-comm:
 	docker buildx build --output type=local,dest=./out/cloud-comm -f Dockerfile --build-arg CMD_PATH=./cmd/cloud-comm --build-arg BINARY_NAME=cloud-comm --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
@@ -20,6 +20,10 @@ build-ptz-control:
 build-rtsp-feeder:
 	docker buildx build --output type=local,dest=./out/rtsp-feeder -f Dockerfile.gstreamer --build-arg CMD_PATH=./cmd/rtsp-feeder --build-arg BINARY_NAME=rtsp-feeder --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
 	@echo "Binary: out/rtsp-feeder/rtsp-feeder"
+
+build-runtime-manager:
+	docker buildx build --output type=local,dest=./out/runtime-manager -f Dockerfile --build-arg CMD_PATH=./cmd/runtime-manager --build-arg BINARY_NAME=runtime-manager --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
+	@echo "Binary: out/runtime-manager/runtime-manager"
 
 build-workflow-comm:
 	docker buildx build --output type=local,dest=./out/workflow-comm -f Dockerfile --build-arg CMD_PATH=./cmd/workflow-comm --build-arg BINARY_NAME=workflow-comm --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .

@@ -2,6 +2,8 @@ package cloudcomm
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/trakrai/device-services/internal/shared/configjson"
 )
@@ -26,12 +28,22 @@ type EdgeWebRTCConfig struct {
 	ICEServers []EdgeICEServerConfig `json:"ice_servers"`
 }
 
+type EdgeUIConfig struct {
+	Enabled            bool   `json:"enabled"`
+	StaticDir          string `json:"static_dir"`
+	DiagnosticsEnabled bool   `json:"diagnostics_enabled"`
+	TransportMode      string `json:"transport_mode"`
+	CloudBridgeURL     string `json:"cloud_bridge_url"`
+	ManagementService  string `json:"management_service"`
+}
+
 type EdgeWebSocketConfig struct {
 	Enabled        bool             `json:"enabled"`
 	ListenAddr     string           `json:"listen_addr"`
 	Path           string           `json:"path"`
 	AllowedOrigins []string         `json:"allowed_origins"`
 	WebRTC         EdgeWebRTCConfig `json:"webrtc"`
+	UI             EdgeUIConfig     `json:"ui"`
 }
 
 type CameraConfig struct {
@@ -69,6 +81,11 @@ func LoadConfig(path string) (*Config, error) {
 					{URLs: []string{"stun:stun.l.google.com:19302"}},
 				},
 			},
+			UI: EdgeUIConfig{
+				DiagnosticsEnabled: true,
+				ManagementService:  "runtime-manager",
+				TransportMode:      "edge",
+			},
 		},
 	}
 
@@ -89,6 +106,26 @@ func LoadConfig(path string) (*Config, error) {
 		if cfg.Edge.Path == "" {
 			return nil, fmt.Errorf("edge.path is required when edge is enabled")
 		}
+	}
+	if cfg.Edge.UI.StaticDir != "" {
+		cfg.Edge.UI.Enabled = true
+		cfg.Edge.UI.StaticDir = filepath.Clean(cfg.Edge.UI.StaticDir)
+	}
+	if cfg.Edge.UI.TransportMode == "" {
+		cfg.Edge.UI.TransportMode = "edge"
+	}
+	if !strings.EqualFold(cfg.Edge.UI.TransportMode, "cloud") &&
+		!strings.EqualFold(cfg.Edge.UI.TransportMode, "edge") {
+		return nil, fmt.Errorf("edge.ui.transport_mode must be either cloud or edge")
+	}
+	cfg.Edge.UI.TransportMode = strings.ToLower(cfg.Edge.UI.TransportMode)
+	cfg.Edge.UI.ManagementService = strings.TrimSpace(cfg.Edge.UI.ManagementService)
+	if cfg.Edge.UI.ManagementService == "" {
+		cfg.Edge.UI.ManagementService = "runtime-manager"
+	}
+	cfg.Edge.UI.CloudBridgeURL = strings.TrimSpace(cfg.Edge.UI.CloudBridgeURL)
+	if cfg.Edge.UI.Enabled && cfg.Edge.UI.StaticDir == "" {
+		return nil, fmt.Errorf("edge.ui.static_dir is required when edge.ui is enabled")
 	}
 
 	return cfg, nil

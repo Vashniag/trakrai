@@ -1,5 +1,4 @@
 import { Geist, Geist_Mono } from 'next/font/google';
-import Script from 'next/script';
 
 import { Toaster } from '@trakrai/design-system/components/sonner';
 
@@ -29,7 +28,6 @@ const RootLayout = ({
 }>) => (
   <html lang="en">
     <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      <Script src="/runtime-config.js" strategy="beforeInteractive" />
       {children}
       <Toaster />
     </body>

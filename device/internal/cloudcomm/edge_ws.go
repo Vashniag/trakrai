@@ -4,9 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -84,9 +88,7 @@ func (s *EdgeWebSocketServer) Start(ctx context.Context) error {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/health", s.handleHealth)
-	mux.HandleFunc("/api/ice-config", s.handleIceConfig)
-	mux.HandleFunc(s.cfg.Edge.Path, s.handleWebSocket)
+	s.registerRoutes(mux)
 
 	listener, err := net.Listen("tcp", s.cfg.Edge.ListenAddr)
 	if err != nil {
@@ -133,6 +135,16 @@ func (s *EdgeWebSocketServer) Close() {
 	for client := range s.clients {
 		_ = client.conn.Close()
 		delete(s.clients, client)
+	}
+}
+
+func (s *EdgeWebSocketServer) registerRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/api/health", s.handleHealth)
+	mux.HandleFunc("/api/ice-config", s.handleIceConfig)
+	mux.HandleFunc("/api/runtime-config", s.handleRuntimeConfig)
+	mux.HandleFunc(s.cfg.Edge.Path, s.handleWebSocket)
+	if s.cfg.Edge.UI.Enabled {
+		mux.HandleFunc("/", s.handleUI)
 	}
 }
 
@@ -195,6 +207,70 @@ func (s *EdgeWebSocketServer) handleIceConfig(w http.ResponseWriter, r *http.Req
 	if err := json.NewEncoder(w).Encode(s.edgeICEConfigResponse()); err != nil {
 		s.log.Warn("encode ice-config response failed", "error", err)
 	}
+}
+
+func (s *EdgeWebSocketServer) handleRuntimeConfig(w http.ResponseWriter, r *http.Request) {
+	if s.handlePreflight(w, r) {
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	s.applyCORSHeaders(w, r)
+
+	if err := json.NewEncoder(w).Encode(s.edgeRuntimeConfigResponse(r)); err != nil {
+		s.log.Warn("encode runtime-config response failed", "error", err)
+	}
+}
+
+func (s *EdgeWebSocketServer) handleUI(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.Edge.UI.Enabled {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	staticRoot := s.cfg.Edge.UI.StaticDir
+	requestPath := path.Clean("/" + strings.TrimSpace(r.URL.Path))
+	relativePath := strings.TrimPrefix(requestPath, "/")
+	if relativePath == "" {
+		relativePath = "index.html"
+	}
+
+	resolvedPath := filepath.Join(staticRoot, filepath.FromSlash(relativePath))
+	if !isPathWithinRoot(staticRoot, resolvedPath) {
+		http.NotFound(w, r)
+		return
+	}
+
+	info, err := os.Stat(resolvedPath)
+	switch {
+	case err == nil && info.IsDir():
+		indexPath := filepath.Join(resolvedPath, "index.html")
+		if hasFile(indexPath) {
+			http.ServeFile(w, r, indexPath)
+			return
+		}
+	case err == nil:
+		http.ServeFile(w, r, resolvedPath)
+		return
+	}
+
+	if path.Ext(relativePath) != "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	indexPath := filepath.Join(staticRoot, "index.html")
+	if !hasFile(indexPath) {
+		http.NotFound(w, r)
+		return
+	}
+
+	http.ServeFile(w, r, indexPath)
 }
 
 func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -634,4 +710,45 @@ func (s *EdgeWebSocketServer) edgeICEConfigResponse() map[string]interface{} {
 	return map[string]interface{}{
 		"iceServers": iceServers,
 	}
+}
+
+func (s *EdgeWebSocketServer) edgeRuntimeConfigResponse(r *http.Request) map[string]interface{} {
+	return map[string]interface{}{
+		"cloudBridgeUrl":     s.cfg.Edge.UI.CloudBridgeURL,
+		"deviceId":           s.cfg.DeviceID,
+		"diagnosticsEnabled": s.cfg.Edge.UI.DiagnosticsEnabled,
+		"edgeBridgeUrl":      requestBaseURL(r),
+		"managementService":  s.cfg.Edge.UI.ManagementService,
+		"transportMode":      s.cfg.Edge.UI.TransportMode,
+	}
+}
+
+func requestBaseURL(r *http.Request) string {
+	scheme := "http"
+	if forwardedProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwardedProto != "" {
+		scheme = strings.ToLower(strings.Split(forwardedProto, ",")[0])
+	} else if r.TLS != nil {
+		scheme = "https"
+	}
+
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
+	return fmt.Sprintf("%s://%s", scheme, host)
+}
+
+func hasFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func isPathWithinRoot(root string, candidate string) bool {
+	relPath, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+
+	return relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator))
 }

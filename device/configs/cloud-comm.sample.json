@@ -25,6 +25,14 @@
           "credential": "trakrai-secret"
         }
       ]
+    },
+    "ui": {
+      "enabled": true,
+      "static_dir": "/home/hacklab/trakrai-device-runtime/ui",
+      "diagnostics_enabled": true,
+      "transport_mode": "edge",
+      "cloud_bridge_url": "ws://10.8.0.51:8090/ws",
+      "management_service": "runtime-manager"
     }
   },
   "cameras": [

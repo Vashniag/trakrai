@@ -1,0 +1,195 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "systemd": {
+    "bin": "systemctl",
+    "shell": "/bin/bash",
+    "unit_directory": "/etc/systemd/system"
+  },
+  "runtime": {
+    "root_dir": "/home/hacklab/trakrai-device-runtime",
+    "binary_dir": "/home/hacklab/trakrai-device-runtime/bin",
+    "download_dir": "/home/hacklab/trakrai-device-runtime/downloads",
+    "log_dir": "/home/hacklab/trakrai-device-runtime/logs",
+    "script_dir": "/home/hacklab/trakrai-device-runtime/scripts",
+    "state_file": "/home/hacklab/trakrai-device-runtime/managed-services.json",
+    "version_dir": "/home/hacklab/trakrai-device-runtime/versions"
+  },
+  "http": {
+    "download_timeout_sec": 300,
+    "user_agent": "trakrai-runtime-manager/1.0"
+  },
+  "services": [
+    {
+      "name": "cloud-comm",
+      "display_name": "Cloud comm",
+      "description": "MQTT bridge, IPC router, edge HTTP host, and runtime-config API.",
+      "kind": "binary",
+      "core": true,
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/cloud-comm",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/cloud-comm.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-cloud-comm.service"
+    },
+    {
+      "name": "runtime-manager",
+      "display_name": "Runtime manager",
+      "description": "Central device runtime control plane for services, logs, and updates.",
+      "kind": "binary",
+      "core": true,
+      "allow_control": false,
+      "allow_update": false,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/runtime-manager",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/runtime-manager.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-runtime-manager.service"
+    },
+    {
+      "name": "edge-ui",
+      "display_name": "Edge UI",
+      "description": "Static device console bundle served directly by cloud-comm.",
+      "kind": "zip",
+      "core": true,
+      "allow_control": false,
+      "allow_update": true,
+      "enabled": false,
+      "install_path": "/home/hacklab/trakrai-device-runtime/ui"
+    },
+    {
+      "name": "live-feed",
+      "display_name": "Live feed",
+      "description": "On-device WebRTC live streaming service.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/live-feed",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/live-feed.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-live-feed.service"
+    },
+    {
+      "name": "ptz-control",
+      "display_name": "PTZ control",
+      "description": "PTZ command execution over the shared cloud-comm transport.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/ptz-control",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/ptz-control.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-ptz-control.service"
+    },
+    {
+      "name": "rtsp-feeder",
+      "display_name": "RTSP feeder",
+      "description": "Camera ingest and JPEG frame publishing into Redis.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/rtsp-feeder",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/rtsp-feeder.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-rtsp-feeder.service"
+    },
+    {
+      "name": "workflow-comm",
+      "display_name": "Workflow comm",
+      "description": "Workflow upload queue processor and cloud sync worker.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/workflow-comm",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/workflow-comm.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-workflow-comm.service"
+    },
+    {
+      "name": "trakrai-ai-inference",
+      "display_name": "AI inference",
+      "description": "Wheel-installed Python inference service using a module entrypoint.",
+      "kind": "wheel",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "exec_start": [
+        "python3",
+        "-m",
+        "ai_inference",
+        "--config",
+        "/home/hacklab/trakrai-device-runtime/ai-inference.json"
+      ],
+      "environment": {
+        "HOME": "/home/hacklab",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "setup_command": [
+        "python3",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--force-reinstall",
+        "{{artifact_path}}"
+      ],
+      "version_command": [
+        "python3",
+        "-m",
+        "ai_inference",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-ai-inference.service"
+    }
+  ]
+}
