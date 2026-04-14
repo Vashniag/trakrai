@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import {
   Card,
   CardContent,
@@ -9,6 +11,7 @@ import {
 } from '@trakrai/design-system/components/card';
 
 import type { DeviceStatus } from '../lib/live-types';
+import type { ManagedRuntimeService } from '../lib/runtime-manager-types';
 
 import {
   formatHeartbeatAge,
@@ -20,15 +23,56 @@ import {
 type DeviceServicesPanelProps = Readonly<{
   deviceStatus: DeviceStatus | null;
   heartbeatAgeSeconds: number | null;
+  managedServices?: ManagedRuntimeService[];
   routeLabel: string;
 }>;
+
+const buildManagedServiceDetails = (service: ManagedRuntimeService): Record<string, unknown> => {
+  const details: Record<string, unknown> = {
+    kind: service.kind,
+  };
+
+  if (service.version !== undefined && service.version !== '') {
+    details.version = service.version;
+  }
+  if (service.mainPid !== undefined) {
+    details.pid = service.mainPid;
+  }
+  if (service.unitFileState !== undefined && service.unitFileState !== '') {
+    details.unit = service.unitFileState;
+  }
+  if (service.subState !== undefined && service.subState !== '') {
+    details.subState = service.subState;
+  }
+
+  return details;
+};
 
 export const DeviceServicesPanel = ({
   deviceStatus,
   heartbeatAgeSeconds,
+  managedServices = [],
   routeLabel,
 }: DeviceServicesPanelProps) => {
-  const serviceStatuses = Object.values(deviceStatus?.services ?? {});
+  const serviceStatuses = useMemo(() => {
+    const mergedStatuses = new Map(Object.entries(deviceStatus?.services ?? {}));
+
+    for (const service of managedServices) {
+      if (mergedStatuses.has(service.name)) {
+        continue;
+      }
+
+      mergedStatuses.set(service.name, {
+        details: buildManagedServiceDetails(service),
+        service: service.name,
+        status: service.state,
+      });
+    }
+
+    return Array.from(mergedStatuses.values()).sort((left, right) =>
+      left.service.localeCompare(right.service),
+    );
+  }, [deviceStatus?.services, managedServices]);
 
   return (
     <Card className="border">

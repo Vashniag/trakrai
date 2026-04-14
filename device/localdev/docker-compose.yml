@@ -1,0 +1,58 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  fake-camera:
+    build:
+      context: ./fake-camera
+    restart: unless-stopped
+    ports:
+      - '${TRAKRAI_LOCAL_RTSP_PORT:-18554}:8554'
+    volumes:
+      - '${TRAKRAI_LOCAL_VIDEO_FILE}:/video/input.mp4:ro'
+    environment:
+      TRAKRAI_RTSP_PATH: stream
+      TRAKRAI_VIDEO_FILE: /video/input.mp4
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'ffprobe -v error -rtsp_transport tcp -show_streams rtsp://127.0.0.1:8554/stream >/dev/null 2>&1',
+        ]
+      interval: 10s
+      timeout: 15s
+      retries: 12
+      start_period: 15s
+
+  device-emulator:
+    build:
+      context: ./device-emulator
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      fake-camera:
+        condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '${TRAKRAI_LOCAL_HTTP_PORT:-18080}:8080'
+      - '${TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE:-40000-40049}:${TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE:-40000-40049}/udp'
+    volumes:
+      - '${TRAKRAI_LOCAL_STAGE_DIR}:/stage:ro'
+      - trakrai_local_runtime:/home/hacklab/trakrai-device-runtime
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/api/runtime-config >/dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  trakrai_local_runtime:

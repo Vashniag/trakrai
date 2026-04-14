@@ -11,6 +11,17 @@ func buildWebRTCAPI(cfg *Config) *webrtc.API {
 	var settingEngine webrtc.SettingEngine
 
 	settingEngine.SetIncludeLoopbackCandidate(false)
+	if cfg.WebRTC.UDPPortRange.Min > 0 && cfg.WebRTC.UDPPortRange.Max > 0 {
+		if err := settingEngine.SetEphemeralUDPPortRange(
+			uint16(cfg.WebRTC.UDPPortRange.Min),
+			uint16(cfg.WebRTC.UDPPortRange.Max),
+		); err != nil {
+			panic(err)
+		}
+	}
+	if len(cfg.WebRTC.HostCandidateIPs) > 0 {
+		settingEngine.SetNAT1To1IPs(cfg.WebRTC.HostCandidateIPs, webrtc.ICECandidateTypeHost)
+	}
 	settingEngine.SetInterfaceFilter(func(interfaceName string) bool {
 		return interfaceAllowed(interfaceName, cfg.WebRTC.ExcludedInterfacePrefixes)
 	})

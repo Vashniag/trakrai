@@ -1,0 +1,32 @@
+{
+  "log_level": "info",
+  "redis": {
+    "host": "redis",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "defaults": {
+    "capture_method": "auto",
+    "width": 640,
+    "height": 480,
+    "framerate": 10,
+    "jpeg_quality": 85,
+    "latency_ms": 200,
+    "protocols": "tcp",
+    "reconnect_delay_sec": 2,
+    "rotate_180": false,
+    "save_frames": false,
+    "save_path": "/data/raw",
+    "pipeline_timeout_sec": 15
+  },
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Camera-1",
+      "rtsp_url": "rtsp://fake-camera:8554/stream",
+      "enabled": true
+    }
+  ]
+}

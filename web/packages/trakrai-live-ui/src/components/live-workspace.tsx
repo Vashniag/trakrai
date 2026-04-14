@@ -447,6 +447,7 @@ const LiveWorkspaceShell = ({
           <DeviceServicesPanel
             deviceStatus={viewer.deviceStatus}
             heartbeatAgeSeconds={heartbeatAgeSeconds}
+            managedServices={runtimeManager.services}
             routeLabel={viewer.transport.httpBaseUrl}
           />
         </section>

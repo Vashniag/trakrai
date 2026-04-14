@@ -22,6 +22,9 @@ const liveGatewayHttpUrl =
   process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'] ??
   'http://localhost:4000';
 
+const liveGatewayIceTransportPolicy =
+  process.env['NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY'] === 'relay' ? 'relay' : 'all';
+
 const LivePage = () => {
   const [deviceId, setDeviceId] = useState(DEFAULT_LIVE_DEVICE_ID);
 
@@ -41,6 +44,7 @@ const LivePage = () => {
         { label: 'HTTP endpoint', value: liveGatewayHttpUrl },
         { label: 'WebSocket', value: liveGatewayWsUrl },
         { label: 'ICE config', value: `${liveGatewayHttpUrl}/api/ice-config` },
+        { label: 'ICE transport', value: liveGatewayIceTransportPolicy },
       ]}
       eyebrow="TrakrAI Cloud Operations"
       title="Live feed and PTZ"
@@ -51,7 +55,10 @@ const LivePage = () => {
         signalingUrl={liveGatewayWsUrl}
       >
         <DeviceRuntimeProvider>
-          <WebRtcProvider httpBaseUrl={liveGatewayHttpUrl} iceTransportPolicy="relay">
+          <WebRtcProvider
+            httpBaseUrl={liveGatewayHttpUrl}
+            iceTransportPolicy={liveGatewayIceTransportPolicy}
+          >
             <LiveWorkspace
               defaultDeviceId={DEFAULT_LIVE_DEVICE_ID}
               deviceId={deviceId}

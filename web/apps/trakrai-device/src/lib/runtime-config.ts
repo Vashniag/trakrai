@@ -16,6 +16,9 @@ export type ResolvedDeviceUiTransport = {
 };
 
 const WS_PATH_SUFFIX = '/ws';
+const DEFAULT_RUNTIME_CONFIG_PATH = '/api/runtime-config';
+const DEFAULT_LOCAL_DEVICE_HTTP_PORT = '18080';
+const REMOTE_RUNTIME_CONFIG_URL = process.env.NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL;
 
 type WindowRuntimeConfig = Partial<DeviceUiRuntimeConfig> & {
   diagnosticsEnabled?: boolean | string;
@@ -34,6 +37,11 @@ const normalizeString = (value: string | undefined, fallback: string): string =>
 
   return normalized !== undefined && normalized !== '' ? normalized : fallback;
 };
+
+const LOCAL_DEVICE_HTTP_PORT = normalizeString(
+  process.env.NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT,
+  DEFAULT_LOCAL_DEVICE_HTTP_PORT,
+);
 
 const normalizeMode = (
   value: string | undefined,
@@ -72,6 +80,36 @@ const normalizePath = (pathName: string): string => {
   return trimmed === '/' ? '' : trimmed;
 };
 
+const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
+const isDevelopment = (): boolean => process.env.NODE_ENV === 'development';
+const readBrowserHostname = (): string =>
+  typeof window === 'undefined'
+    ? '127.0.0.1'
+    : normalizeString(window.location.hostname, '127.0.0.1');
+
+const buildLocalDevDeviceBaseUrl = (): string =>
+  `http://${readBrowserHostname()}:${LOCAL_DEVICE_HTTP_PORT}`;
+
+const resolveDefaultEdgeBridgeUrl = (): string => {
+  const configuredUrl = process.env.NEXT_PUBLIC_TRAKRAI_EDGE_BRIDGE_URL?.trim();
+  if (configuredUrl !== undefined && configuredUrl !== '') {
+    return configuredUrl;
+  }
+
+  return isDevelopment() ? buildLocalDevDeviceBaseUrl() : 'http://127.0.0.1:8080';
+};
+
+const resolveRuntimeConfigUrl = (): string => {
+  const remoteRuntimeConfigUrl = REMOTE_RUNTIME_CONFIG_URL?.trim();
+  if (remoteRuntimeConfigUrl !== undefined && remoteRuntimeConfigUrl !== '') {
+    return remoteRuntimeConfigUrl;
+  }
+
+  return isDevelopment()
+    ? `${buildLocalDevDeviceBaseUrl()}${DEFAULT_RUNTIME_CONFIG_PATH}`
+    : DEFAULT_RUNTIME_CONFIG_PATH;
+};
+
 const ensureWsPath = (pathName: string): string =>
   pathName.endsWith(WS_PATH_SUFFIX) ? pathName : `${normalizePath(pathName)}${WS_PATH_SUFFIX}`;
 
@@ -105,7 +143,7 @@ const deriveTransportUrls = (endpoint: string): ResolvedDeviceUiTransport => {
   };
 };
 
-export const DEFAULT_DEVICE_UI_RUNTIME_CONFIG: DeviceUiRuntimeConfig = {
+export const getDefaultDeviceUiRuntimeConfig = (): DeviceUiRuntimeConfig => ({
   deviceId: normalizeString(process.env.NEXT_PUBLIC_TRAKRAI_DEVICE_ID, 'trakrai-device-local'),
   transportMode: normalizeMode(process.env.NEXT_PUBLIC_TRAKRAI_DEVICE_TRANSPORT_MODE, 'edge'),
   cloudBridgeUrl: normalizeString(
@@ -114,44 +152,45 @@ export const DEFAULT_DEVICE_UI_RUNTIME_CONFIG: DeviceUiRuntimeConfig = {
   ),
   edgeBridgeUrl: normalizeString(
     process.env.NEXT_PUBLIC_TRAKRAI_EDGE_BRIDGE_URL,
-    'http://127.0.0.1:8080',
+    resolveDefaultEdgeBridgeUrl(),
   ),
   diagnosticsEnabled: normalizeBoolean(process.env.NEXT_PUBLIC_TRAKRAI_ENABLE_DIAGNOSTICS, true),
   managementService: normalizeManagementService(
     process.env.NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE,
     'runtime-manager',
   ),
-};
+});
 
 const normalizeRuntimeConfig = (
   runtimeConfig: WindowRuntimeConfig | undefined,
-): DeviceUiRuntimeConfig => ({
-  deviceId: normalizeString(runtimeConfig?.deviceId, DEFAULT_DEVICE_UI_RUNTIME_CONFIG.deviceId),
-  transportMode: normalizeMode(
-    runtimeConfig?.transportMode,
-    DEFAULT_DEVICE_UI_RUNTIME_CONFIG.transportMode,
-  ),
-  cloudBridgeUrl: normalizeString(
-    runtimeConfig?.cloudBridgeUrl,
-    DEFAULT_DEVICE_UI_RUNTIME_CONFIG.cloudBridgeUrl,
-  ),
-  edgeBridgeUrl: normalizeString(
-    runtimeConfig?.edgeBridgeUrl,
-    DEFAULT_DEVICE_UI_RUNTIME_CONFIG.edgeBridgeUrl,
-  ),
-  diagnosticsEnabled: normalizeBoolean(
-    runtimeConfig?.diagnosticsEnabled,
-    DEFAULT_DEVICE_UI_RUNTIME_CONFIG.diagnosticsEnabled,
-  ),
-  managementService: normalizeManagementService(
-    runtimeConfig?.managementService,
-    DEFAULT_DEVICE_UI_RUNTIME_CONFIG.managementService,
-  ),
-});
+): DeviceUiRuntimeConfig => {
+  const defaultRuntimeConfig = getDefaultDeviceUiRuntimeConfig();
+
+  return {
+    deviceId: normalizeString(runtimeConfig?.deviceId, defaultRuntimeConfig.deviceId),
+    transportMode: normalizeMode(runtimeConfig?.transportMode, defaultRuntimeConfig.transportMode),
+    cloudBridgeUrl: normalizeString(
+      runtimeConfig?.cloudBridgeUrl,
+      defaultRuntimeConfig.cloudBridgeUrl,
+    ),
+    edgeBridgeUrl: normalizeString(
+      runtimeConfig?.edgeBridgeUrl,
+      defaultRuntimeConfig.edgeBridgeUrl,
+    ),
+    diagnosticsEnabled: normalizeBoolean(
+      runtimeConfig?.diagnosticsEnabled,
+      defaultRuntimeConfig.diagnosticsEnabled,
+    ),
+    managementService: normalizeManagementService(
+      runtimeConfig?.managementService,
+      defaultRuntimeConfig.managementService,
+    ),
+  };
+};
 
 export const readDeviceUiRuntimeConfig = (): DeviceUiRuntimeConfig => {
   if (typeof window === 'undefined') {
-    return DEFAULT_DEVICE_UI_RUNTIME_CONFIG;
+    return getDefaultDeviceUiRuntimeConfig();
   }
 
   return normalizeRuntimeConfig(window.__TRAKRAI_DEVICE_UI_CONFIG__);
@@ -167,9 +206,10 @@ export const loadDeviceUiRuntimeConfig = async (
   }
 
   try {
-    const response = await fetch('/api/runtime-config', {
+    const runtimeConfigUrl = resolveRuntimeConfigUrl();
+    const response = await fetch(runtimeConfigUrl, {
       cache: 'no-store',
-      credentials: 'same-origin',
+      credentials: isAbsoluteUrl(runtimeConfigUrl) ? 'omit' : 'same-origin',
       signal,
     });
     if (!response.ok) {

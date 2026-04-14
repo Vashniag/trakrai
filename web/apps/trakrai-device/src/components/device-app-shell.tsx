@@ -10,7 +10,7 @@ import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell
 import { LiveWorkspace } from '@trakrai/live-ui/components/live-workspace';
 
 import {
-  DEFAULT_DEVICE_UI_RUNTIME_CONFIG,
+  getDefaultDeviceUiRuntimeConfig,
   loadDeviceUiRuntimeConfig,
   resolveDeviceUiTransport,
   type DeviceTransportMode,
@@ -30,7 +30,7 @@ const modeDescriptions: Record<DeviceTransportMode, string> = {
 
 export const DeviceAppShell = () => {
   const [runtimeConfig, setRuntimeConfig] = useState<DeviceUiRuntimeConfig>(
-    DEFAULT_DEVICE_UI_RUNTIME_CONFIG,
+    getDefaultDeviceUiRuntimeConfig(),
   );
   const [hasLoadedRuntimeConfig, setHasLoadedRuntimeConfig] = useState(false);
 
