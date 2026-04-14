@@ -14,6 +14,7 @@ type liveLayoutPayload struct {
 	CameraName  string   `json:"cameraName"`
 	Camera      string   `json:"camera"`
 	CameraNames []string `json:"cameraNames"`
+	FrameSource string   `json:"frameSource"`
 	LayoutMode  string   `json:"layoutMode"`
 	RequestID   string   `json:"requestId"`
 	SessionID   string   `json:"sessionId"`
@@ -160,7 +161,12 @@ func layoutPlanFromPayload(payload liveLayoutPayload) (LiveLayoutPlan, error) {
 		cameraName = payload.Camera
 	}
 
-	return NormalizeLiveLayoutPlan(payload.LayoutMode, cameraName, payload.CameraNames)
+	return NormalizeLiveLayoutPlan(
+		payload.LayoutMode,
+		cameraName,
+		payload.CameraNames,
+		payload.FrameSource,
+	)
 }
 
 func handleWebRTCAnswer(env ipc.MQTTEnvelope, sessions *SessionManager) {

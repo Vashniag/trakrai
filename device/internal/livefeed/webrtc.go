@@ -86,7 +86,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 	pc, err := sm.api.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
 	if err != nil {
 		sm.log.Error("peer connection failed", "error", err)
-		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.sendAck(cameraName, sessionID, requestID, plan.FrameSource, false, err.Error())
 		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
@@ -116,7 +116,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 	if err != nil {
 		sm.log.Error("create track failed", "error", err)
 		_ = pc.Close()
-		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.sendAck(cameraName, sessionID, requestID, plan.FrameSource, false, err.Error())
 		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
@@ -129,7 +129,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 	if _, err := pc.AddTrack(videoTrack); err != nil {
 		sm.log.Error("add track failed", "error", err)
 		_ = pc.Close()
-		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.sendAck(cameraName, sessionID, requestID, plan.FrameSource, false, err.Error())
 		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
@@ -240,7 +240,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 		sm.log.Error("create offer failed", "error", err)
 		sm.removeSession(sessionID)
 		_ = pc.Close()
-		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.sendAck(cameraName, sessionID, requestID, plan.FrameSource, false, err.Error())
 		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
@@ -254,7 +254,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 		sm.log.Error("set local desc failed", "error", err)
 		sm.removeSession(sessionID)
 		_ = pc.Close()
-		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.sendAck(cameraName, sessionID, requestID, plan.FrameSource, false, err.Error())
 		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
@@ -268,7 +268,14 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 	if localDesc == nil {
 		sm.removeSession(sessionID)
 		_ = pc.Close()
-		sm.sendAck(cameraName, sessionID, requestID, false, "local description was not created")
+		sm.sendAck(
+			cameraName,
+			sessionID,
+			requestID,
+			plan.FrameSource,
+			false,
+			"local description was not created",
+		)
 		sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 			"camera":    cameraName,
 			"error":     "local description was not created",
@@ -279,11 +286,12 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 	}
 
 	sm.setSessionState(sessionID, "negotiating")
-	sm.sendAck(cameraName, sessionID, requestID, true, "")
+	sm.sendAck(cameraName, sessionID, requestID, plan.FrameSource, true, "")
 	offerPayload := map[string]interface{}{
-		"cameraName": cameraName,
-		"sdp":        localDesc.SDP,
-		"sessionId":  sessionID,
+		"cameraName":  cameraName,
+		"frameSource": string(plan.FrameSource),
+		"sdp":         localDesc.SDP,
+		"sessionId":   sessionID,
 	}
 	if session.requestID != "" {
 		offerPayload["requestId"] = session.requestID
@@ -476,6 +484,7 @@ func (sm *SessionManager) UpdateSessionLayout(sessionID string, plan LiveLayoutP
 	sm.publish("response", "live-layout-updated", map[string]interface{}{
 		"cameraName":  plan.PrimaryCamera(),
 		"cameraNames": slices.Clone(plan.CameraNames),
+		"frameSource": string(plan.FrameSource),
 		"layoutMode":  string(plan.Mode),
 		"requestId":   requestID,
 		"sessionId":   activeSessionID,
@@ -630,13 +639,15 @@ func (sm *SessionManager) sendAck(
 	cameraName string,
 	sessionID string,
 	requestID string,
+	frameSource LiveFrameSource,
 	ok bool,
 	errMsg string,
 ) {
 	payload := map[string]interface{}{
-		"cameraName": cameraName,
-		"ok":         ok,
-		"sessionId":  sessionID,
+		"cameraName":  cameraName,
+		"frameSource": string(frameSource),
+		"ok":          ok,
+		"sessionId":   sessionID,
 	}
 	if strings.TrimSpace(requestID) != "" {
 		payload["requestId"] = strings.TrimSpace(requestID)

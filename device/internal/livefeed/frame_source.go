@@ -31,24 +31,34 @@ func NewFrameSource(cfg redisconfig.Config) (*FrameSource, error) {
 	}, nil
 }
 
-func (fs *FrameSource) ReadFrame(ctx context.Context, cameraName string) ([]byte, string, error) {
+func (fs *FrameSource) ReadFrame(
+	ctx context.Context,
+	cameraName string,
+	frameSource LiveFrameSource,
+) ([]byte, string, error) {
+	switch frameSource {
+	case LiveFrameSourceProcessed:
+		return fs.readProcessedFrame(ctx, cameraName)
+	case LiveFrameSourceRaw:
+		fallthrough
+	default:
+		return fs.readRawFrame(ctx, cameraName)
+	}
+}
+
+func (fs *FrameSource) readRawFrame(ctx context.Context, cameraName string) ([]byte, string, error) {
 	key := fmt.Sprintf("%s:%s:latest", fs.keyPrefix, cameraName)
 	result, err := fs.rdb.HMGet(ctx, key, "raw", "imgID").Result()
 	if err != nil {
 		return nil, "", fmt.Errorf("redis hget: %w", err)
 	}
 	if len(result) < 2 || result[0] == nil {
-		return nil, "", fmt.Errorf("no frame available for %s", cameraName)
+		return nil, "", fmt.Errorf("no raw frame available for %s", cameraName)
 	}
 
-	var frameData []byte
-	switch value := result[0].(type) {
-	case string:
-		frameData = []byte(value)
-	case []byte:
-		frameData = value
-	default:
-		return nil, "", fmt.Errorf("unexpected type for raw field: %T", result[0])
+	frameData, err := coerceFrameBytes(result[0], "raw")
+	if err != nil {
+		return nil, "", err
 	}
 
 	imgID := ""
@@ -57,6 +67,44 @@ func (fs *FrameSource) ReadFrame(ctx context.Context, cameraName string) ([]byte
 	}
 
 	return frameData, imgID, nil
+}
+
+func (fs *FrameSource) readProcessedFrame(
+	ctx context.Context,
+	cameraName string,
+) ([]byte, string, error) {
+	key := fmt.Sprintf("%s:%s:processed", fs.keyPrefix, cameraName)
+	timeKey := fmt.Sprintf("%s:%s:processed_time", fs.keyPrefix, cameraName)
+
+	frameData, err := fs.rdb.Get(ctx, key).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, "", fmt.Errorf("no processed frame available for %s", cameraName)
+		}
+
+		return nil, "", fmt.Errorf("redis get: %w", err)
+	}
+
+	imgID, err := fs.rdb.Get(ctx, timeKey).Result()
+	if err != nil && err != redis.Nil {
+		return nil, "", fmt.Errorf("redis get processed time: %w", err)
+	}
+	if err == redis.Nil {
+		imgID = ""
+	}
+
+	return frameData, imgID, nil
+}
+
+func coerceFrameBytes(value interface{}, fieldName string) ([]byte, error) {
+	switch frameValue := value.(type) {
+	case string:
+		return []byte(frameValue), nil
+	case []byte:
+		return frameValue, nil
+	default:
+		return nil, fmt.Errorf("unexpected type for %s field: %T", fieldName, value)
+	}
 }
 
 func (fs *FrameSource) FramePump(ctx context.Context, cameraName string, fps int, frameCh chan<- []byte) {
@@ -70,7 +118,7 @@ func (fs *FrameSource) FramePump(ctx context.Context, cameraName string, fps int
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			frame, imgID, err := fs.ReadFrame(ctx, cameraName)
+			frame, imgID, err := fs.ReadFrame(ctx, cameraName, LiveFrameSourceRaw)
 			if err != nil {
 				fs.log.Debug("frame read failed", "camera", cameraName, "error", err)
 				continue

@@ -6,6 +6,7 @@ import type {
   ActivityLogEntry,
   ConnectionState,
   DeviceStatus,
+  LiveFrameSource,
   LiveLayoutSelection,
   PtzCapabilities,
   PtzPosition,
@@ -99,12 +100,14 @@ const normalizeLiveLayoutSelection = (selection: LiveLayoutSelection): LiveLayou
 
   return {
     cameraNames,
+    frameSource: normalizeLiveFrameSource(selection.frameSource),
     mode: selection.mode,
   };
 };
 
 const REQUEST_ID_RADIX = 36;
 const ICE_CANDIDATE_MESSAGE_TYPE = 'ice-candidate';
+const DEFAULT_LIVE_FRAME_SOURCE: LiveFrameSource = 'raw';
 let fallbackRequestCounter = 0;
 
 const createClientRequestId = (): string => {
@@ -118,6 +121,10 @@ const createClientRequestId = (): string => {
     REQUEST_ID_RADIX,
   )}`;
 };
+
+const normalizeLiveFrameSource = (
+  frameSource: LiveFrameSource | null | undefined,
+): LiveFrameSource => (frameSource === 'processed' ? 'processed' : DEFAULT_LIVE_FRAME_SOURCE);
 
 export const useLiveDeviceConnection = ({
   deviceId,
@@ -930,13 +937,14 @@ export const useLiveDeviceConnection = ({
       setActiveCameraName(primaryCameraName);
       appendLog(
         'info',
-        `Requesting ${normalizedSelection.mode} live view with ${normalizedSelection.cameraNames.length} camera${
-          normalizedSelection.cameraNames.length === 1 ? '' : 's'
-        }`,
+        `Requesting ${normalizedSelection.frameSource} ${normalizedSelection.mode} live view with ${
+          normalizedSelection.cameraNames.length
+        } camera${normalizedSelection.cameraNames.length === 1 ? '' : 's'}`,
       );
       liveGatewayRef.current?.send('start-live', {
         cameraName: primaryCameraName,
         cameraNames: normalizedSelection.cameraNames,
+        frameSource: normalizedSelection.frameSource,
         layoutMode: normalizedSelection.mode,
         requestId: activeRequestIdRef.current,
       });
@@ -963,11 +971,12 @@ export const useLiveDeviceConnection = ({
       setError(null);
       appendLog(
         'info',
-        `Updating live layout to ${normalizedSelection.mode} (${normalizedSelection.cameraNames.length} cameras)`,
+        `Updating live layout to ${normalizedSelection.frameSource} ${normalizedSelection.mode} (${normalizedSelection.cameraNames.length} cameras)`,
       );
       liveGatewayRef.current?.send('update-live-layout', {
         cameraName: primaryCameraName,
         cameraNames: normalizedSelection.cameraNames,
+        frameSource: normalizedSelection.frameSource,
         layoutMode: normalizedSelection.mode,
         sessionId,
       });

@@ -73,20 +73,25 @@ func (mc *MosaicComposer) ComposeRGBAFrame(ctx context.Context, plan LiveLayoutP
 	fillRect(canvas, canvas.Bounds(), compositeBackgroundColor)
 
 	for _, region := range regions {
-		mc.drawRegion(ctx, canvas, region)
+		mc.drawRegion(ctx, canvas, region, plan.FrameSource)
 	}
 
 	return bytes.Clone(canvas.Pix), nil
 }
 
-func (mc *MosaicComposer) drawRegion(ctx context.Context, canvas *image.RGBA, region compositeRegion) {
+func (mc *MosaicComposer) drawRegion(
+	ctx context.Context,
+	canvas *image.RGBA,
+	region compositeRegion,
+	frameSource LiveFrameSource,
+) {
 	fillRect(canvas, region.Bounds, tileBackgroundColor)
 	strokeRect(canvas, region.Bounds, tileBorderColor)
 	if region.Primary {
 		strokeRectInset(canvas, region.Bounds, primaryTileBorderColor, 1)
 	}
 
-	frame, err := mc.readDecodedFrame(ctx, region.CameraName)
+	frame, err := mc.readDecodedFrameForSource(ctx, region.CameraName, frameSource)
 	if err != nil {
 		mc.log.Debug("composite frame unavailable", "camera", region.CameraName, "error", err)
 		fillRect(canvas, insetRect(region.Bounds, 2), placeholderColor)
@@ -101,10 +106,19 @@ func (mc *MosaicComposer) drawRegion(ctx context.Context, canvas *image.RGBA, re
 }
 
 func (mc *MosaicComposer) readDecodedFrame(ctx context.Context, cameraName string) (image.Image, error) {
-	frameData, imgID, err := mc.frameSrc.ReadFrame(ctx, cameraName)
+	return mc.readDecodedFrameForSource(ctx, cameraName, LiveFrameSourceRaw)
+}
+
+func (mc *MosaicComposer) readDecodedFrameForSource(
+	ctx context.Context,
+	cameraName string,
+	frameSource LiveFrameSource,
+) (image.Image, error) {
+	frameData, imgID, err := mc.frameSrc.ReadFrame(ctx, cameraName, frameSource)
 	if err != nil {
+		cacheKey := frameCacheKey(cameraName, frameSource)
 		mc.mu.Lock()
-		cached, ok := mc.cache[cameraName]
+		cached, ok := mc.cache[cacheKey]
 		mc.mu.Unlock()
 		if ok {
 			return cached.image, nil
@@ -114,7 +128,8 @@ func (mc *MosaicComposer) readDecodedFrame(ctx context.Context, cameraName strin
 	}
 
 	mc.mu.Lock()
-	cached, ok := mc.cache[cameraName]
+	cacheKey := frameCacheKey(cameraName, frameSource)
+	cached, ok := mc.cache[cacheKey]
 	mc.mu.Unlock()
 	if ok && cached.imgID == imgID {
 		return cached.image, nil
@@ -126,7 +141,7 @@ func (mc *MosaicComposer) readDecodedFrame(ctx context.Context, cameraName strin
 	}
 
 	mc.mu.Lock()
-	mc.cache[cameraName] = cachedDecodedFrame{
+	mc.cache[cacheKey] = cachedDecodedFrame{
 		image: decodedImage,
 		imgID: imgID,
 	}
@@ -366,4 +381,8 @@ func maxInt(left int, right int) int {
 	}
 
 	return right
+}
+
+func frameCacheKey(cameraName string, frameSource LiveFrameSource) string {
+	return fmt.Sprintf("%s|%s", string(frameSource), cameraName)
 }

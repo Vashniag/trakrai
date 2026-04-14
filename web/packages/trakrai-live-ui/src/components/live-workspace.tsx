@@ -21,6 +21,7 @@ import { VideoPlayer } from './video-player';
 
 import type {
   DeviceCamera,
+  LiveFrameSource,
   LiveLayoutMode,
   LiveLayoutSelection,
   PtzVelocityCommand,
@@ -77,20 +78,39 @@ const FOCUS_LAYOUT_SECONDARY_TILE_IDS = [
   'focus-g',
   'focus-h',
 ] as const;
+const ACTIVE_BUTTON_CLASSES = 'border-emerald-500 bg-emerald-50 text-emerald-700';
+const INACTIVE_BUTTON_CLASSES =
+  'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 
 const getLayoutButtonClasses = (isActive: boolean): string =>
   `flex min-h-28 flex-col justify-between border p-4 text-left transition ${
-    isActive
-      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-      : 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50'
+    isActive ? ACTIVE_BUTTON_CLASSES : INACTIVE_BUTTON_CLASSES
   }`;
 
 const getCameraChipClasses = (isActive: boolean): string =>
-  `border px-3 py-2 text-left text-xs transition ${
-    isActive
-      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-      : 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50'
-  }`;
+  `border px-3 py-2 text-left text-xs transition ${isActive ? ACTIVE_BUTTON_CLASSES : INACTIVE_BUTTON_CLASSES}`;
+
+const getFrameSourceButtonClasses = (isActive: boolean): string =>
+  `border px-4 py-3 text-left transition ${isActive ? ACTIVE_BUTTON_CLASSES : INACTIVE_BUTTON_CLASSES}`;
+
+const LIVE_FRAME_SOURCE_OPTIONS: ReadonlyArray<
+  Readonly<{
+    description: string;
+    label: string;
+    value: LiveFrameSource;
+  }>
+> = [
+  {
+    description: 'Direct JPEG frames written by the RTSP feeder.',
+    label: 'Raw frames',
+    value: 'raw',
+  },
+  {
+    description: 'Annotated AI output with detections and overlays from Redis.',
+    label: 'Processed frames',
+    value: 'processed',
+  },
+];
 
 const LayoutGlyph = ({ mode }: Readonly<{ mode: LiveLayoutMode }>) => {
   if (mode === 'single') {
@@ -185,6 +205,7 @@ const LiveWorkspaceBody = ({
   showDiagnostics,
 }: LiveWorkspaceBodyProps) => {
   const [selectedCamera, setSelectedCamera] = useState('');
+  const [frameSource, setFrameSource] = useState<LiveFrameSource>('raw');
   const [layoutMode, setLayoutMode] = useState<LiveLayoutMode>('single');
   const [layoutStartIndex, setLayoutStartIndex] = useState(0);
   const [activePtzDirection, setActivePtzDirection] = useState<string | null>(null);
@@ -251,9 +272,10 @@ const LiveWorkspaceBody = ({
   const layoutSelection = useMemo<LiveLayoutSelection>(
     () => ({
       cameraNames: visibleCameras.map((camera) => camera.name),
+      frameSource,
       mode: layoutMode,
     }),
-    [layoutMode, visibleCameras],
+    [frameSource, layoutMode, visibleCameras],
   );
   const layoutSelectionKey = useMemo(() => JSON.stringify(layoutSelection), [layoutSelection]);
   const isStreamSessionActive = connectionState === 'starting' || connectionState === 'streaming';
@@ -295,6 +317,14 @@ const LiveWorkspaceBody = ({
     streamStats?.frameWidth == null || streamStats.frameHeight == null
       ? 'N/A'
       : `${streamStats.frameWidth}x${streamStats.frameHeight}`;
+  const liveFeedFrameSourceDetail = deviceStatus?.services?.['live-feed']?.details?.['frameSource'];
+  let reportedFrameSource: LiveFrameSource | null = null;
+  if (liveFeedFrameSourceDetail === 'processed' || liveFeedFrameSourceDetail === 'raw') {
+    reportedFrameSource = liveFeedFrameSourceDetail;
+  }
+  const activeFrameSource = reportedFrameSource ?? frameSource;
+  const activeFrameSourceLabel =
+    activeFrameSource === 'processed' ? 'Processed frames' : 'Raw frames';
   const canPageBackward = safeLayoutStartIndex > 0;
   const canPageForward =
     safeLayoutStartIndex + getLiveLayoutCapacity(layoutMode) < enabledCameras.length;
@@ -436,7 +466,7 @@ const LiveWorkspaceBody = ({
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              <div className="mt-4 grid gap-3 sm:grid-cols-5">
                 <div className="border border-white/10 bg-white/5 p-3">
                   <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
                     Primary camera
@@ -448,6 +478,14 @@ const LiveWorkspaceBody = ({
                     Camera set
                   </div>
                   <div className="mt-1 text-sm font-medium text-white">{pageLabel}</div>
+                </div>
+                <div className="border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                    Frame source
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-white">
+                    {activeFrameSourceLabel}
+                  </div>
                 </div>
                 <div className="border border-white/10 bg-white/5 p-3">
                   <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">FPS</div>
@@ -488,6 +526,32 @@ const LiveWorkspaceBody = ({
                   <span className="mt-3 text-xs text-slate-500">{option.description}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="border border-white/10 bg-white/5 p-3">
+              <div>
+                <div className="text-[11px] tracking-[0.2em] text-white/45 uppercase">
+                  Frame source
+                </div>
+                <div className="mt-1 text-sm font-medium text-white">
+                  Switch the stitched live stream between raw RTSP frames and processed AI output.
+                </div>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {LIVE_FRAME_SOURCE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className={getFrameSourceButtonClasses(frameSource === option.value)}
+                    type="button"
+                    onClick={() => {
+                      setFrameSource(option.value);
+                    }}
+                  >
+                    <div className="font-medium">{option.label}</div>
+                    <div className="mt-1 text-xs text-slate-500">{option.description}</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-white/5 p-3">

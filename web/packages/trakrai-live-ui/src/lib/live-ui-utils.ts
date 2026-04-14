@@ -203,6 +203,9 @@ export const formatServiceDetails = (details: DeviceServiceStatus['details']): s
     typeof details['camera'] === 'string' && details['camera'] !== ''
       ? `camera ${details['camera']}`
       : null,
+    typeof details['frameSource'] === 'string' && details['frameSource'] !== ''
+      ? `${details['frameSource']} frames`
+      : null,
     typeof details['peerConnection'] === 'string' && details['peerConnection'] !== ''
       ? `peer ${details['peerConnection']}`
       : null,

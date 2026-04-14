@@ -16,13 +16,27 @@ const (
 	LiveLayoutGrid16 LiveLayoutMode = "grid-16"
 )
 
+type LiveFrameSource string
+
+const (
+	LiveFrameSourceRaw       LiveFrameSource = "raw"
+	LiveFrameSourceProcessed LiveFrameSource = "processed"
+)
+
 type LiveLayoutPlan struct {
 	CameraNames []string
+	FrameSource LiveFrameSource
 	Mode        LiveLayoutMode
 }
 
-func NormalizeLiveLayoutPlan(mode string, cameraName string, cameraNames []string) (LiveLayoutPlan, error) {
+func NormalizeLiveLayoutPlan(
+	mode string,
+	cameraName string,
+	cameraNames []string,
+	frameSource string,
+) (LiveLayoutPlan, error) {
 	normalizedMode := normalizeLiveLayoutMode(mode)
+	normalizedFrameSource := normalizeLiveFrameSource(frameSource)
 	normalizedCameraNames := make([]string, 0, len(cameraNames)+1)
 	seenCameraNames := make(map[string]struct{}, len(cameraNames)+1)
 
@@ -59,6 +73,7 @@ func NormalizeLiveLayoutPlan(mode string, cameraName string, cameraNames []strin
 
 	return LiveLayoutPlan{
 		CameraNames: normalizedCameraNames,
+		FrameSource: normalizedFrameSource,
 		Mode:        normalizedMode,
 	}, nil
 }
@@ -77,6 +92,17 @@ func normalizeLiveLayoutMode(mode string) LiveLayoutMode {
 		fallthrough
 	default:
 		return LiveLayoutSingle
+	}
+}
+
+func normalizeLiveFrameSource(frameSource string) LiveFrameSource {
+	switch LiveFrameSource(strings.TrimSpace(frameSource)) {
+	case LiveFrameSourceProcessed:
+		return LiveFrameSourceProcessed
+	case LiveFrameSourceRaw:
+		fallthrough
+	default:
+		return LiveFrameSourceRaw
 	}
 }
 
@@ -107,6 +133,7 @@ func (plan LiveLayoutPlan) PrimaryCamera() string {
 
 func (plan LiveLayoutPlan) Details() map[string]interface{} {
 	details := map[string]interface{}{
+		"frameSource": string(plan.FrameSource),
 		"layoutMode":  string(plan.Mode),
 		"cameraNames": slices.Clone(plan.CameraNames),
 	}
