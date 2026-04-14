@@ -71,6 +71,20 @@ const getEnvelopeType = (payload: unknown): string | null => {
   return null;
 };
 
+const getEnvelopePayloadField = (payload: unknown, field: string): string | null => {
+  const messagePayload = unwrapEnvelopePayload(payload);
+  if (
+    typeof messagePayload !== 'object' ||
+    messagePayload === null ||
+    Array.isArray(messagePayload)
+  ) {
+    return null;
+  }
+
+  const value = (messagePayload as Record<string, unknown>)[field];
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+};
+
 const buildEnvelope = (type: string, payload: unknown): string =>
   JSON.stringify({
     msgId: crypto.randomUUID(),
@@ -264,6 +278,12 @@ export function setupWebSocket(server: Server): void {
     if (wsType === undefined) {
       return;
     }
+    if (
+      parsedTopic.topicType === 'webrtcIce' &&
+      getEnvelopePayloadField(parsedPayload, 'origin') === 'browser'
+    ) {
+      return;
+    }
     if ((parsedTopic.topicType === 'status' && isBaseTopic) || isStatusResponse) {
       lastKnownStatuses.set(parsedTopic.deviceId, parsedPayload);
     }
@@ -404,11 +424,15 @@ export function setupWebSocket(server: Server): void {
           );
           break;
         case 'ice-candidate':
-          publishMqtt(
-            clientContext.deviceId,
-            'webrtcIce',
-            buildEnvelope('ice-candidate', message.payload),
-          );
+          {
+            const payload = getMutablePayload(message.payload);
+            payload['origin'] = 'browser';
+            publishMqtt(
+              clientContext.deviceId,
+              'webrtcIce',
+              buildEnvelope('ice-candidate', payload),
+            );
+          }
           break;
         case 'ptz-get-status':
           publishMqtt(

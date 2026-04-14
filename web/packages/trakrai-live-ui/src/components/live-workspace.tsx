@@ -52,6 +52,7 @@ export type LiveWorkspaceProps = Readonly<{
   deviceIdEditable?: boolean;
   diagnosticsEnabled?: boolean;
   httpBaseUrl: string;
+  iceTransportPolicy?: RTCIceTransportPolicy;
   signalingUrl: string;
 }>;
 
@@ -727,6 +728,7 @@ export const LiveWorkspace = ({
   deviceIdEditable = true,
   diagnosticsEnabled = true,
   httpBaseUrl,
+  iceTransportPolicy,
   signalingUrl,
 }: LiveWorkspaceProps) => {
   const [deviceId, setDeviceId] = useState(defaultDeviceId);
@@ -744,6 +746,7 @@ export const LiveWorkspace = ({
     <LiveWorkspaceProvider
       deviceId={deviceId}
       httpBaseUrl={httpBaseUrl}
+      iceTransportPolicy={iceTransportPolicy}
       signalingUrl={signalingUrl}
     >
       <LiveWorkspaceBody

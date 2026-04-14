@@ -20,10 +20,12 @@ type TURNServer struct {
 }
 
 type WebRTCConfig struct {
-	AdvertiseRelayCandidates bool         `json:"advertise_relay_candidates"`
-	STUNServers              []string     `json:"stun_servers"`
-	TURNServers              []TURNServer `json:"turn_servers"`
-	FramerateFPS             int          `json:"framerate_fps"`
+	AdvertiseRelayCandidates  bool         `json:"advertise_relay_candidates"`
+	ExcludedInterfacePrefixes []string     `json:"excluded_interface_prefixes"`
+	ForceIPv4Candidates       bool         `json:"force_ipv4_candidates"`
+	STUNServers               []string     `json:"stun_servers"`
+	TURNServers               []TURNServer `json:"turn_servers"`
+	FramerateFPS              int          `json:"framerate_fps"`
 }
 
 type CompositeConfig struct {
@@ -53,7 +55,17 @@ func LoadConfig(path string) (*Config, error) {
 			SocketPath: "/tmp/trakrai-cloud-comm.sock",
 		},
 		WebRTC: WebRTCConfig{
-			FramerateFPS: 10,
+			ExcludedInterfacePrefixes: []string{
+				"lo",
+				"docker",
+				"br-",
+				"veth",
+				"virbr",
+				"cni",
+				"flannel",
+			},
+			ForceIPv4Candidates: true,
+			FramerateFPS:        10,
 		},
 		Composite: CompositeConfig{
 			Width:       960,

@@ -8,6 +8,69 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
   return Number.isNaN(parsedValue) ? fallback : parsedValue;
 };
 
+const parseOptionalEnvValue = (value: string | undefined): string | null => {
+  const normalizedValue = value?.trim();
+  return normalizedValue !== undefined && normalizedValue !== '' ? normalizedValue : null;
+};
+
+const isLoopbackHostname = (hostname: string): boolean => {
+  const normalizedHostname = hostname.trim().toLowerCase();
+  return (
+    normalizedHostname === 'localhost' ||
+    normalizedHostname === '127.0.0.1' ||
+    normalizedHostname === '::1' ||
+    normalizedHostname === '0.0.0.0'
+  );
+};
+
+const getTurnHostname = (turnUrl: string): string | null => {
+  const normalizedTurnUrl = turnUrl.trim();
+  if (normalizedTurnUrl === '') {
+    return null;
+  }
+
+  const schemeSeparatorIndex = normalizedTurnUrl.indexOf(':');
+  if (schemeSeparatorIndex <= 0) {
+    return null;
+  }
+
+  const authority = normalizedTurnUrl.slice(schemeSeparatorIndex + 1).replace(/^\/\//, '');
+  const atIndex = authority.lastIndexOf('@');
+  const hostPort = atIndex >= 0 ? authority.slice(atIndex + 1) : authority;
+  if (hostPort === '') {
+    return null;
+  }
+
+  if (hostPort.startsWith('[')) {
+    const closingBracketIndex = hostPort.indexOf(']');
+    return closingBracketIndex > 1 ? hostPort.slice(1, closingBracketIndex) : null;
+  }
+
+  const colonIndex = hostPort.lastIndexOf(':');
+  return colonIndex > 0 ? hostPort.slice(0, colonIndex) : hostPort;
+};
+
+const resolveTurnConfig = (): { credential: string; url: string; username: string } | null => {
+  const turnUrl = parseOptionalEnvValue(process.env['TURN_SERVER_URL']);
+  if (turnUrl === null) {
+    return null;
+  }
+
+  const hostname = getTurnHostname(turnUrl);
+  if (hostname !== null && isLoopbackHostname(hostname)) {
+    console.warn(
+      `[${serviceName}] TURN disabled because TURN_SERVER_URL points to loopback address ${hostname}.`,
+    );
+    return null;
+  }
+
+  return {
+    url: turnUrl,
+    username: normalizeEnvValue(process.env['TURN_USERNAME'], 'trakrai'),
+    credential: normalizeEnvValue(process.env['TURN_CREDENTIAL'], 'trakrai-secret'),
+  };
+};
+
 export const serviceName = 'live-gateway';
 
 export const config = {
@@ -15,11 +78,7 @@ export const config = {
   mqttBrokerUrl: normalizeEnvValue(process.env['MQTT_BROKER_URL'], 'mqtt://localhost:1883'),
   corsOrigin: normalizeEnvValue(process.env['CORS_ORIGIN'], 'http://localhost:3000'),
   defaultDeviceId: normalizeEnvValue(process.env['DEVICE_ID'], 'default'),
-  turn: {
-    url: normalizeEnvValue(process.env['TURN_SERVER_URL'], 'turn:127.0.0.1:3478'),
-    username: normalizeEnvValue(process.env['TURN_USERNAME'], 'trakrai'),
-    credential: normalizeEnvValue(process.env['TURN_CREDENTIAL'], 'trakrai-secret'),
-  },
+  turn: resolveTurnConfig(),
 } as const;
 
 export type DeviceTopicType =

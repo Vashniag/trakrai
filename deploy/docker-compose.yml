@@ -43,7 +43,7 @@ services:
       MQTT_BROKER_URL: mqtt://mosquitto:1883
       PORT: '4000'
       CORS_ORIGIN: '*'
-      TURN_SERVER_URL: turn:${TURN_PUBLIC_IP:-127.0.0.1}:3478
+      TURN_SERVER_URL: ${TURN_SERVER_URL:-}
       TURN_USERNAME: trakrai
       TURN_CREDENTIAL: trakrai-secret
       DEVICE_ID: ${DEVICE_ID:-default}
@@ -60,7 +60,7 @@ services:
       - '5349:5349'
       - '49160-49170:49160-49170/udp'
     environment:
-      TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-127.0.0.1}
+      TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-}
       TURN_PRIVATE_IP: ${TURN_PRIVATE_IP:-}
     volumes:
       - ./coturn/turnserver.conf:/etc/trakrai-turnserver.conf:ro

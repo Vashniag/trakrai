@@ -153,6 +153,10 @@ func (s *EdgeWebSocketServer) Close() {
 }
 
 func (s *EdgeWebSocketServer) Broadcast(service string, subtopic string, env ipc.MQTTEnvelope) int {
+	if shouldSuppressOutboundICE(service, subtopic, env) {
+		return 0
+	}
+
 	message := edgeOutboundMessage{
 		DeviceID: s.cfg.DeviceID,
 		Payload:  env,
@@ -281,6 +285,9 @@ func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message
 		var requestID string
 		message, requestID = ensureEdgeLiveRequestID(message)
 		s.registerRequestOwner(client, requestID)
+	}
+	if message.Type == "ice-candidate" {
+		message = ensureEdgeICEOrigin(message, "browser")
 	}
 
 	if message.Type == "sdp-answer" || message.Type == "ice-candidate" || message.Type == "stop-live" {
@@ -623,6 +630,19 @@ func edgeEnvelopeIDs(env ipc.MQTTEnvelope) (string, string) {
 	return readEdgeString(decoded["requestId"]), readEdgeString(decoded["sessionId"])
 }
 
+func edgeEnvelopeOrigin(env ipc.MQTTEnvelope) string {
+	if len(env.Payload) == 0 {
+		return ""
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(env.Payload, &decoded); err != nil || decoded == nil {
+		return ""
+	}
+
+	return readEdgeString(decoded["origin"])
+}
+
 func readEdgeString(value interface{}) string {
 	stringValue, ok := value.(string)
 	if !ok {
@@ -630,6 +650,24 @@ func readEdgeString(value interface{}) string {
 	}
 
 	return strings.TrimSpace(stringValue)
+}
+
+func ensureEdgeICEOrigin(message edgeInboundMessage, origin string) edgeInboundMessage {
+	payload := edgePayloadMap(message.Payload)
+	payload["origin"] = strings.TrimSpace(origin)
+	message.Payload = marshalPayload(payload)
+	return message
+}
+
+func shouldSuppressOutboundICE(service string, subtopic string, env ipc.MQTTEnvelope) bool {
+	service = strings.TrimSpace(service)
+	subtopic = strings.Trim(strings.TrimSpace(subtopic), "/")
+
+	if !(service == "" || service == liveFeedServiceName) || subtopic != "webrtc/ice" {
+		return false
+	}
+
+	return edgeEnvelopeOrigin(env) == "browser"
 }
 
 func (s *EdgeWebSocketServer) edgeICEConfigResponse() map[string]interface{} {

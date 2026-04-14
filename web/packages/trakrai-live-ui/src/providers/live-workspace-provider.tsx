@@ -20,11 +20,13 @@ export const LiveWorkspaceProvider = ({
   children,
   deviceId,
   httpBaseUrl,
+  iceTransportPolicy,
   signalingUrl,
 }: LiveWorkspaceProviderProps) => {
   const value = useLiveDeviceConnection({
     deviceId,
     httpBaseUrl,
+    iceTransportPolicy,
     signalingUrl,
   });
 

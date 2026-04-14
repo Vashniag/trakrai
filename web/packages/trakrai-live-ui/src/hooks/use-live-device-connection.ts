@@ -55,6 +55,7 @@ export type {
 export type LiveTransportConfig = {
   deviceId: string;
   httpBaseUrl: string;
+  iceTransportPolicy?: RTCIceTransportPolicy;
   signalingUrl: string;
 };
 
@@ -103,6 +104,7 @@ const normalizeLiveLayoutSelection = (selection: LiveLayoutSelection): LiveLayou
 };
 
 const REQUEST_ID_RADIX = 36;
+const ICE_CANDIDATE_MESSAGE_TYPE = 'ice-candidate';
 let fallbackRequestCounter = 0;
 
 const createClientRequestId = (): string => {
@@ -120,6 +122,7 @@ const createClientRequestId = (): string => {
 export const useLiveDeviceConnection = ({
   deviceId,
   httpBaseUrl,
+  iceTransportPolicy = 'all',
   signalingUrl,
 }: LiveTransportConfig): LiveDeviceConnectionState => {
   const normalizedDeviceId = deviceId.trim();
@@ -152,29 +155,39 @@ export const useLiveDeviceConnection = ({
     setLogs((currentLogs) => [createLogEntry(level, message), ...currentLogs].slice(0, LOG_LIMIT));
   }, []);
 
-  const cleanupPc = useCallback((clearSession: boolean) => {
-    if (disconnectTimerRef.current !== null) {
-      window.clearTimeout(disconnectTimerRef.current);
-      disconnectTimerRef.current = null;
-    }
+  const cleanupPc = useCallback(
+    (
+      clearSession: boolean,
+      options?: {
+        preserveIceCandidateBuffer?: boolean;
+      },
+    ) => {
+      if (disconnectTimerRef.current !== null) {
+        window.clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
 
-    if (pcRef.current !== null) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
+      if (pcRef.current !== null) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
 
-    iceCandidateBuffer.current = [];
-    lastStatsSnapshotRef.current = null;
-    setStream(null);
-    setStreamStats(null);
+      if (options?.preserveIceCandidateBuffer !== true) {
+        iceCandidateBuffer.current = [];
+      }
+      lastStatsSnapshotRef.current = null;
+      setStream(null);
+      setStreamStats(null);
 
-    if (clearSession) {
-      activeSessionIdRef.current = null;
-      activeRequestIdRef.current = null;
-      pendingSessionIdRef.current = null;
-      setActiveCameraName(null);
-    }
-  }, []);
+      if (clearSession) {
+        activeSessionIdRef.current = null;
+        activeRequestIdRef.current = null;
+        pendingSessionIdRef.current = null;
+        setActiveCameraName(null);
+      }
+    },
+    [],
+  );
 
   const collectStats = useCallback(async () => {
     const peerConnection = pcRef.current;
@@ -328,7 +341,9 @@ export const useLiveDeviceConnection = ({
           offeredSessionId ?? pendingSessionIdRef.current ?? createClientRequestId();
         const cameraName = normalizeOptionalString(payload.cameraName);
 
-        cleanupPc(false);
+        // Offer and ICE can arrive over different topics, so keep any early candidates
+        // buffered until the new peer connection is ready to consume them.
+        cleanupPc(false, { preserveIceCandidateBuffer: true });
         activeSessionIdRef.current = nextSessionId;
         pendingSessionIdRef.current = nextSessionId;
         setError(null);
@@ -343,7 +358,12 @@ export const useLiveDeviceConnection = ({
           throw new Error(`ICE config request failed with ${iceResponse.status}`);
         }
         const iceConfig = (await iceResponse.json()) as IceConfigResponse;
-        const peerConnection = new RTCPeerConnection(iceConfig);
+        const peerConnection = new RTCPeerConnection({
+          ...iceConfig,
+          iceTransportPolicy,
+        });
+        const pendingLocalIceCandidates: RTCIceCandidateInit[] = [];
+        let canSendLocalIceCandidates = false;
 
         pcRef.current = peerConnection;
 
@@ -356,12 +376,20 @@ export const useLiveDeviceConnection = ({
         };
 
         peerConnection.onicecandidate = (event) => {
-          if (event.candidate !== null) {
-            liveGatewayRef.current?.send('ice-candidate', {
-              candidate: event.candidate.toJSON(),
-              sessionId: nextSessionId,
-            });
+          if (event.candidate === null) {
+            return;
           }
+
+          const candidate = event.candidate.toJSON();
+          if (!canSendLocalIceCandidates) {
+            pendingLocalIceCandidates.push(candidate);
+            return;
+          }
+
+          liveGatewayRef.current?.send(ICE_CANDIDATE_MESSAGE_TYPE, {
+            candidate,
+            sessionId: nextSessionId,
+          });
         };
 
         peerConnection.onconnectionstatechange = () => {
@@ -442,6 +470,14 @@ export const useLiveDeviceConnection = ({
           sdp: answer.sdp,
           sessionId: nextSessionId,
         });
+        canSendLocalIceCandidates = true;
+        for (const candidate of pendingLocalIceCandidates) {
+          liveGatewayRef.current?.send(ICE_CANDIDATE_MESSAGE_TYPE, {
+            candidate,
+            sessionId: nextSessionId,
+          });
+        }
+        pendingLocalIceCandidates.length = 0;
         void collectStats();
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : 'WebRTC setup failed';
@@ -450,7 +486,7 @@ export const useLiveDeviceConnection = ({
         cleanupPc(true);
       }
     },
-    [appendLog, cleanupPc, collectStats, normalizedHttpBaseUrl],
+    [appendLog, cleanupPc, collectStats, iceTransportPolicy, normalizedHttpBaseUrl],
   );
 
   const handleIceCandidate = useCallback(

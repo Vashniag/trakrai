@@ -40,6 +40,7 @@ const LivePage = () => (
       deviceIdEditable
       diagnosticsEnabled
       httpBaseUrl={liveGatewayHttpUrl}
+      iceTransportPolicy="relay"
       signalingUrl={liveGatewayWsUrl}
     />
   </LiveConsoleShell>

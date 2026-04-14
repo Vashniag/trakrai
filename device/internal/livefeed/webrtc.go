@@ -37,6 +37,7 @@ type liveSession struct {
 }
 
 type SessionManager struct {
+	api      *webrtc.API
 	mu       sync.Mutex
 	control  ControlPlane
 	composer *MosaicComposer
@@ -48,6 +49,7 @@ type SessionManager struct {
 
 func NewSessionManager(cfg *Config, frameSource *FrameSource, control ControlPlane) *SessionManager {
 	return &SessionManager{
+		api:      buildWebRTCAPI(cfg),
 		cfg:      cfg,
 		frameSrc: frameSource,
 		composer: NewMosaicComposer(cfg.Composite, frameSource),
@@ -81,7 +83,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 		}
 	}
 
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
+	pc, err := sm.api.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
 	if err != nil {
 		sm.log.Error("peer connection failed", "error", err)
 		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
@@ -157,6 +159,7 @@ func (sm *SessionManager) StartSession(plan LiveLayoutPlan, requestID string) {
 		)
 		payload := map[string]interface{}{
 			"candidate": candidateJSON,
+			"origin":    "device",
 			"sessionId": sessionID,
 		}
 		if session.requestID != "" {

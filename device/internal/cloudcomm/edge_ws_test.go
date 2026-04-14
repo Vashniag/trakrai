@@ -310,6 +310,61 @@ func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
 	}
 }
 
+func TestEdgeWebSocketServerDoesNotBroadcastBrowserOriginIce(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+		},
+	}
+
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			_ = route
+			_ = env
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	httpServer := httptest.NewServer(httpTestMux(server))
+	defer httpServer.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/ws?deviceId=edge-device-1"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket failed: %v", err)
+	}
+	defer conn.Close()
+
+	for i := 0; i < 2; i++ {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			t.Fatalf("failed to read initial websocket message: %v", err)
+		}
+	}
+
+	delivered := server.Broadcast(liveFeedServiceName, "webrtc/ice", buildEnvelope("ice-candidate", marshalPayload(map[string]interface{}{
+		"candidate": map[string]interface{}{"candidate": "candidate:1"},
+		"origin":    "browser",
+		"sessionId": "session-1",
+	})))
+	if delivered != 0 {
+		t.Fatalf("expected browser-origin ICE to be suppressed, got %d deliveries", delivered)
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	if _, _, err := conn.ReadMessage(); err == nil {
+		t.Fatalf("expected no websocket message for suppressed browser-origin ICE")
+	}
+}
+
 func httpTestMux(server *EdgeWebSocketServer) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", server.handleHealth)

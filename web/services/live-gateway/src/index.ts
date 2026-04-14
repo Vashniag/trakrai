@@ -16,15 +16,25 @@ app.use((_req, res, next) => {
 
 // ICE/TURN configuration endpoint for browser WebRTC setup
 app.get('/api/ice-config', (_req, res) => {
+  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }] as Array<
+    | { urls: string }
+    | {
+        credential: string;
+        urls: string;
+        username: string;
+      }
+  >;
+
+  if (config.turn !== null) {
+    iceServers.push({
+      urls: config.turn.url,
+      username: config.turn.username,
+      credential: config.turn.credential,
+    });
+  }
+
   res.json({
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      {
-        urls: config.turn.url,
-        username: config.turn.username,
-        credential: config.turn.credential,
-      },
-    ],
+    iceServers,
   });
 });
 
@@ -52,6 +62,13 @@ async function main() {
     console.log(`[${serviceName}] ICE config: GET http://localhost:${config.port}/api/ice-config`);
     console.log(`[${serviceName}] WebSocket: ws://localhost:${config.port}/ws`);
     console.log(`[${serviceName}] default device: ${config.defaultDeviceId}`);
+    if (config.turn === null) {
+      console.warn(
+        `[${serviceName}] TURN relay is disabled; browser ICE config will advertise STUN only.`,
+      );
+    } else {
+      console.log(`[${serviceName}] TURN relay: ${config.turn.url}`);
+    }
   });
 }
 
