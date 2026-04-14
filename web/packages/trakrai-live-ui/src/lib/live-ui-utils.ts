@@ -213,6 +213,7 @@ export const formatServiceDetails = (details: DeviceServiceStatus['details']): s
     typeof details['error'] === 'string' && details['error'] !== ''
       ? `error ${details['error']}`
       : null,
+    typeof details['sessionCount'] === 'number' ? `${details['sessionCount']} live sessions` : null,
     Array.isArray(details['configuredCameras']) && details['configuredCameras'].length > 0
       ? `ptz ${details['configuredCameras'].length} cams`
       : null,

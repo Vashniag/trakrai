@@ -203,11 +203,13 @@ func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
 		},
 	}
 
+	startLivePayloads := make(chan ipc.MQTTEnvelope, 1)
 	server := NewEdgeWebSocketServer(
 		cfg,
 		func(route topicRoute, env ipc.MQTTEnvelope) error {
-			_ = route
-			_ = env
+			if route.service == liveFeedServiceName && route.subtopic == "command" && env.Type == "start-live" {
+				startLivePayloads <- env
+			}
 			return nil
 		},
 		func() ipc.MQTTEnvelope {
@@ -249,15 +251,33 @@ func TestEdgeWebSocketServerRoutesLiveSessionToOwningClient(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to send start-live: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
+
+	var dispatchedStartLive ipc.MQTTEnvelope
+	select {
+	case dispatchedStartLive = <-startLivePayloads:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for dispatched start-live command")
+	}
+
+	var dispatchedPayload struct {
+		RequestID string `json:"requestId"`
+	}
+	if err := json.Unmarshal(dispatchedStartLive.Payload, &dispatchedPayload); err != nil {
+		t.Fatalf("failed to decode dispatched start-live payload: %v", err)
+	}
+	if strings.TrimSpace(dispatchedPayload.RequestID) == "" {
+		t.Fatal("expected generated requestId in dispatched start-live payload")
+	}
 
 	server.Broadcast(liveFeedServiceName, "response", buildEnvelope("start-live-ack", marshalPayload(map[string]interface{}{
 		"cameraName": "LP1-Main",
 		"ok":         true,
+		"requestId":  dispatchedPayload.RequestID,
 		"sessionId":  "session-1",
 	})))
 	server.Broadcast(liveFeedServiceName, "webrtc/offer", buildEnvelope("sdp-offer", marshalPayload(map[string]interface{}{
 		"cameraName": "LP1-Main",
+		"requestId":  dispatchedPayload.RequestID,
 		"sdp":        "offer",
 		"sessionId":  "session-1",
 	})))

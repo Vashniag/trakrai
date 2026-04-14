@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -65,9 +66,12 @@ type EdgeWebSocketServer struct {
 	dispatch         func(route topicRoute, env ipc.MQTTEnvelope) error
 	snapshotEnvelope func() ipc.MQTTEnvelope
 
-	mu         sync.RWMutex
-	clients    map[*edgeClient]struct{}
-	liveClient *edgeClient
+	mu             sync.RWMutex
+	clientRequests map[*edgeClient]map[string]struct{}
+	clientSessions map[*edgeClient]map[string]struct{}
+	clients        map[*edgeClient]struct{}
+	requestOwners  map[string]*edgeClient
+	sessionOwners  map[string]*edgeClient
 
 	httpServer *http.Server
 }
@@ -83,6 +87,10 @@ func NewEdgeWebSocketServer(
 		dispatch:         dispatch,
 		snapshotEnvelope: snapshotEnvelope,
 		clients:          make(map[*edgeClient]struct{}),
+		clientRequests:   make(map[*edgeClient]map[string]struct{}),
+		clientSessions:   make(map[*edgeClient]map[string]struct{}),
+		requestOwners:    make(map[string]*edgeClient),
+		sessionOwners:    make(map[string]*edgeClient),
 	}
 }
 
@@ -218,6 +226,7 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 	client := &edgeClient{conn: conn}
 	s.addClient(client)
 	defer func() {
+		s.stopClientSessions(client)
 		s.removeClient(client)
 		_ = conn.Close()
 	}()
@@ -269,14 +278,23 @@ func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message
 	}
 
 	if message.Type == "start-live" {
-		s.setLiveClient(client)
+		var requestID string
+		message, requestID = ensureEdgeLiveRequestID(message)
+		s.registerRequestOwner(client, requestID)
 	}
-	if (message.Type == "sdp-answer" || message.Type == "ice-candidate" || message.Type == "stop-live") &&
-		!s.liveClientMatches(client) {
-		return
-	}
-	if message.Type == "stop-live" {
-		s.clearLiveClient(client)
+
+	if message.Type == "sdp-answer" || message.Type == "ice-candidate" || message.Type == "stop-live" {
+		_, sessionID := edgeMessageIDs(message.Payload)
+		if sessionID != "" && !s.liveClientMatches(client, sessionID) {
+			return
+		}
+		if message.Type == "stop-live" {
+			if sessionID == "" {
+				s.clearClientLiveRoutes(client)
+			} else {
+				s.unregisterSessionOwner(sessionID)
+			}
+		}
 	}
 
 	route, env, err := translateWebSocketMessage(message)
@@ -396,14 +414,28 @@ func (s *EdgeWebSocketServer) addClient(client *edgeClient) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.clients[client] = struct{}{}
+	s.clientRequests[client] = make(map[string]struct{})
+	s.clientSessions[client] = make(map[string]struct{})
 }
 
 func (s *EdgeWebSocketServer) removeClient(client *edgeClient) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.liveClient == client {
-		s.liveClient = nil
+
+	if requestIDs, ok := s.clientRequests[client]; ok {
+		for requestID := range requestIDs {
+			delete(s.requestOwners, requestID)
+		}
+		delete(s.clientRequests, client)
 	}
+
+	if sessionIDs, ok := s.clientSessions[client]; ok {
+		for sessionID := range sessionIDs {
+			delete(s.sessionOwners, sessionID)
+		}
+		delete(s.clientSessions, client)
+	}
+
 	delete(s.clients, client)
 }
 
@@ -419,52 +451,185 @@ func (s *EdgeWebSocketServer) snapshotClients() []*edgeClient {
 }
 
 func (s *EdgeWebSocketServer) broadcastTargets(message edgeOutboundMessage) []*edgeClient {
-	if message.Type == "sdp-offer" || message.Type == "ice-candidate" || shouldUnicastLiveResponse(message) {
-		if client := s.snapshotLiveClient(); client != nil {
-			return []*edgeClient{client}
-		}
+	if client := s.liveMessageOwner(message); client != nil {
+		return []*edgeClient{client}
 	}
 
 	return s.snapshotClients()
 }
 
-func (s *EdgeWebSocketServer) snapshotLiveClient() *edgeClient {
+func (s *EdgeWebSocketServer) liveClientMatches(client *edgeClient, sessionID string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.liveClient
+
+	owner, ok := s.sessionOwners[strings.TrimSpace(sessionID)]
+	return !ok || owner == client
 }
 
-func (s *EdgeWebSocketServer) setLiveClient(client *edgeClient) {
+func (s *EdgeWebSocketServer) liveMessageOwner(message edgeOutboundMessage) *edgeClient {
+	requestID, sessionID := edgeEnvelopeIDs(message.Payload)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.liveClient = client
+
+	if sessionID != "" {
+		if owner, ok := s.sessionOwners[sessionID]; ok {
+			return owner
+		}
+	}
+
+	if requestID != "" {
+		if owner, ok := s.requestOwners[requestID]; ok {
+			if sessionID != "" {
+				s.bindSessionOwnerLocked(owner, sessionID)
+			}
+			return owner
+		}
+	}
+
+	return nil
 }
 
-func (s *EdgeWebSocketServer) clearLiveClient(client *edgeClient) {
+func (s *EdgeWebSocketServer) registerRequestOwner(client *edgeClient, requestID string) {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.liveClient == client {
-		s.liveClient = nil
+
+	if _, ok := s.clientRequests[client]; !ok {
+		s.clientRequests[client] = make(map[string]struct{})
+	}
+	s.requestOwners[requestID] = client
+	s.clientRequests[client][requestID] = struct{}{}
+}
+
+func (s *EdgeWebSocketServer) unregisterSessionOwner(sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	owner, ok := s.sessionOwners[sessionID]
+	if !ok {
+		return
+	}
+
+	delete(s.sessionOwners, sessionID)
+	if sessions := s.clientSessions[owner]; sessions != nil {
+		delete(sessions, sessionID)
 	}
 }
 
-func (s *EdgeWebSocketServer) liveClientMatches(client *edgeClient) bool {
+func (s *EdgeWebSocketServer) clearClientLiveRoutes(client *edgeClient) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for requestID := range s.clientRequests[client] {
+		delete(s.requestOwners, requestID)
+	}
+	clear(s.clientRequests[client])
+
+	for sessionID := range s.clientSessions[client] {
+		delete(s.sessionOwners, sessionID)
+	}
+	clear(s.clientSessions[client])
+}
+
+func (s *EdgeWebSocketServer) stopClientSessions(client *edgeClient) {
+	sessionIDs := s.snapshotClientSessionIDs(client)
+	for _, sessionID := range sessionIDs {
+		route := topicRoute{service: liveFeedServiceName, subtopic: "command"}
+		env := buildEnvelope("stop-live", marshalPayload(map[string]interface{}{
+			"sessionId": sessionID,
+		}))
+		if err := s.dispatch(route, env); err != nil {
+			s.log.Debug("edge dispatch failed while stopping client session", "sessionId", sessionID, "error", err)
+		}
+	}
+}
+
+func (s *EdgeWebSocketServer) snapshotClientSessionIDs(client *edgeClient) []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.liveClient == nil || s.liveClient == client
+
+	sessionIDs := make([]string, 0, len(s.clientSessions[client]))
+	for sessionID := range s.clientSessions[client] {
+		sessionIDs = append(sessionIDs, sessionID)
+	}
+	return sessionIDs
 }
 
-func shouldUnicastLiveResponse(message edgeOutboundMessage) bool {
-	if message.Type != "device-response" {
-		return false
+func (s *EdgeWebSocketServer) bindSessionOwnerLocked(client *edgeClient, sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return
 	}
 
-	switch message.Payload.Type {
-	case "start-live-ack", "service-unavailable":
-		return true
-	default:
-		return false
+	if _, ok := s.clientSessions[client]; !ok {
+		s.clientSessions[client] = make(map[string]struct{})
 	}
+	s.sessionOwners[sessionID] = client
+	s.clientSessions[client][sessionID] = struct{}{}
+}
+
+func ensureEdgeLiveRequestID(message edgeInboundMessage) (edgeInboundMessage, string) {
+	requestID, _ := edgeMessageIDs(message.Payload)
+	if requestID != "" {
+		return message, requestID
+	}
+
+	payload := edgePayloadMap(message.Payload)
+	requestID = fmt.Sprintf("edge-%d", time.Now().UnixNano())
+	payload["requestId"] = requestID
+
+	message.Payload = marshalPayload(payload)
+	return message, requestID
+}
+
+func edgePayloadMap(payload json.RawMessage) map[string]interface{} {
+	if len(payload) == 0 {
+		return map[string]interface{}{}
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(payload, &decoded); err != nil || decoded == nil {
+		return map[string]interface{}{}
+	}
+
+	return decoded
+}
+
+func edgeMessageIDs(payload json.RawMessage) (string, string) {
+	decoded := edgePayloadMap(payload)
+	return readEdgeString(decoded["requestId"]), readEdgeString(decoded["sessionId"])
+}
+
+func edgeEnvelopeIDs(env ipc.MQTTEnvelope) (string, string) {
+	if len(env.Payload) == 0 {
+		return "", ""
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(env.Payload, &decoded); err != nil || decoded == nil {
+		return "", ""
+	}
+
+	return readEdgeString(decoded["requestId"]), readEdgeString(decoded["sessionId"])
+}
+
+func readEdgeString(value interface{}) string {
+	stringValue, ok := value.(string)
+	if !ok {
+		return ""
+	}
+
+	return strings.TrimSpace(stringValue)
 }
 
 func (s *EdgeWebSocketServer) edgeICEConfigResponse() map[string]interface{} {

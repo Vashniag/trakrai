@@ -107,6 +107,7 @@ export const useLiveDeviceConnection = ({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const iceCandidateBuffer = useRef<BufferedIceCandidate[]>([]);
   const activeSessionIdRef = useRef<string | null>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
   const pendingSessionIdRef = useRef<string | null>(null);
   const requestedCameraRef = useRef<string | null>(null);
   const lastStatsSnapshotRef = useRef<StatsSnapshot | null>(null);
@@ -135,6 +136,7 @@ export const useLiveDeviceConnection = ({
 
     if (clearSession) {
       activeSessionIdRef.current = null;
+      activeRequestIdRef.current = null;
       pendingSessionIdRef.current = null;
       setActiveCameraName(null);
     }
@@ -250,8 +252,26 @@ export const useLiveDeviceConnection = ({
   }, []);
 
   const handleSdpOffer = useCallback(
-    async (payload: { cameraName?: string; sdp: string; sessionId?: string }) => {
+    async (payload: {
+      cameraName?: string;
+      requestId?: string;
+      sdp: string;
+      sessionId?: string;
+    }) => {
       try {
+        const offeredRequestId =
+          typeof (payload as { requestId?: string }).requestId === 'string'
+            ? normalizeOptionalString((payload as { requestId?: string }).requestId)
+            : null;
+        if (
+          offeredRequestId !== null &&
+          activeRequestIdRef.current !== null &&
+          offeredRequestId !== activeRequestIdRef.current
+        ) {
+          appendLog('warn', `Ignoring SDP offer for another request ${offeredRequestId}`);
+          return;
+        }
+
         const offeredSessionId = normalizeOptionalString(payload.sessionId);
         const expectedSessionId = pendingSessionIdRef.current ?? activeSessionIdRef.current;
         if (offeredSessionId !== null) {
@@ -401,6 +421,18 @@ export const useLiveDeviceConnection = ({
 
   const handleIceCandidate = useCallback(
     async (payload: { candidate: RTCIceCandidateInit; sessionId?: string }) => {
+      const candidateRequestId =
+        typeof (payload as { requestId?: string }).requestId === 'string'
+          ? normalizeOptionalString((payload as { requestId?: string }).requestId)
+          : null;
+      if (
+        candidateRequestId !== null &&
+        activeRequestIdRef.current !== null &&
+        candidateRequestId !== activeRequestIdRef.current
+      ) {
+        return;
+      }
+
       const sessionId = normalizeOptionalString(payload.sessionId);
       const peerConnection = pcRef.current;
 
@@ -483,6 +515,7 @@ export const useLiveDeviceConnection = ({
             cameraName?: string;
             error?: string;
             ok?: boolean;
+            requestId?: string;
             sessionId?: string;
           }>(message.payload);
           const responseType = getEnvelopeType(message.payload) ?? undefined;
@@ -514,6 +547,18 @@ export const useLiveDeviceConnection = ({
           }
 
           if (responseType === 'start-live-ack') {
+            const acknowledgedRequestId =
+              typeof (payload as { requestId?: string }).requestId === 'string'
+                ? normalizeOptionalString((payload as { requestId?: string }).requestId)
+                : null;
+            if (
+              acknowledgedRequestId !== null &&
+              activeRequestIdRef.current !== null &&
+              acknowledgedRequestId !== activeRequestIdRef.current
+            ) {
+              return;
+            }
+
             if (payload.ok === false || payload.error !== undefined) {
               setError(payload.error ?? 'Device rejected the live start request');
               setConnectionState('connected');
@@ -524,6 +569,9 @@ export const useLiveDeviceConnection = ({
 
             const acknowledgedCameraName = normalizeOptionalString(payload.cameraName);
             pendingSessionIdRef.current = normalizeOptionalString(payload.sessionId);
+            if (acknowledgedRequestId !== null) {
+              activeRequestIdRef.current = acknowledgedRequestId;
+            }
             setActiveCameraName(acknowledgedCameraName ?? requestedCameraRef.current);
             setConnectionState('starting');
             appendLog(
@@ -644,14 +692,21 @@ export const useLiveDeviceConnection = ({
         }
         case 'sdp-offer':
           void handleSdpOffer(
-            unwrapPayload<{ cameraName?: string; sdp: string; sessionId?: string }>(
-              message.payload,
-            ),
+            unwrapPayload<{
+              cameraName?: string;
+              requestId?: string;
+              sdp: string;
+              sessionId?: string;
+            }>(message.payload),
           );
           break;
         case 'ice-candidate':
           void handleIceCandidate(
-            unwrapPayload<{ candidate: RTCIceCandidateInit; sessionId?: string }>(message.payload),
+            unwrapPayload<{
+              candidate: RTCIceCandidateInit;
+              requestId?: string;
+              sessionId?: string;
+            }>(message.payload),
           );
           break;
         default:
@@ -768,20 +823,32 @@ export const useLiveDeviceConnection = ({
         return;
       }
 
+      const previousSessionId = activeSessionIdRef.current ?? pendingSessionIdRef.current;
+      if (previousSessionId !== null) {
+        liveGatewayRef.current?.send('stop-live', { sessionId: previousSessionId });
+        cleanupPc(true);
+      }
+
       requestedCameraRef.current = normalizedCameraName;
+      activeRequestIdRef.current = crypto.randomUUID();
       pendingSessionIdRef.current = null;
       setError(null);
       setConnectionState('starting');
       setActiveCameraName(normalizedCameraName);
       appendLog('info', `Requesting live feed for ${normalizedCameraName}`);
-      liveGatewayRef.current?.send('start-live', { cameraName: normalizedCameraName });
+      liveGatewayRef.current?.send('start-live', {
+        cameraName: normalizedCameraName,
+        requestId: activeRequestIdRef.current,
+      });
     },
-    [appendLog],
+    [appendLog, cleanupPc],
   );
 
   const stopLive = useCallback(() => {
     appendLog('info', 'Stopping live feed');
-    liveGatewayRef.current?.send('stop-live', {});
+    liveGatewayRef.current?.send('stop-live', {
+      sessionId: activeSessionIdRef.current ?? pendingSessionIdRef.current ?? undefined,
+    });
     requestedCameraRef.current = null;
     cleanupPc(true);
     setConnectionState('connected');

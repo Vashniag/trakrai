@@ -42,7 +42,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	slog.Info("live-feed ready, waiting for IPC notifications")
 	<-ctx.Done()
 
-	sessions.StopSession()
+	sessions.StopSession("")
 	if err := ipcClient.ReportStatus("stopped", map[string]interface{}{"reason": "shutdown"}); err != nil {
 		slog.Debug("final status report failed", "error", err)
 	}
@@ -90,6 +90,7 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 		var payload struct {
 			CameraName string `json:"cameraName"`
 			Camera     string `json:"camera"`
+			RequestID  string `json:"requestId"`
 		}
 		if err := json.Unmarshal(env.Payload, &payload); err != nil {
 			slog.Warn("invalid start-live payload", "error", err)
@@ -110,13 +111,19 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 		if err := ipcClient.ReportStatus("starting", map[string]interface{}{"camera": cameraName}); err != nil {
 			slog.Debug("status report failed", "error", err)
 		}
-		go sessions.StartSession(cameraName)
+		go sessions.StartSession(cameraName, payload.RequestID)
 
 	case "stop-live", "stop":
-		sessions.StopSession()
-		if err := ipcClient.ReportStatus("idle", map[string]interface{}{}); err != nil {
-			slog.Debug("status report failed", "error", err)
+		var payload struct {
+			SessionID string `json:"sessionId"`
 		}
+		if len(env.Payload) > 0 {
+			if err := json.Unmarshal(env.Payload, &payload); err != nil {
+				slog.Warn("invalid stop-live payload", "error", err)
+			}
+		}
+
+		sessions.StopSession(payload.SessionID)
 
 	default:
 		slog.Warn("unknown live-feed command", "type", env.Type)

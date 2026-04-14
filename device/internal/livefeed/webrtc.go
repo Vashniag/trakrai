@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -22,18 +23,24 @@ type ControlPlane interface {
 	ReportStatus(status string, details map[string]interface{}) error
 }
 
-type SessionManager struct {
-	mu              sync.Mutex
-	pc              *webrtc.PeerConnection
-	cancel          context.CancelFunc
-	control         ControlPlane
-	frameSrc        *FrameSource
-	cfg             *Config
-	log             *slog.Logger
-	disconnectTimer *time.Timer
-	pendingICE      []webrtc.ICECandidateInit
-	sessionID       string
+type liveSession struct {
 	cameraName      string
+	cancel          context.CancelFunc
+	disconnectTimer *time.Timer
+	pc              *webrtc.PeerConnection
+	pendingICE      []webrtc.ICECandidateInit
+	requestID       string
+	sessionID       string
+	state           string
+}
+
+type SessionManager struct {
+	mu       sync.Mutex
+	control  ControlPlane
+	frameSrc *FrameSource
+	cfg      *Config
+	log      *slog.Logger
+	sessions map[string]*liveSession
 }
 
 func NewSessionManager(cfg *Config, frameSource *FrameSource, control ControlPlane) *SessionManager {
@@ -42,14 +49,11 @@ func NewSessionManager(cfg *Config, frameSource *FrameSource, control ControlPla
 		frameSrc: frameSource,
 		control:  control,
 		log:      slog.With("component", "webrtc"),
+		sessions: make(map[string]*liveSession),
 	}
 }
 
-func (sm *SessionManager) StartSession(cameraName string) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	sm.stopLocked()
+func (sm *SessionManager) StartSession(cameraName string, requestID string) {
 	sm.log.Info("starting WebRTC session", "camera", cameraName)
 	sessionID := fmt.Sprintf("%d", time.Now().UnixNano())
 
@@ -71,18 +75,23 @@ func (sm *SessionManager) StartSession(cameraName string) {
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: iceServers})
 	if err != nil {
 		sm.log.Error("peer connection failed", "error", err)
-		sm.sendAck(cameraName, sessionID, false, err.Error())
-		sm.reportStatus("idle", map[string]interface{}{
+		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.reportAggregateStatus(map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
+			"requestId": requestID,
 			"sessionId": sessionID,
 		})
 		return
 	}
-	sm.pc = pc
-	sm.pendingICE = nil
-	sm.sessionID = sessionID
-	sm.cameraName = cameraName
+
+	session := &liveSession{
+		cameraName: cameraName,
+		pc:         pc,
+		requestID:  strings.TrimSpace(requestID),
+		sessionID:  sessionID,
+		state:      "starting",
+	}
 
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{
@@ -94,14 +103,12 @@ func (sm *SessionManager) StartSession(cameraName string) {
 	)
 	if err != nil {
 		sm.log.Error("create track failed", "error", err)
-		pc.Close()
-		sm.pc = nil
-		sm.sessionID = ""
-		sm.cameraName = ""
-		sm.sendAck(cameraName, sessionID, false, err.Error())
-		sm.reportStatus("idle", map[string]interface{}{
+		_ = pc.Close()
+		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.reportAggregateStatus(map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
+			"requestId": requestID,
 			"sessionId": sessionID,
 		})
 		return
@@ -109,18 +116,20 @@ func (sm *SessionManager) StartSession(cameraName string) {
 
 	if _, err := pc.AddTrack(videoTrack); err != nil {
 		sm.log.Error("add track failed", "error", err)
-		pc.Close()
-		sm.pc = nil
-		sm.sessionID = ""
-		sm.cameraName = ""
-		sm.sendAck(cameraName, sessionID, false, err.Error())
-		sm.reportStatus("idle", map[string]interface{}{
+		_ = pc.Close()
+		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.reportAggregateStatus(map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
+			"requestId": requestID,
 			"sessionId": sessionID,
 		})
 		return
 	}
+
+	sm.mu.Lock()
+	sm.sessions[sessionID] = session
+	sm.mu.Unlock()
 
 	pc.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		if candidate == nil {
@@ -136,10 +145,14 @@ func (sm *SessionManager) StartSession(cameraName string) {
 			"camera", cameraName,
 			"candidate", candidateSummary(candidateJSON),
 		)
-		sm.publish("webrtc/ice", "ice-candidate", map[string]interface{}{
+		payload := map[string]interface{}{
 			"candidate": candidateJSON,
 			"sessionId": sessionID,
-		})
+		}
+		if session.requestID != "" {
+			payload["requestId"] = session.requestID
+		}
+		sm.publish("webrtc/ice", "ice-candidate", payload)
 	})
 
 	pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
@@ -167,54 +180,58 @@ func (sm *SessionManager) StartSession(cameraName string) {
 		}
 		switch state {
 		case webrtc.PeerConnectionStateConnecting:
-			sm.clearDisconnectTimer()
-			sm.reportStatus("negotiating", map[string]interface{}{
+			sm.clearDisconnectTimer(sessionID)
+			sm.setSessionState(sessionID, "negotiating")
+			sm.reportAggregateStatus(map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
+				"requestId":      session.requestID,
 				"sessionId":      sessionID,
 			})
 		case webrtc.PeerConnectionStateConnected:
-			sm.clearDisconnectTimer()
-			sm.reportStatus("streaming", map[string]interface{}{
+			sm.clearDisconnectTimer(sessionID)
+			sm.setSessionState(sessionID, "streaming")
+			sm.reportAggregateStatus(map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
+				"requestId":      session.requestID,
 				"sessionId":      sessionID,
 			})
 		case webrtc.PeerConnectionStateDisconnected:
 			sm.log.Warn("peer connection temporarily disconnected", "session_id", sessionID, "camera", cameraName)
-			sm.reportStatus("negotiating", map[string]interface{}{
+			sm.setSessionState(sessionID, "negotiating")
+			sm.reportAggregateStatus(map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
 				"phase":          "waiting-reconnect",
+				"requestId":      session.requestID,
 				"sessionId":      sessionID,
 			})
-			sm.scheduleDisconnectTimeout(sessionID, cameraName, pc)
+			sm.scheduleDisconnectTimeout(sessionID, cameraName, pc, session.requestID)
 			return
 		}
 		if state == webrtc.PeerConnectionStateFailed ||
 			state == webrtc.PeerConnectionStateClosed {
-			sm.clearDisconnectTimer()
-			sm.reportStatus("idle", map[string]interface{}{
+			sm.stopSessionWithDetails(sessionID, map[string]interface{}{
 				"camera":         cameraName,
 				"peerConnection": state.String(),
 				"reason":         "peer-connection-closed",
+				"requestId":      session.requestID,
 				"sessionId":      sessionID,
 			})
-			sm.StopSession()
 		}
 	})
 
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
 		sm.log.Error("create offer failed", "error", err)
-		pc.Close()
-		sm.pc = nil
-		sm.sessionID = ""
-		sm.cameraName = ""
-		sm.sendAck(cameraName, sessionID, false, err.Error())
-		sm.reportStatus("idle", map[string]interface{}{
+		sm.removeSession(sessionID)
+		_ = pc.Close()
+		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.reportAggregateStatus(map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
+			"requestId": requestID,
 			"sessionId": sessionID,
 		})
 		return
@@ -222,14 +239,13 @@ func (sm *SessionManager) StartSession(cameraName string) {
 
 	if err := pc.SetLocalDescription(offer); err != nil {
 		sm.log.Error("set local desc failed", "error", err)
-		pc.Close()
-		sm.pc = nil
-		sm.sessionID = ""
-		sm.cameraName = ""
-		sm.sendAck(cameraName, sessionID, false, err.Error())
-		sm.reportStatus("idle", map[string]interface{}{
+		sm.removeSession(sessionID)
+		_ = pc.Close()
+		sm.sendAck(cameraName, sessionID, requestID, false, err.Error())
+		sm.reportAggregateStatus(map[string]interface{}{
 			"camera":    cameraName,
 			"error":     err.Error(),
+			"requestId": requestID,
 			"sessionId": sessionID,
 		})
 		return
@@ -237,34 +253,43 @@ func (sm *SessionManager) StartSession(cameraName string) {
 
 	localDesc := pc.LocalDescription()
 	if localDesc == nil {
-		pc.Close()
-		sm.pc = nil
-		sm.sessionID = ""
-		sm.cameraName = ""
-		sm.sendAck(cameraName, sessionID, false, "local description was not created")
-		sm.reportStatus("idle", map[string]interface{}{
+		sm.removeSession(sessionID)
+		_ = pc.Close()
+		sm.sendAck(cameraName, sessionID, requestID, false, "local description was not created")
+		sm.reportAggregateStatus(map[string]interface{}{
 			"camera":    cameraName,
 			"error":     "local description was not created",
+			"requestId": requestID,
 			"sessionId": sessionID,
 		})
 		return
 	}
 
-	sm.sendAck(cameraName, sessionID, true, "")
-	sm.publish("webrtc/offer", "sdp-offer", map[string]interface{}{
+	sm.setSessionState(sessionID, "negotiating")
+	sm.sendAck(cameraName, sessionID, requestID, true, "")
+	offerPayload := map[string]interface{}{
 		"cameraName": cameraName,
 		"sdp":        localDesc.SDP,
 		"sessionId":  sessionID,
-	})
-	sm.reportStatus("negotiating", map[string]interface{}{
+	}
+	if session.requestID != "" {
+		offerPayload["requestId"] = session.requestID
+	}
+	sm.publish("webrtc/offer", "sdp-offer", offerPayload)
+	sm.reportAggregateStatus(map[string]interface{}{
 		"camera":    cameraName,
 		"phase":     "offer-sent",
+		"requestId": requestID,
 		"sessionId": sessionID,
 	})
 	sm.log.Info("SDP offer sent", "session_id", sessionID)
 
 	sessionCtx, cancel := context.WithCancel(context.Background())
-	sm.cancel = cancel
+	sm.mu.Lock()
+	if currentSession := sm.sessions[sessionID]; currentSession != nil {
+		currentSession.cancel = cancel
+	}
+	sm.mu.Unlock()
 
 	go sm.pumpFrames(sessionCtx, cameraName, videoTrack)
 }
@@ -325,18 +350,14 @@ func (sm *SessionManager) pumpFrames(
 
 func (sm *SessionManager) SetRemoteAnswer(sessionID string, sdp string) {
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	if sm.pc == nil {
+	session := sm.lookupSessionLocked(sessionID)
+	if session == nil || session.pc == nil {
+		sm.mu.Unlock()
 		sm.log.Warn("no active session for SDP answer")
 		return
 	}
-	if sessionID != "" && sessionID != sm.sessionID {
-		sm.log.Warn("ignoring SDP answer for stale session", "session_id", sessionID, "active_session_id", sm.sessionID)
-		return
-	}
-
-	if sm.pc.RemoteDescription() != nil {
+	if session.pc.RemoteDescription() != nil {
+		sm.mu.Unlock()
 		sm.log.Warn("remote description already set, ignoring duplicate SDP answer")
 		return
 	}
@@ -345,111 +366,160 @@ func (sm *SessionManager) SetRemoteAnswer(sessionID string, sdp string) {
 		Type: webrtc.SDPTypeAnswer,
 		SDP:  sdp,
 	}
-	if err := sm.pc.SetRemoteDescription(answer); err != nil {
+	if err := session.pc.SetRemoteDescription(answer); err != nil {
+		sm.mu.Unlock()
 		sm.log.Error("set remote desc failed", "error", err)
 		return
 	}
 
-	for _, candidate := range sm.pendingICE {
-		if err := sm.pc.AddICECandidate(candidate); err != nil {
+	for _, candidate := range session.pendingICE {
+		if err := session.pc.AddICECandidate(candidate); err != nil {
 			sm.log.Error("add buffered ICE candidate failed", "error", err)
 		}
 	}
-	sm.pendingICE = nil
-	sm.log.Info("SDP answer applied", "session_id", sm.sessionID)
+	session.pendingICE = nil
+	activeSessionID := session.sessionID
+	sm.mu.Unlock()
+
+	sm.log.Info("SDP answer applied", "session_id", activeSessionID)
 }
 
 func (sm *SessionManager) AddICECandidate(sessionID string, candidateJSON json.RawMessage) {
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	if sm.pc == nil {
+	session := sm.lookupSessionLocked(sessionID)
+	if session == nil || session.pc == nil {
+		sm.mu.Unlock()
 		sm.log.Warn("no active session for ICE candidate")
-		return
-	}
-	if sessionID != "" && sessionID != sm.sessionID {
-		sm.log.Warn("ignoring ICE candidate for stale session", "session_id", sessionID, "active_session_id", sm.sessionID)
 		return
 	}
 
 	var candidate webrtc.ICECandidateInit
 	if err := json.Unmarshal(candidateJSON, &candidate); err != nil {
+		sm.mu.Unlock()
 		sm.log.Error("invalid ICE candidate", "error", err)
 		return
 	}
 
 	sm.log.Debug(
 		"remote ICE candidate received",
-		"session_id", sm.sessionID,
-		"camera", sm.cameraName,
+		"session_id", session.sessionID,
+		"camera", session.cameraName,
 		"candidate", candidateSummary(candidate),
 	)
 
-	if sm.pc.RemoteDescription() == nil {
-		sm.pendingICE = append(sm.pendingICE, candidate)
+	if session.pc.RemoteDescription() == nil {
+		session.pendingICE = append(session.pendingICE, candidate)
+		activeSessionID := session.sessionID
+		cameraName := session.cameraName
+		sm.mu.Unlock()
 		sm.log.Debug(
 			"buffering ICE candidate until remote description is set",
-			"session_id", sm.sessionID,
-			"camera", sm.cameraName,
+			"session_id", activeSessionID,
+			"camera", cameraName,
 		)
 		return
 	}
 
-	if err := sm.pc.AddICECandidate(candidate); err != nil {
+	if err := session.pc.AddICECandidate(candidate); err != nil {
+		sm.mu.Unlock()
 		sm.log.Error("add ICE candidate failed", "error", err)
+		return
 	}
+	sm.mu.Unlock()
 }
 
-func (sm *SessionManager) StopSession() {
+func (sm *SessionManager) StopSession(sessionID string) {
+	if strings.TrimSpace(sessionID) == "" {
+		sm.stopAllSessions(map[string]interface{}{"reason": "stop-request"})
+		return
+	}
+
+	sm.stopSessionWithDetails(strings.TrimSpace(sessionID), map[string]interface{}{
+		"reason":    "stop-request",
+		"sessionId": strings.TrimSpace(sessionID),
+	})
+}
+
+func (sm *SessionManager) stopAllSessions(extra map[string]interface{}) {
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	sm.stopLocked()
+	sessions := make([]*liveSession, 0, len(sm.sessions))
+	for sessionID, session := range sm.sessions {
+		sessions = append(sessions, session)
+		delete(sm.sessions, sessionID)
+	}
+	status, details := sm.buildStatusSnapshotLocked(extra)
+	sm.mu.Unlock()
+
+	for _, session := range sessions {
+		sm.closeSessionResources(session)
+	}
+
+	sm.reportStatus(status, details)
 }
 
-func (sm *SessionManager) stopLocked() {
-	if sm.cancel != nil {
-		sm.cancel()
-		sm.cancel = nil
-	}
-	sm.clearDisconnectTimerLocked()
-	if sm.pc != nil {
-		sm.pc.Close()
-		sm.pc = nil
-		sm.log.Info("WebRTC session stopped")
-	}
-	sm.pendingICE = nil
-	sm.sessionID = ""
-	sm.cameraName = ""
-}
-
-func (sm *SessionManager) clearDisconnectTimer() {
+func (sm *SessionManager) stopSessionWithDetails(sessionID string, extra map[string]interface{}) {
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	sm.clearDisconnectTimerLocked()
+	session, ok := sm.sessions[sessionID]
+	if !ok {
+		sm.mu.Unlock()
+		return
+	}
+	delete(sm.sessions, sessionID)
+	status, details := sm.buildStatusSnapshotLocked(extra)
+	sm.mu.Unlock()
+
+	sm.closeSessionResources(session)
+	sm.log.Info("WebRTC session stopped", "camera", session.cameraName, "session_id", session.sessionID)
+	sm.reportStatus(status, details)
 }
 
-func (sm *SessionManager) clearDisconnectTimerLocked() {
-	if sm.disconnectTimer != nil {
-		sm.disconnectTimer.Stop()
-		sm.disconnectTimer = nil
+func (sm *SessionManager) closeSessionResources(session *liveSession) {
+	if session == nil {
+		return
 	}
+
+	if session.cancel != nil {
+		session.cancel()
+		session.cancel = nil
+	}
+	if session.disconnectTimer != nil {
+		session.disconnectTimer.Stop()
+		session.disconnectTimer = nil
+	}
+	if session.pc != nil {
+		_ = session.pc.Close()
+		session.pc = nil
+	}
+	session.pendingICE = nil
 }
 
 func (sm *SessionManager) scheduleDisconnectTimeout(
 	sessionID string,
 	cameraName string,
 	pc *webrtc.PeerConnection,
+	requestID string,
 ) {
 	sm.mu.Lock()
-	sm.clearDisconnectTimerLocked()
-	sm.disconnectTimer = time.AfterFunc(12*time.Second, func() {
+	session, ok := sm.sessions[sessionID]
+	if !ok {
+		sm.mu.Unlock()
+		return
+	}
+	if session.disconnectTimer != nil {
+		session.disconnectTimer.Stop()
+	}
+	session.disconnectTimer = time.AfterFunc(12*time.Second, func() {
 		shouldStop := false
 
 		sm.mu.Lock()
-		if sm.sessionID == sessionID && sm.pc == pc && pc.ConnectionState() == webrtc.PeerConnectionStateDisconnected {
+		currentSession, ok := sm.sessions[sessionID]
+		if ok && currentSession == session && currentSession.pc == pc &&
+			pc.ConnectionState() == webrtc.PeerConnectionStateDisconnected {
 			shouldStop = true
 		}
-		sm.disconnectTimer = nil
+		if ok && currentSession != nil {
+			currentSession.disconnectTimer = nil
+		}
 		sm.mu.Unlock()
 
 		if !shouldStop {
@@ -457,15 +527,28 @@ func (sm *SessionManager) scheduleDisconnectTimeout(
 		}
 
 		sm.log.Warn("peer connection did not recover before timeout", "session_id", sessionID, "camera", cameraName)
-		sm.reportStatus("idle", map[string]interface{}{
+		sm.stopSessionWithDetails(sessionID, map[string]interface{}{
 			"camera":         cameraName,
 			"peerConnection": webrtc.PeerConnectionStateDisconnected.String(),
 			"reason":         "disconnect-timeout",
+			"requestId":      requestID,
 			"sessionId":      sessionID,
 		})
-		sm.StopSession()
 	})
 	sm.mu.Unlock()
+}
+
+func (sm *SessionManager) clearDisconnectTimer(sessionID string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	session, ok := sm.sessions[sessionID]
+	if !ok || session.disconnectTimer == nil {
+		return
+	}
+
+	session.disconnectTimer.Stop()
+	session.disconnectTimer = nil
 }
 
 func (sm *SessionManager) publish(subtopic string, msgType string, payload interface{}) {
@@ -487,11 +570,20 @@ func (sm *SessionManager) reportStatus(status string, details map[string]interfa
 	}
 }
 
-func (sm *SessionManager) sendAck(cameraName string, sessionID string, ok bool, errMsg string) {
+func (sm *SessionManager) sendAck(
+	cameraName string,
+	sessionID string,
+	requestID string,
+	ok bool,
+	errMsg string,
+) {
 	payload := map[string]interface{}{
 		"cameraName": cameraName,
 		"ok":         ok,
 		"sessionId":  sessionID,
+	}
+	if strings.TrimSpace(requestID) != "" {
+		payload["requestId"] = strings.TrimSpace(requestID)
 	}
 	if errMsg != "" {
 		payload["error"] = errMsg
@@ -506,7 +598,118 @@ func (sm *SessionManager) isCurrentSession(
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	return sm.sessionID == sessionID && sm.pc == pc
+	session, ok := sm.sessions[sessionID]
+	return ok && session != nil && session.pc == pc
+}
+
+func (sm *SessionManager) setSessionState(sessionID string, state string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if session, ok := sm.sessions[sessionID]; ok && session != nil {
+		session.state = state
+	}
+}
+
+func (sm *SessionManager) lookupSessionLocked(sessionID string) *liveSession {
+	if strings.TrimSpace(sessionID) != "" {
+		return sm.sessions[strings.TrimSpace(sessionID)]
+	}
+
+	if len(sm.sessions) != 1 {
+		return nil
+	}
+
+	for _, session := range sm.sessions {
+		return session
+	}
+
+	return nil
+}
+
+func (sm *SessionManager) removeSession(sessionID string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	delete(sm.sessions, sessionID)
+}
+
+func (sm *SessionManager) buildStatusSnapshotLocked(
+	extra map[string]interface{},
+) (string, map[string]interface{}) {
+	details := make(map[string]interface{}, len(extra)+3)
+
+	sessionIDs := make([]string, 0, len(sm.sessions))
+	for sessionID := range sm.sessions {
+		sessionIDs = append(sessionIDs, sessionID)
+	}
+	sort.Strings(sessionIDs)
+
+	sessionSummaries := make([]map[string]interface{}, 0, len(sessionIDs))
+	overallStatus := "idle"
+	hasNegotiatingSession := false
+	hasStartingSession := false
+
+	for _, sessionID := range sessionIDs {
+		session := sm.sessions[sessionID]
+		if session == nil {
+			continue
+		}
+
+		summary := map[string]interface{}{
+			"camera":    session.cameraName,
+			"sessionId": session.sessionID,
+			"status":    session.state,
+		}
+		if session.requestID != "" {
+			summary["requestId"] = session.requestID
+		}
+		sessionSummaries = append(sessionSummaries, summary)
+
+		switch session.state {
+		case "streaming":
+			overallStatus = "streaming"
+		case "negotiating":
+			if overallStatus != "streaming" {
+				hasNegotiatingSession = true
+			}
+		case "starting":
+			if overallStatus != "streaming" && !hasNegotiatingSession {
+				hasStartingSession = true
+			}
+		}
+	}
+
+	if overallStatus != "streaming" {
+		switch {
+		case hasNegotiatingSession:
+			overallStatus = "negotiating"
+		case hasStartingSession:
+			overallStatus = "starting"
+		}
+	}
+
+	if len(sessionSummaries) > 0 {
+		details["camera"] = sessionSummaries[0]["camera"]
+		details["sessionCount"] = len(sessionSummaries)
+		details["sessions"] = sessionSummaries
+	}
+
+	for key, value := range extra {
+		if value == nil {
+			continue
+		}
+		details[key] = value
+	}
+
+	return overallStatus, details
+}
+
+func (sm *SessionManager) reportAggregateStatus(extra map[string]interface{}) {
+	sm.mu.Lock()
+	status, details := sm.buildStatusSnapshotLocked(extra)
+	sm.mu.Unlock()
+
+	sm.reportStatus(status, details)
 }
 
 func candidateSummary(candidate webrtc.ICECandidateInit) string {

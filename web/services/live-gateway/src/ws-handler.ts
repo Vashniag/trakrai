@@ -28,6 +28,10 @@ type MessageEnvelope = {
 const PTZ_SERVICE_NAME = 'ptz-control';
 
 const clients = new Map<WebSocket, ClientContext>();
+const liveRequestOwners = new Map<string, WebSocket>();
+const liveSessionOwners = new Map<string, WebSocket>();
+const liveRequestsByClient = new Map<WebSocket, Set<string>>();
+const liveSessionsByClient = new Map<WebSocket, Set<string>>();
 const lastKnownStatuses = new Map<string, unknown>();
 
 const getDeviceIdFromRequest = (requestUrl: string | undefined): string => {
@@ -83,12 +87,146 @@ const requestPtzStatus = (deviceId: string): void => {
   publishMqtt(deviceId, 'command', buildEnvelope('get-status', {}), PTZ_SERVICE_NAME);
 };
 
+const normalizeOptionalString = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+
+const unwrapEnvelopePayload = (payload: unknown): unknown => {
+  if (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'payload' in payload &&
+    (payload as MessageEnvelope).payload !== undefined
+  ) {
+    return (payload as MessageEnvelope).payload;
+  }
+
+  return payload;
+};
+
+const getMutablePayload = (payload: unknown): Record<string, unknown> => {
+  if (typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
+    return { ...(payload as Record<string, unknown>) };
+  }
+
+  return {};
+};
+
+const getLiveRoutingIds = (
+  payload: unknown,
+): { requestId: string | null; sessionId: string | null } => {
+  const messagePayload = unwrapEnvelopePayload(payload);
+  if (
+    typeof messagePayload !== 'object' ||
+    messagePayload === null ||
+    Array.isArray(messagePayload)
+  ) {
+    return { requestId: null, sessionId: null };
+  }
+
+  return {
+    requestId: normalizeOptionalString((messagePayload as Record<string, unknown>)['requestId']),
+    sessionId: normalizeOptionalString((messagePayload as Record<string, unknown>)['sessionId']),
+  };
+};
+
+const registerLiveRequestOwner = (ws: WebSocket, requestId: string): void => {
+  liveRequestOwners.set(requestId, ws);
+
+  const requestsForClient = liveRequestsByClient.get(ws) ?? new Set<string>();
+  requestsForClient.add(requestId);
+  liveRequestsByClient.set(ws, requestsForClient);
+};
+
+const bindLiveSessionOwner = (ws: WebSocket, sessionId: string): void => {
+  liveSessionOwners.set(sessionId, ws);
+
+  const sessionsForClient = liveSessionsByClient.get(ws) ?? new Set<string>();
+  sessionsForClient.add(sessionId);
+  liveSessionsByClient.set(ws, sessionsForClient);
+};
+
+const unregisterLiveSessionOwner = (sessionId: string): void => {
+  const owner = liveSessionOwners.get(sessionId);
+  if (owner !== undefined) {
+    liveSessionsByClient.get(owner)?.delete(sessionId);
+  }
+  liveSessionOwners.delete(sessionId);
+};
+
+const clearClientLiveRoutes = (ws: WebSocket): void => {
+  const requestIds = liveRequestsByClient.get(ws);
+  if (requestIds !== undefined) {
+    for (const requestId of requestIds) {
+      liveRequestOwners.delete(requestId);
+    }
+    liveRequestsByClient.delete(ws);
+  }
+
+  const sessionIds = liveSessionsByClient.get(ws);
+  if (sessionIds !== undefined) {
+    for (const sessionId of sessionIds) {
+      liveSessionOwners.delete(sessionId);
+    }
+    liveSessionsByClient.delete(ws);
+  }
+};
+
+const stopClientLiveSessions = (ws: WebSocket, deviceId: string): void => {
+  const sessionIds = Array.from(liveSessionsByClient.get(ws) ?? []);
+  for (const sessionId of sessionIds) {
+    publishMqtt(deviceId, 'command', buildEnvelope('stop-live', { sessionId }));
+  }
+};
+
 const cleanupClient = (ws: WebSocket): void => {
   const clientContext = clients.get(ws);
   if (clientContext !== undefined) {
+    stopClientLiveSessions(ws, clientContext.deviceId);
     unsubscribeFromDevice(clientContext.deviceId);
   }
+  clearClientLiveRoutes(ws);
   clients.delete(ws);
+};
+
+const ensureStartLivePayload = (payload: unknown): Record<string, unknown> => {
+  const nextPayload = getMutablePayload(payload);
+  if (normalizeOptionalString(nextPayload['requestId']) === null) {
+    nextPayload['requestId'] = crypto.randomUUID();
+  }
+
+  return nextPayload;
+};
+
+const getLiveMessageTargets = (wsType: string, parsedPayload: unknown): Set<WebSocket> | null => {
+  if (wsType !== 'device-response' && wsType !== 'sdp-offer' && wsType !== 'ice-candidate') {
+    return null;
+  }
+
+  const envelopeType = getEnvelopeType(parsedPayload);
+  const { requestId, sessionId } = getLiveRoutingIds(parsedPayload);
+
+  if (requestId !== null) {
+    const owner = liveRequestOwners.get(requestId);
+    if (owner !== undefined) {
+      if (sessionId !== null) {
+        bindLiveSessionOwner(owner, sessionId);
+      }
+      return new Set([owner]);
+    }
+  }
+
+  if (sessionId !== null) {
+    const owner = liveSessionOwners.get(sessionId);
+    if (owner !== undefined) {
+      return new Set([owner]);
+    }
+  }
+
+  if (wsType === 'device-response' && envelopeType === 'service-unavailable') {
+    return null;
+  }
+
+  return null;
 };
 
 export function setupWebSocket(server: Server): void {
@@ -137,8 +275,12 @@ export function setupWebSocket(server: Server): void {
       type: wsType,
     };
 
+    const targetedClients = getLiveMessageTargets(wsType, parsedPayload);
     for (const [ws, clientContext] of clients.entries()) {
       if (clientContext.deviceId === parsedTopic.deviceId) {
+        if (targetedClients !== null && !targetedClients.has(ws)) {
+          continue;
+        }
         sendJson(ws, message);
       }
     }
@@ -192,6 +334,8 @@ export function setupWebSocket(server: Server): void {
             : config.defaultDeviceId;
 
         if (nextDeviceId !== clientContext.deviceId) {
+          stopClientLiveSessions(ws, clientContext.deviceId);
+          clearClientLiveRoutes(ws);
           unsubscribeFromDevice(clientContext.deviceId);
           void subscribeToDevice(nextDeviceId).catch((error) => {
             sendJson(ws, {
@@ -219,14 +363,32 @@ export function setupWebSocket(server: Server): void {
 
       switch (message.type) {
         case 'get-status':
-        case 'start-live':
-        case 'stop-live':
           publishMqtt(
             clientContext.deviceId,
             'command',
             buildEnvelope(message.type, message.payload ?? {}),
           );
           break;
+        case 'start-live': {
+          const payload = ensureStartLivePayload(message.payload);
+          const requestId = normalizeOptionalString(payload['requestId']);
+          if (requestId !== null) {
+            registerLiveRequestOwner(ws, requestId);
+          }
+          publishMqtt(clientContext.deviceId, 'command', buildEnvelope(message.type, payload));
+          break;
+        }
+        case 'stop-live': {
+          const payload = getMutablePayload(message.payload);
+          const sessionId = normalizeOptionalString(payload['sessionId']);
+          if (sessionId !== null) {
+            unregisterLiveSessionOwner(sessionId);
+          } else {
+            clearClientLiveRoutes(ws);
+          }
+          publishMqtt(clientContext.deviceId, 'command', buildEnvelope(message.type, payload));
+          break;
+        }
         case 'sdp-answer':
           publishMqtt(
             clientContext.deviceId,
