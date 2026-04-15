@@ -11,8 +11,6 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { StreamStats, WebRtcConnectionState, WebRtcEvent } from '../lib/live-types';
-
 import {
   BITS_PER_BYTE,
   DISCONNECT_GRACE_MS,
@@ -27,7 +25,10 @@ import {
   type BufferedIceCandidate,
   type IceConfigResponse,
   type StatsSnapshot,
-} from '../lib/live-transport-utils';
+} from '@trakrai/live-transport/lib/live-transport-utils';
+
+import type { StreamStats, WebRtcConnectionState, WebRtcEvent } from '@trakrai/live-transport/lib/live-types';
+
 
 type WebRtcSignalSender = (type: 'ice-candidate' | 'sdp-answer', payload: unknown) => void;
 
@@ -280,16 +281,15 @@ export const WebRtcProvider = ({
             return;
           }
 
-          const candidate = event.candidate.toJSON();
-          if (!canSendLocalIceCandidates) {
-            pendingLocalIceCandidates.push(candidate);
+          const candidatePayload = {
+            candidate: event.candidate.toJSON(),
+            sessionId: nextSessionId,
+          };
+          if (canSendLocalIceCandidates) {
+            sendSignal('ice-candidate', candidatePayload);
             return;
           }
-
-          sendSignal('ice-candidate', {
-            candidate,
-            sessionId: nextSessionId,
-          });
+          pendingLocalIceCandidates.push(candidatePayload.candidate);
         };
 
         peerConnection.onconnectionstatechange = () => {
@@ -298,13 +298,6 @@ export const WebRtcProvider = ({
           }
 
           switch (peerConnection.connectionState) {
-            case 'new':
-            case 'connecting':
-              if (disconnectTimerRef.current !== null) {
-                window.clearTimeout(disconnectTimerRef.current);
-                disconnectTimerRef.current = null;
-              }
-              break;
             case 'connected':
               if (disconnectTimerRef.current !== null) {
                 window.clearTimeout(disconnectTimerRef.current);
@@ -318,53 +311,53 @@ export const WebRtcProvider = ({
               if (disconnectTimerRef.current !== null) {
                 window.clearTimeout(disconnectTimerRef.current);
               }
-              setStreamError('Media connection interrupted. Waiting to recover...');
-              emitEvent({ type: 'peer-temporarily-disconnected' });
               disconnectTimerRef.current = window.setTimeout(() => {
                 if (pcRef.current !== peerConnection) {
                   return;
                 }
-                if (peerConnection.connectionState !== 'disconnected') {
-                  return;
-                }
+                cleanupPeer(true);
                 setStreamError(WEBRTC_CONNECTION_LOST_MESSAGE);
                 emitEvent({ reason: 'timeout', type: PEER_CLOSED_EVENT_TYPE });
-                cleanupPeer(true);
               }, DISCONNECT_GRACE_MS);
+              emitEvent({ type: 'peer-temporarily-disconnected' });
               break;
             case 'failed':
-              setStreamError(WEBRTC_CONNECTION_LOST_MESSAGE);
-              emitEvent({ reason: 'failed', type: PEER_CLOSED_EVENT_TYPE });
-              cleanupPeer(true);
-              break;
             case 'closed':
-              emitEvent({ reason: 'closed', type: PEER_CLOSED_EVENT_TYPE });
+              if (disconnectTimerRef.current !== null) {
+                window.clearTimeout(disconnectTimerRef.current);
+                disconnectTimerRef.current = null;
+              }
               cleanupPeer(true);
+              setStreamError(WEBRTC_CONNECTION_LOST_MESSAGE);
+              emitEvent({
+                reason: peerConnection.connectionState === 'failed' ? 'failed' : 'closed',
+                type: PEER_CLOSED_EVENT_TYPE,
+              });
               break;
             default:
               break;
           }
         };
 
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({ sdp, type: 'offer' }),
-        );
+        await peerConnection.setRemoteDescription({
+          sdp,
+          type: 'offer',
+        });
 
-        for (const bufferedCandidate of iceCandidateBuffer.current) {
-          if (
-            bufferedCandidate.sessionId !== null &&
-            bufferedCandidate.sessionId !== nextSessionId
-          ) {
+        const bufferedCandidates = [...iceCandidateBuffer.current];
+        iceCandidateBuffer.current = [];
+        for (const candidate of bufferedCandidates) {
+          if (candidate.sessionId !== null && candidate.sessionId !== nextSessionId) {
             continue;
           }
-          await peerConnection.addIceCandidate(new RTCIceCandidate(bufferedCandidate.candidate));
+
+          await peerConnection.addIceCandidate(candidate.candidate);
         }
-        iceCandidateBuffer.current = [];
 
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         sendSignal('sdp-answer', {
-          sdp: answer.sdp,
+          sdp: answer.sdp ?? '',
           sessionId: nextSessionId,
         });
         canSendLocalIceCandidates = true;
@@ -374,80 +367,67 @@ export const WebRtcProvider = ({
             sessionId: nextSessionId,
           });
         }
-        pendingLocalIceCandidates.length = 0;
-        void collectStats();
-      } catch (caughtError) {
-        const message = caughtError instanceof Error ? caughtError.message : 'WebRTC setup failed';
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to establish the WebRTC connection.';
+        cleanupPeer(true);
         setStreamError(message);
         emitEvent({ message, type: 'error' });
-        cleanupPeer(true);
       }
     },
-    [
-      cleanupPeer,
-      collectStats,
-      currentSessionId,
-      emitEvent,
-      iceTransportPolicy,
-      normalizedHttpBaseUrl,
-    ],
+    [cleanupPeer, collectStats, currentSessionId, emitEvent, iceTransportPolicy, normalizedHttpBaseUrl],
   );
 
   const handleRemoteIceCandidate = useCallback(
     async ({ candidate, sessionId }: HandleRemoteIceCandidateOptions) => {
       const normalizedSessionId = normalizeOptionalString(sessionId);
-      const peerConnection = pcRef.current;
-
-      if (
-        normalizedSessionId !== null &&
-        currentSessionId !== null &&
-        normalizedSessionId !== currentSessionId
-      ) {
+      if (pcRef.current === null || currentSessionId === null) {
+        iceCandidateBuffer.current.push({
+          candidate,
+          sessionId: normalizedSessionId,
+        });
         return;
       }
 
-      if (peerConnection?.remoteDescription != null) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      if (normalizedSessionId !== null && normalizedSessionId !== currentSessionId) {
         return;
       }
 
-      iceCandidateBuffer.current.push({
-        candidate,
-        sessionId: normalizedSessionId,
-      });
+      await pcRef.current.addIceCandidate(candidate);
     },
     [currentSessionId],
   );
 
-  useEffect(() => {
-    if (normalizedHttpBaseUrl === '') {
-      cleanupPeer(true);
+  const closePeer = useCallback(
+    (options?: { clearSession?: boolean }) => {
+      cleanupPeer(options?.clearSession ?? false);
       setStreamError(null);
+    },
+    [cleanupPeer],
+  );
+
+  useEffect(() => {
+    if (peerState !== 'streaming') {
       return undefined;
     }
 
-    return () => {
-      cleanupPeer(true);
-      setStreamError(null);
-    };
-  }, [cleanupPeer, normalizedHttpBaseUrl]);
-
-  useEffect(() => {
-    if (peerState === 'idle' && pcRef.current === null) {
-      setStreamStats(null);
-      lastStatsSnapshotRef.current = null;
-      return undefined;
-    }
-
-    void collectStats();
     const timer = window.setInterval(() => {
       void collectStats();
     }, STATS_INTERVAL_MS);
+
+    void collectStats();
 
     return () => {
       window.clearInterval(timer);
     };
   }, [collectStats, peerState]);
+
+  useEffect(
+    () => () => {
+      cleanupPeer(true);
+    },
+    [cleanupPeer],
+  );
 
   const subscribeToEvents = useCallback((handler: WebRtcEventHandler) => {
     eventHandlersRef.current.add(handler);
@@ -455,14 +435,6 @@ export const WebRtcProvider = ({
       eventHandlersRef.current.delete(handler);
     };
   }, []);
-
-  const closePeer = useCallback(
-    (options?: { clearSession?: boolean }) => {
-      cleanupPeer(options?.clearSession ?? true);
-      setStreamError(null);
-    },
-    [cleanupPeer],
-  );
 
   const value = useMemo<WebRtcContextValue>(
     () => ({

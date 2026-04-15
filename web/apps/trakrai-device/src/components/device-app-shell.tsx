@@ -3,9 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Card, CardContent } from '@trakrai/design-system/components/card';
-import { DeviceRuntimeProvider } from '@trakrai/live-transport/providers/device-runtime-provider';
-import { EdgeTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
-import { WebRtcProvider } from '@trakrai/live-transport/providers/webrtc-provider';
+import { EdgeDeviceProtocolProvider } from '@trakrai/edge-protocol/providers/edge-device-protocol-provider';
 import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 import { LiveWorkspace } from '@trakrai/live-ui/components/live-workspace';
 
@@ -53,7 +51,6 @@ export const DeviceAppShell = () => {
   }, []);
 
   const activeTransport = useMemo(() => resolveDeviceUiTransport(runtimeConfig), [runtimeConfig]);
-  const transportKey = `${runtimeConfig.transportMode}:${runtimeConfig.deviceId}:${activeTransport.signalingUrl}:${activeTransport.httpBaseUrl}`;
   const showLiveWorkspace = hasLoadedRuntimeConfig;
   const bridgeStatus = hasLoadedRuntimeConfig ? 'Runtime config loaded' : 'Using build defaults';
 
@@ -79,25 +76,20 @@ export const DeviceAppShell = () => {
       title="Live feed and PTZ"
     >
       {showLiveWorkspace ? (
-        <EdgeTransportProvider
-          key={transportKey}
+        <EdgeDeviceProtocolProvider
           deviceId={runtimeConfig.deviceId}
           httpBaseUrl={activeTransport.httpBaseUrl}
           signalingUrl={activeTransport.signalingUrl}
         >
-          <DeviceRuntimeProvider>
-            <WebRtcProvider httpBaseUrl={activeTransport.httpBaseUrl}>
-              <LiveWorkspace
-                defaultDeviceId={runtimeConfig.deviceId}
-                deviceId={runtimeConfig.deviceId}
-                deviceIdEditable={false}
-                diagnosticsEnabled={runtimeConfig.diagnosticsEnabled}
-                managementServiceName={runtimeConfig.managementService}
-                onDeviceIdChange={() => undefined}
-              />
-            </WebRtcProvider>
-          </DeviceRuntimeProvider>
-        </EdgeTransportProvider>
+          <LiveWorkspace
+            defaultDeviceId={runtimeConfig.deviceId}
+            deviceId={runtimeConfig.deviceId}
+            deviceIdEditable={false}
+            diagnosticsEnabled={runtimeConfig.diagnosticsEnabled}
+            managementServiceName={runtimeConfig.managementService}
+            onDeviceIdChange={() => undefined}
+          />
+        </EdgeDeviceProtocolProvider>
       ) : (
         <Card className="border">
           <CardContent className="text-muted-foreground py-10 text-sm">

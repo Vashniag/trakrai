@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 
-import { DeviceRuntimeProvider } from '@trakrai/live-transport/providers/device-runtime-provider';
-import { CloudTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
-import { WebRtcProvider } from '@trakrai/live-transport/providers/webrtc-provider';
+import { CloudDeviceProtocolProvider } from '@trakrai/cloud-protocol/providers/cloud-device-protocol-provider';
 import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 import { LiveWorkspace } from '@trakrai/live-ui/components/live-workspace';
 
@@ -49,26 +47,20 @@ const LivePage = () => {
       eyebrow="TrakrAI Cloud Operations"
       title="Live feed and PTZ"
     >
-      <CloudTransportProvider
+      <CloudDeviceProtocolProvider
         deviceId={deviceId}
         httpBaseUrl={liveGatewayHttpUrl}
+        iceTransportPolicy={liveGatewayIceTransportPolicy}
         signalingUrl={liveGatewayWsUrl}
       >
-        <DeviceRuntimeProvider>
-          <WebRtcProvider
-            httpBaseUrl={liveGatewayHttpUrl}
-            iceTransportPolicy={liveGatewayIceTransportPolicy}
-          >
-            <LiveWorkspace
-              defaultDeviceId={DEFAULT_LIVE_DEVICE_ID}
-              deviceId={deviceId}
-              deviceIdEditable
-              diagnosticsEnabled
-              onDeviceIdChange={setDeviceId}
-            />
-          </WebRtcProvider>
-        </DeviceRuntimeProvider>
-      </CloudTransportProvider>
+        <LiveWorkspace
+          defaultDeviceId={DEFAULT_LIVE_DEVICE_ID}
+          deviceId={deviceId}
+          deviceIdEditable
+          diagnosticsEnabled
+          onDeviceIdChange={setDeviceId}
+        />
+      </CloudDeviceProtocolProvider>
     </LiveConsoleShell>
   );
 };

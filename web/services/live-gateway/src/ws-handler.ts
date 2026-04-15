@@ -226,19 +226,19 @@ const cleanupClient = (ws: WebSocket): void => {
 
 const packetTargets = (packet: TransportPacket): Set<WebSocket> | null => {
   const { requestId, sessionId } = readRoutingIds(packet.envelope);
-  if (sessionId !== null) {
-    const owner = sessionOwners.get(sessionId);
-    if (owner !== undefined) {
-      return new Set([owner]);
-    }
-  }
-
   if (requestId !== null) {
     const owner = requestOwners.get(requestId);
     if (owner !== undefined) {
       if (sessionId !== null) {
         bindSessionOwner(owner, sessionId);
       }
+      return new Set([owner]);
+    }
+  }
+
+  if (sessionId !== null) {
+    const owner = sessionOwners.get(sessionId);
+    if (owner !== undefined) {
       return new Set([owner]);
     }
   }

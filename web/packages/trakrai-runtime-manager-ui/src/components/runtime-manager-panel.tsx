@@ -19,7 +19,7 @@ import type {
   ManagedRuntimeServiceDefinition,
   RuntimeManagerLogPayload,
   RuntimeManagerPaths,
-} from '../lib/runtime-manager-types';
+} from '@trakrai/live-transport/lib/runtime-manager-types';
 
 type RuntimeManagerPanelProps = Readonly<{
   activeDefinition: ManagedRuntimeServiceDefinition | null;

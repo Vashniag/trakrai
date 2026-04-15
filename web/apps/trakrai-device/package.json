@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@trakrai/design-system": "workspace:*",
+    "@trakrai/edge-protocol": "workspace:*",
     "@trakrai/live-transport": "workspace:*",
     "@trakrai/live-ui": "workspace:*",
     "next": "16.2.3",

@@ -68,6 +68,7 @@ export type RuntimeManagerStatusPayload = {
   lastError?: string;
   logDir: string;
   managedCount: number;
+  requestId?: string;
   scriptDir: string;
   services: ManagedRuntimeService[];
   stateFile: string;

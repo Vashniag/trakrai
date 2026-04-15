@@ -170,7 +170,7 @@ func (s *Service) handleNotifications(ctx context.Context) {
 func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
 	switch env.Type {
 	case "get-status":
-		s.handleGetStatus(ctx)
+		s.handleGetStatus(ctx, readRequestID(env.Payload))
 	case "get-service-definition":
 		s.handleGetServiceDefinition(env)
 	case "get-service-log":
@@ -195,17 +195,19 @@ func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
 	}
 }
 
-func (s *Service) handleGetStatus(ctx context.Context) {
+func (s *Service) handleGetStatus(ctx context.Context, requestID string) {
 	payload, err := s.buildStatusPayload(ctx)
 	if err != nil {
 		s.recordAction("refresh status", err)
 		s.publishError(RuntimeErrorPayload{
-			Action: "get-status",
-			Error:  err.Error(),
+			Action:    "get-status",
+			Error:     err.Error(),
+			RequestID: requestID,
 		})
 		return
 	}
 
+	payload.RequestID = requestID
 	s.recordAction("refresh status", nil)
 	if err := s.publishResponse(runtimeManagerStatusType, payload); err != nil {
 		s.log.Warn("publish runtime-manager status failed", "error", err)
@@ -1612,6 +1614,21 @@ func (s *Service) daemonReload(ctx context.Context) error {
 func (s *Service) executeCommand(ctx context.Context, command string, args ...string) (string, error) {
 	output, err := s.execCommand(ctx, command, args...)
 	return strings.TrimSpace(string(output)), err
+}
+
+func readRequestID(payload json.RawMessage) string {
+	if len(payload) == 0 {
+		return ""
+	}
+
+	var decoded struct {
+		RequestID string `json:"requestId"`
+	}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(decoded.RequestID)
 }
 
 func (s *Service) publishResponse(messageType string, payload interface{}) error {

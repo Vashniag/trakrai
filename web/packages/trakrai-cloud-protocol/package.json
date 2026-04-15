@@ -1,17 +1,13 @@
 {
-  "name": "@trakrai/live-viewer",
+  "name": "@trakrai/cloud-protocol",
   "version": "0.0.1",
   "type": "module",
-  "sideEffects": [
-    "*.css"
-  ],
   "files": [
     "dist",
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown && pnpm run build:types && pnpm run build:css",
-    "build:css": "pnpm exec tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
+    "build": "tsdown && pnpm run build:types",
     "build:types": "tsc -p tsconfig.build.json",
     "dev": "tsdown --watch",
     "lint": "eslint --max-warnings=0 .",
@@ -19,7 +15,6 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@trakrai/design-system": "workspace:*",
     "@trakrai/live-transport": "workspace:*",
     "@trakrai/webrtc": "workspace:*"
   },
@@ -28,44 +23,25 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.2.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^10.2.0",
-    "tailwindcss": "^4.2.2",
     "tsdown": "^0.21.7",
     "typescript": "^6"
   },
   "exports": {
-    "./components/*": "./src/components/*.tsx",
-    "./hooks/*": "./src/hooks/*.ts",
-    "./lib/*": "./src/lib/*.ts",
-    "./providers/*": "./src/providers/*.tsx",
-    "./styles.css": "./src/styles.css"
+    "./providers/*": "./src/providers/*.tsx"
   },
   "publishConfig": {
     "access": "public",
     "exports": {
-      "./components/*": {
-        "import": "./dist/components/*.js",
-        "types": "./dist/components/*.d.ts"
-      },
-      "./hooks/*": {
-        "import": "./dist/hooks/*.js",
-        "types": "./dist/hooks/*.d.ts"
-      },
-      "./lib/*": {
-        "import": "./dist/lib/*.js",
-        "types": "./dist/lib/*.d.ts"
-      },
       "./providers/*": {
         "import": "./dist/providers/*.js",
         "types": "./dist/providers/*.d.ts"
-      },
-      "./styles.css": "./dist/styles.css"
+      }
     }
   }
 }

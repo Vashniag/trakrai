@@ -536,7 +536,7 @@ func (sm *SessionManager) AddICECandidate(sessionID string, candidateJSON json.R
 	sm.mu.Unlock()
 }
 
-func (sm *SessionManager) UpdateSessionLayout(sessionID string, plan LiveLayoutPlan) error {
+func (sm *SessionManager) UpdateSessionLayout(sessionID string, requestID string, plan LiveLayoutPlan) error {
 	sm.mu.Lock()
 	session := sm.lookupSessionLocked(sessionID)
 	if session == nil {
@@ -544,16 +544,21 @@ func (sm *SessionManager) UpdateSessionLayout(sessionID string, plan LiveLayoutP
 		return fmt.Errorf("no active live session")
 	}
 
+	effectiveRequestID := strings.TrimSpace(requestID)
+	if effectiveRequestID == "" {
+		effectiveRequestID = session.requestID
+	}
+
 	session.layoutPlan = plan
 	session.cameraName = plan.PrimaryCamera()
-	requestID := session.requestID
+	session.requestID = effectiveRequestID
 	activeSessionID := session.sessionID
 	sm.mu.Unlock()
 
 	sm.reportAggregateStatus(mergeLayoutDetails(plan, map[string]interface{}{
 		"camera":    plan.PrimaryCamera(),
 		"phase":     "layout-updated",
-		"requestId": requestID,
+		"requestId": effectiveRequestID,
 		"sessionId": activeSessionID,
 	}))
 	sm.publish("response", "live-layout-updated", map[string]interface{}{
@@ -561,7 +566,7 @@ func (sm *SessionManager) UpdateSessionLayout(sessionID string, plan LiveLayoutP
 		"cameraNames": slices.Clone(plan.CameraNames),
 		"frameSource": string(plan.FrameSource),
 		"layoutMode":  string(plan.Mode),
-		"requestId":   requestID,
+		"requestId":   effectiveRequestID,
 		"sessionId":   activeSessionID,
 	})
 

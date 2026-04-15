@@ -1,5 +1,5 @@
 {
-  "name": "@trakrai/live-viewer",
+  "name": "@trakrai/runtime-manager-ui",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": [
@@ -20,8 +20,7 @@
   },
   "dependencies": {
     "@trakrai/design-system": "workspace:*",
-    "@trakrai/live-transport": "workspace:*",
-    "@trakrai/webrtc": "workspace:*"
+    "@trakrai/live-transport": "workspace:*"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -42,8 +41,6 @@
   "exports": {
     "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
-    "./lib/*": "./src/lib/*.ts",
-    "./providers/*": "./src/providers/*.tsx",
     "./styles.css": "./src/styles.css"
   },
   "publishConfig": {
@@ -56,14 +53,6 @@
       "./hooks/*": {
         "import": "./dist/hooks/*.js",
         "types": "./dist/hooks/*.d.ts"
-      },
-      "./lib/*": {
-        "import": "./dist/lib/*.js",
-        "types": "./dist/lib/*.d.ts"
-      },
-      "./providers/*": {
-        "import": "./dist/providers/*.js",
-        "types": "./dist/providers/*.d.ts"
       },
       "./styles.css": "./dist/styles.css"
     }

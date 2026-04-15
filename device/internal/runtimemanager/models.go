@@ -68,6 +68,7 @@ type RuntimeStatusPayload struct {
 	LastError    string                   `json:"lastError,omitempty"`
 	LogDir       string                   `json:"logDir"`
 	ManagedCount int                      `json:"managedCount"`
+	RequestID    string                   `json:"requestId,omitempty"`
 	ScriptDir    string                   `json:"scriptDir"`
 	Services     []ManagedServiceSnapshot `json:"services"`
 	StateFile    string                   `json:"stateFile"`

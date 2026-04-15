@@ -295,7 +295,13 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 
 	requestedDeviceID := strings.TrimSpace(r.URL.Query().Get("deviceId"))
 	if requestedDeviceID != "" && requestedDeviceID != s.cfg.DeviceID {
-		s.sendImmediateError(client, topicRoute{}, "set-device", "requested device is not available on this edge runtime")
+		s.sendImmediateError(
+			client,
+			topicRoute{},
+			"",
+			"set-device",
+			"requested device is not available on this edge runtime",
+		)
 	}
 
 	if err := client.writeJSON(map[string]interface{}{
@@ -336,13 +342,19 @@ func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message
 		return
 	case "packet":
 	default:
-		s.sendImmediateError(client, topicRoute{}, "", "message kind is required")
+		s.sendImmediateError(client, topicRoute{}, "", "", "message kind is required")
 		return
 	}
 
 	subtopic := normalizeEdgeSubtopic(message.Subtopic)
 	if subtopic == "" {
-		s.sendImmediateError(client, topicRoute{}, message.Envelope.Type, "subtopic is required")
+		s.sendImmediateError(
+			client,
+			topicRoute{},
+			edgeEnvelopeRequestID(message.Envelope),
+			message.Envelope.Type,
+			"subtopic is required",
+		)
 		return
 	}
 
@@ -351,7 +363,7 @@ func (s *EdgeWebSocketServer) handleWebSocketMessage(client *edgeClient, message
 		s.sendImmediateError(client, topicRoute{
 			service:  normalizeInboundService(message.Service),
 			subtopic: subtopic,
-		}, "", err.Error())
+		}, edgeEnvelopeRequestID(message.Envelope), "", err.Error())
 		return
 	}
 
@@ -379,7 +391,13 @@ func (s *EdgeWebSocketServer) handleSetDevice(client *edgeClient, requestedDevic
 	}
 
 	if deviceID != s.cfg.DeviceID {
-		s.sendImmediateError(client, topicRoute{}, "set-device", "requested device is not available on this edge runtime")
+		s.sendImmediateError(
+			client,
+			topicRoute{},
+			"",
+			"set-device",
+			"requested device is not available on this edge runtime",
+		)
 		return
 	}
 
@@ -401,17 +419,23 @@ func (s *EdgeWebSocketServer) handleSetDevice(client *edgeClient, requestedDevic
 func (s *EdgeWebSocketServer) sendImmediateError(
 	client *edgeClient,
 	route topicRoute,
+	requestID string,
 	requestType string,
 	message string,
 ) {
+	payload := map[string]interface{}{
+		"error":       message,
+		"requestType": requestType,
+		"service":     route.service,
+		"subtopic":    route.subtopic,
+	}
+	if requestID != "" {
+		payload["requestId"] = requestID
+	}
+
 	packet := edgeOutboundPacket{
 		DeviceID: s.cfg.DeviceID,
-		Envelope: buildEnvelope("service-unavailable", marshalPayload(map[string]interface{}{
-			"error":       message,
-			"requestType": requestType,
-			"service":     route.service,
-			"subtopic":    route.subtopic,
-		})),
+		Envelope: buildEnvelope("service-unavailable", marshalPayload(payload)),
 		Service:  edgeServicePointer(route.service),
 		Subtopic: "response",
 	}
@@ -527,17 +551,17 @@ func (s *EdgeWebSocketServer) packetOwner(packet edgeOutboundPacket) *edgeClient
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if sessionID != "" {
-		if owner, ok := s.sessionOwners[sessionID]; ok {
-			return owner
-		}
-	}
-
 	if requestID != "" {
 		if owner, ok := s.requestOwners[requestID]; ok {
 			if sessionID != "" {
 				s.bindSessionOwnerLocked(owner, sessionID)
 			}
+			return owner
+		}
+	}
+
+	if sessionID != "" {
+		if owner, ok := s.sessionOwners[sessionID]; ok {
 			return owner
 		}
 	}
@@ -627,6 +651,11 @@ func edgeEnvelopeIDs(env ipc.MQTTEnvelope) (string, string) {
 	}
 
 	return readEdgeString(decoded["requestId"]), readEdgeString(decoded["sessionId"])
+}
+
+func edgeEnvelopeRequestID(env ipc.MQTTEnvelope) string {
+	requestID, _ := edgeEnvelopeIDs(env)
+	return requestID
 }
 
 func edgeEnvelopeOrigin(env ipc.MQTTEnvelope) string {

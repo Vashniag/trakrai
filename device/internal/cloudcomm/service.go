@@ -2,8 +2,10 @@ package cloudcomm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/trakrai/device-services/internal/ipc"
@@ -66,6 +68,8 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) handleInbound(route topicRoute, env ipc.MQTTEnvelope) error {
+	requestID := readEnvelopeRequestID(env)
+
 	if route.service == "" && route.subtopic == "command" && env.Type == "get-status" {
 		return s.publisher.Publish(ipc.PublishMessageRequest{
 			Subtopic: "response",
@@ -84,6 +88,7 @@ func (s *Service) handleInbound(route topicRoute, env ipc.MQTTEnvelope) error {
 			Type:     "service-unavailable",
 			Payload: marshalPayload(map[string]interface{}{
 				"error":       "service is required for device command routing",
+				"requestId":   requestID,
 				"requestType": env.Type,
 			}),
 		})
@@ -105,6 +110,7 @@ func (s *Service) handleInbound(route topicRoute, env ipc.MQTTEnvelope) error {
 				Type:     "service-unavailable",
 				Payload: marshalPayload(map[string]interface{}{
 					"service":     route.service,
+					"requestId":   requestID,
 					"requestType": env.Type,
 					"error":       err.Error(),
 				}),
@@ -119,6 +125,21 @@ func (s *Service) handleInbound(route topicRoute, env ipc.MQTTEnvelope) error {
 	}
 
 	return nil
+}
+
+func readEnvelopeRequestID(env ipc.MQTTEnvelope) string {
+	if len(env.Payload) == 0 {
+		return ""
+	}
+
+	var decoded struct {
+		RequestID string `json:"requestId"`
+	}
+	if err := json.Unmarshal(env.Payload, &decoded); err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(decoded.RequestID)
 }
 
 func (s *Service) startHeartbeat(ctx context.Context, interval time.Duration) {

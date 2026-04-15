@@ -13,9 +13,7 @@ import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
 import { DeviceServicesPanel } from '@trakrai/live-transport/components/device-services-panel';
 import { DiagnosticsPanel } from '@trakrai/live-transport/components/diagnostics-panel';
-import { RuntimeManagerPanel } from '@trakrai/live-transport/components/runtime-manager-panel';
 import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runtime';
-import { useRuntimeManager } from '@trakrai/live-transport/hooks/use-runtime-manager';
 import { formatMetric } from '@trakrai/live-transport/lib/live-display-utils';
 import { CameraInventoryCard } from '@trakrai/live-viewer/components/camera-inventory-card';
 import { LiveViewerPanel } from '@trakrai/live-viewer/components/live-viewer-panel';
@@ -27,8 +25,11 @@ import {
   getLiveLayoutPageLabel,
   getVisibleLayoutCameras,
 } from '@trakrai/live-viewer/lib/live-layout-utils';
+import { LiveViewerProvider } from '@trakrai/live-viewer/providers/live-viewer-provider';
 import { PtzControlPanel } from '@trakrai/ptz-controller/components/ptz-control-panel';
 import { usePtzController } from '@trakrai/ptz-controller/hooks/use-ptz-controller';
+import { RuntimeManagerPanel } from '@trakrai/runtime-manager-ui/components/runtime-manager-panel';
+import { useRuntimeManager } from '@trakrai/runtime-manager-ui/hooks/use-runtime-manager';
 
 import type { DeviceCamera } from '@trakrai/live-transport/lib/live-types';
 import type {
@@ -507,20 +508,22 @@ export const LiveWorkspace = ({
   });
 
   return (
-    <LiveWorkspaceShell
-      defaultDeviceId={defaultDeviceId}
-      deviceId={deviceId}
-      deviceIdEditable={deviceIdEditable}
-      diagnosticsEnabled={diagnosticsEnabled}
-      managementServiceName={managementServiceName}
-      panelVisibility={panelVisibility}
-      onDeviceIdChange={onDeviceIdChange}
-      onTogglePanel={(panelId) => {
-        setPanelVisibility((currentState) => ({
-          ...currentState,
-          [panelId]: !currentState[panelId],
-        }));
-      }}
-    />
+    <LiveViewerProvider>
+      <LiveWorkspaceShell
+        defaultDeviceId={defaultDeviceId}
+        deviceId={deviceId}
+        deviceIdEditable={deviceIdEditable}
+        diagnosticsEnabled={diagnosticsEnabled}
+        managementServiceName={managementServiceName}
+        panelVisibility={panelVisibility}
+        onDeviceIdChange={onDeviceIdChange}
+        onTogglePanel={(panelId) => {
+          setPanelVisibility((currentState) => ({
+            ...currentState,
+            [panelId]: !currentState[panelId],
+          }));
+        }}
+      />
+    </LiveViewerProvider>
   );
 };

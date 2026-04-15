@@ -133,7 +133,7 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 			return
 		}
 
-		if err := sessions.UpdateSessionLayout(payload.SessionID, plan); err != nil {
+		if err := sessions.UpdateSessionLayout(payload.SessionID, payload.RequestID, plan); err != nil {
 			slog.Warn("update-live-layout failed", "error", err)
 			_ = ipcClient.ReportError(fmt.Sprintf("update-live-layout failed: %v", err), false)
 		}
