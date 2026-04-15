@@ -26,6 +26,7 @@ DEFAULT_PUBLIC_RTSP_PORT = 18554
 DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
 LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
+LOCALDEV_ROI_TEMPLATE = common.DEVICE_ROOT / "localdev" / "roi" / "roi-config.json"
 
 
 def main() -> int:
@@ -157,6 +158,7 @@ def cmd_up(args: argparse.Namespace) -> int:
     LOCALDEV_ROOT.mkdir(parents=True, exist_ok=True)
     SHARED_DIR.mkdir(parents=True, exist_ok=True)
     seed_local_workflow_assets(config_map)
+    seed_local_roi_assets(config_map)
     write_compose_env(
         compose_project_name=args.compose_project_name,
         stage_dir=STAGE_DIR,
@@ -261,6 +263,26 @@ def seed_local_workflow_assets(config_map: dict[str, dict[str, object]]) -> None
     shutil.copy2(LOCALDEV_WORKFLOW_TEMPLATE, host_path)
 
 
+def seed_local_roi_assets(config_map: dict[str, dict[str, object]]) -> None:
+    roi_config = config_map.get("roi-config.json")
+    if not isinstance(roi_config, dict):
+        return
+    storage = roi_config.get("storage")
+    if not isinstance(storage, dict):
+        return
+    file_path = str(storage.get("file_path", "")).strip()
+    runtime_shared_prefix = f"{DEFAULT_RUNTIME_ROOT}/shared/"
+    if not file_path.startswith(runtime_shared_prefix):
+        return
+
+    relative_path = Path(file_path[len(runtime_shared_prefix) :])
+    host_path = SHARED_DIR / relative_path
+    if host_path.exists():
+        return
+    host_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(LOCALDEV_ROI_TEMPLATE, host_path)
+
+
 def write_compose_env(
     *,
     compose_project_name: str,
@@ -349,6 +371,8 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-transfer; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/live-feed; "
+                "test -x /home/hacklab/trakrai-device-runtime/bin/ptz-control; "
+                "test -x /home/hacklab/trakrai-device-runtime/bin/roi-config; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
                 "python3.8 --version; "
                 "systemctl is-active trakrai-runtime-manager.service; "
@@ -356,6 +380,8 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
                 "systemctl is-active trakrai-cloud-transfer.service; "
                 "systemctl is-active trakrai-workflow-engine.service; "
                 "systemctl is-active trakrai-live-feed.service; "
+                "systemctl is-active trakrai-ptz-control.service; "
+                "systemctl is-active trakrai-roi-config.service; "
                 "systemctl is-active trakrai-rtsp-feeder.service"
             ),
         ],

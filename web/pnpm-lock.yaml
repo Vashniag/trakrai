@@ -201,6 +201,9 @@ importers:
       '@trakrai/live-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-ui
+      '@trakrai/roi-configurator':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-roi-configurator
       '@trakrai/runtime-manager-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-runtime-manager-ui
@@ -670,6 +673,52 @@ importers:
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
+      tsdown:
+        specifier: ^0.21.7
+        version: 0.21.7(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+      typescript:
+        specifier: ^6
+        version: 6.0.2
+
+  packages/trakrai-roi-configurator:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../trakrai-live-transport
+      '@trakrai/live-viewer':
+        specifier: workspace:*
+        version: link:../trakrai-live-viewer
+      '@trakrai/ptz-controller':
+        specifier: workspace:*
+        version: link:../trakrai-ptz-controller
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^10.2.0
+        version: 10.2.0(jiti@2.6.1)
       tsdown:
         specifier: ^0.21.7
         version: 0.21.7(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)

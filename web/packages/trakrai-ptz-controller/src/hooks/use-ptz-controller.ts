@@ -7,7 +7,12 @@ import { isDeviceProtocolRequestError } from '@trakrai/live-transport/lib/device
 import { normalizeOptionalString } from '@trakrai/live-transport/lib/live-transport-utils';
 import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
-import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from '../lib/ptz-types';
+import type {
+  PtzCapabilities,
+  PtzPosition,
+  PtzTargetPosition,
+  PtzVelocityCommand,
+} from '../lib/ptz-types';
 
 import { PTZ_SERVICE_NAME, readPtzState } from '../lib/ptz-transport';
 
@@ -27,12 +32,14 @@ export type PtzControllerState = {
   endMove: () => void;
   goHome: () => void;
   refreshPosition: () => void;
+  setPosition: (position: PtzTargetPosition) => void;
   setZoom: (zoom: number) => void;
 };
 
 const PTZ_RESPONSE_SUBTOPIC = 'response';
 const PTZ_GET_POSITION_COMMAND = 'get-position';
 const PTZ_GET_STATUS_COMMAND = 'get-status';
+const PTZ_SET_POSITION_COMMAND = 'set-position';
 const PTZ_COMMAND_ACK_RESPONSE_TYPES = ['ptz-command-ack'] as const;
 
 type PtzStatusPayload = Readonly<{
@@ -220,6 +227,40 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
       })
       .catch(handlePtzError);
   }, [appendLog, applyPositionPayload, cameraName, handlePtzError, ptzService]);
+
+  const setPosition = useCallback(
+    (target: PtzTargetPosition) => {
+      if (cameraName === '') {
+        return;
+      }
+
+      appendLog('info', `Sending PTZ absolute move for ${cameraName}`);
+      setPtzError(null);
+      void ptzService
+        .request<
+          { cameraName: string; pan: number; tilt: number; zoom: number },
+          PtzCommandAckPayload
+        >(
+          PTZ_SET_POSITION_COMMAND,
+          {
+            cameraName,
+            pan: target.pan,
+            tilt: target.tilt,
+            zoom: target.zoom,
+          },
+          {
+            responseSubtopics: [PTZ_RESPONSE_SUBTOPIC],
+            responseTypes: PTZ_COMMAND_ACK_RESPONSE_TYPES,
+          },
+        )
+        .then((response) => {
+          applyCommandAckPayload(response.payload);
+          return undefined;
+        })
+        .catch(handlePtzError);
+    },
+    [appendLog, applyCommandAckPayload, cameraName, handlePtzError, ptzService],
+  );
 
   useEffect(() => {
     if (transportState !== 'connected') {
@@ -416,6 +457,7 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
       position,
       refreshPosition,
       serviceRegistered: ptzServiceStatus !== undefined,
+      setPosition,
       setZoom,
       statusLabel,
     }),
@@ -434,6 +476,7 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
       ptzServiceStatus,
       refreshPosition,
       resolvedPtzError,
+      setPosition,
       setZoom,
       statusLabel,
     ],

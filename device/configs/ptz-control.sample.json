@@ -11,6 +11,7 @@
   "cameras": [
     {
       "name": "LP1-Main",
+      "driver": "onvif",
       "address": "192.168.1.20",
       "onvif_port": 80,
       "username": "admin",
@@ -19,6 +20,7 @@
     },
     {
       "name": "LP1-Sec",
+      "driver": "onvif",
       "address": "192.168.1.25",
       "onvif_port": 80,
       "username": "admin",

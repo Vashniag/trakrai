@@ -137,6 +137,26 @@
       "systemd_unit": "trakrai-ptz-control.service"
     },
     {
+      "name": "roi-config",
+      "display_name": "ROI config",
+      "description": "Per-camera PTZ base locations and ROI configuration document service.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/roi-config",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/configs/roi-config.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-roi-config.service"
+    },
+    {
       "name": "rtsp-feeder",
       "display_name": "RTSP feeder",
       "description": "Camera ingest and JPEG frame publishing into Redis.",

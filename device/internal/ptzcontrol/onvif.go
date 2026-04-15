@@ -82,6 +82,7 @@ type cameraController struct {
 	defaults MoveDefaults
 
 	mu           sync.Mutex
+	mockState    *mockCameraState
 	client       *onvifsdk.Device
 	httpClient   *http.Client
 	ptzEndpoint  string
@@ -92,18 +93,96 @@ type cameraController struct {
 	velocity     ptzLimits
 }
 
+type mockCameraState struct {
+	position positionSnapshot
+}
+
 func newCameraController(cfg CameraConfig, defaults MoveDefaults) *cameraController {
-	return &cameraController{
+	controller := &cameraController{
 		cfg:      cfg,
 		defaults: defaults,
 		limits:   defaultPositionLimits(),
 		velocity: defaultVelocityLimits(),
 	}
+	if cfg.Driver == "mock" {
+		controller.capabilities = ptzCapabilities{
+			CanAbsolutePanTilt:   true,
+			CanAbsoluteZoom:      true,
+			CanContinuousPanTilt: true,
+			CanContinuousZoom:    true,
+			CanGoHome:            true,
+			PanRange:             &ptzRange{Min: -1, Max: 1},
+			TiltRange:            &ptzRange{Min: -1, Max: 1},
+			ZoomRange:            &ptzRange{Min: 0, Max: 1},
+		}
+		controller.mockState = &mockCameraState{
+			position: positionSnapshot{
+				Capabilities: controller.capabilitiesSnapshot(),
+				CameraName:   cfg.Name,
+				Pan:          0,
+				Tilt:         0,
+				UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
+				Zoom:         0.25,
+			},
+		}
+		if cfg.Home != nil {
+			controller.mockState.position.Pan = clamp(cfg.Home.Pan, -1, 1)
+			controller.mockState.position.Tilt = clamp(cfg.Home.Tilt, -1, 1)
+			controller.mockState.position.Zoom = clamp(cfg.Home.Zoom, 0, 1)
+		}
+	}
+	return controller
+}
+
+func (c *cameraController) isMock() bool {
+	return c.cfg.Driver == "mock"
+}
+
+func (c *cameraController) mockPositionLocked() *positionSnapshot {
+	if c.mockState == nil {
+		c.mockState = &mockCameraState{
+			position: positionSnapshot{
+				CameraName: c.cfg.Name,
+				Pan:        0,
+				Tilt:       0,
+				Zoom:       0.25,
+			},
+		}
+	}
+	snapshot := c.mockState.position
+	snapshot.CameraName = c.cfg.Name
+	snapshot.Capabilities = c.capabilitiesSnapshot()
+	snapshot.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return &snapshot
+}
+
+func (c *cameraController) setMockPositionLocked(pan float64, tilt float64, zoom float64, movement string) *positionSnapshot {
+	if c.mockState == nil {
+		c.mockState = &mockCameraState{}
+	}
+	c.mockState.position = positionSnapshot{
+		Capabilities: c.capabilitiesSnapshot(),
+		CameraName:   c.cfg.Name,
+		Pan:          clamp(pan, c.limits.panMin, c.limits.panMax),
+		Tilt:         clamp(tilt, c.limits.tiltMin, c.limits.tiltMax),
+		UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
+		Zoom:         clamp(zoom, c.limits.zoomMin, c.limits.zoomMax),
+	}
+	if movement != "" {
+		c.mockState.position.MoveStatus = &moveStatus{
+			PanTilt: movement,
+			Zoom:    movement,
+		}
+	}
+	return c.mockPositionLocked()
 }
 
 func (c *cameraController) GetPosition(ctx context.Context) (*positionSnapshot, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.isMock() {
+		return c.mockPositionLocked(), nil
+	}
 
 	if err := c.ensureConnectedLocked(ctx); err != nil {
 		return nil, err
@@ -122,6 +201,9 @@ func (c *cameraController) GetPosition(ctx context.Context) (*positionSnapshot, 
 func (c *cameraController) Capabilities(ctx context.Context) (*ptzCapabilities, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.isMock() {
+		return c.capabilitiesSnapshot(), nil
+	}
 
 	if err := c.ensureConnectedLocked(ctx); err != nil {
 		return nil, err
@@ -133,6 +215,14 @@ func (c *cameraController) Capabilities(ctx context.Context) (*ptzCapabilities, 
 func (c *cameraController) ContinuousMove(ctx context.Context, velocity velocityCommand) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.isMock() {
+		position := c.mockPositionLocked()
+		pan := position.Pan + clamp(velocity.Pan, -1, 1)*0.12
+		tilt := position.Tilt + clamp(velocity.Tilt, -1, 1)*0.12
+		zoom := position.Zoom + clamp(velocity.Zoom, -1, 1)*0.08
+		c.setMockPositionLocked(pan, tilt, zoom, "moving")
+		return nil
+	}
 
 	if err := c.ensureConnectedLocked(ctx); err != nil {
 		return err
@@ -172,6 +262,15 @@ func (c *cameraController) ContinuousMove(ctx context.Context, velocity velocity
 func (c *cameraController) Stop(ctx context.Context) (*positionSnapshot, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.isMock() {
+		position := c.mockPositionLocked()
+		position.MoveStatus = &moveStatus{
+			PanTilt: "idle",
+			Zoom:    "idle",
+		}
+		c.mockState.position = *position
+		return position, nil
+	}
 
 	if err := c.ensureConnectedLocked(ctx); err != nil {
 		return nil, err
@@ -192,6 +291,10 @@ func (c *cameraController) Stop(ctx context.Context) (*positionSnapshot, error) 
 func (c *cameraController) SetZoom(ctx context.Context, zoomLevel float64) (*positionSnapshot, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.isMock() {
+		position := c.mockPositionLocked()
+		return c.setMockPositionLocked(position.Pan, position.Tilt, zoomLevel, "idle"), nil
+	}
 
 	if err := c.ensureConnectedLocked(ctx); err != nil {
 		return nil, err
@@ -233,9 +336,92 @@ func (c *cameraController) SetZoom(ctx context.Context, zoomLevel float64) (*pos
 	return c.positionAfterActionLocked(ctx)
 }
 
+func (c *cameraController) SetPosition(
+	ctx context.Context,
+	pan float64,
+	tilt float64,
+	zoom float64,
+) (*positionSnapshot, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.isMock() {
+		return c.setMockPositionLocked(pan, tilt, zoom, "idle"), nil
+	}
+
+	if err := c.ensureConnectedLocked(ctx); err != nil {
+		return nil, err
+	}
+	if !c.capabilities.CanAbsolutePanTilt && !c.capabilities.CanAbsoluteZoom {
+		return nil, fmt.Errorf("camera %s does not support absolute PTZ moves on this ONVIF profile", c.cfg.Name)
+	}
+
+	request := absoluteMoveRequest{
+		ProfileToken: c.profileToken,
+	}
+	var current onvifxsd.PTZStatus
+	hasCurrent := false
+	if !c.capabilities.CanAbsolutePanTilt || !c.capabilities.CanAbsoluteZoom {
+		status, err := c.getStatusLocked(ctx)
+		if err != nil {
+			return nil, err
+		}
+		current = status
+		hasCurrent = true
+	}
+
+	if c.capabilities.CanAbsolutePanTilt {
+		request.Position.PanTilt = &onvifxsd.Vector2D{
+			X:     clamp(pan, c.limits.panMin, c.limits.panMax),
+			Y:     clamp(tilt, c.limits.tiltMin, c.limits.tiltMax),
+			Space: xsd.AnyURI(c.spaces.absolutePanTilt),
+		}
+	} else if hasCurrent {
+		request.Position.PanTilt = &onvifxsd.Vector2D{
+			X:     current.Position.PanTilt.X,
+			Y:     current.Position.PanTilt.Y,
+			Space: xsd.AnyURI(c.spaces.absolutePanTilt),
+		}
+	}
+
+	if c.capabilities.CanAbsoluteZoom {
+		request.Position.Zoom = &onvifxsd.Vector1D{
+			X:     clamp(zoom, c.limits.zoomMin, c.limits.zoomMax),
+			Space: xsd.AnyURI(c.spaces.absoluteZoom),
+		}
+	} else if hasCurrent {
+		request.Position.Zoom = &onvifxsd.Vector1D{
+			X:     current.Position.Zoom.X,
+			Space: xsd.AnyURI(c.spaces.absoluteZoom),
+		}
+	}
+
+	switch {
+	case request.Position.PanTilt != nil && request.Position.Zoom != nil:
+		request.Speed = absoluteMoveSpeed(c.defaults.AbsoluteSpeed, c.capabilities)
+	case request.Position.Zoom != nil:
+		request.Speed = zoomOnlyMoveSpeed(c.defaults.AbsoluteSpeed, c.capabilities)
+	default:
+		request.Speed = absoluteMoveSpeed(c.defaults.AbsoluteSpeed, c.capabilities)
+	}
+
+	if request.Position.PanTilt == nil && request.Position.Zoom == nil {
+		return nil, fmt.Errorf("camera %s cannot accept the requested absolute PTZ move", c.cfg.Name)
+	}
+	if err := callAbsoluteMove(ctx, c.ptzEndpoint, c.httpClient, c.cfg.Username, c.cfg.Password, request); err != nil {
+		return nil, fmt.Errorf("absolute PTZ move: %w", err)
+	}
+	return c.positionAfterActionLocked(ctx)
+}
+
 func (c *cameraController) GoHome(ctx context.Context) (*positionSnapshot, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.isMock() {
+		if c.cfg.Home != nil {
+			return c.setMockPositionLocked(c.cfg.Home.Pan, c.cfg.Home.Tilt, c.cfg.Home.Zoom, "idle"), nil
+		}
+		return c.setMockPositionLocked(0, 0, 0.25, "idle"), nil
+	}
 
 	if err := c.ensureConnectedLocked(ctx); err != nil {
 		return nil, err

@@ -13,6 +13,7 @@
     "@trakrai/design-system": "workspace:*",
     "@trakrai/live-transport": "workspace:*",
     "@trakrai/live-ui": "workspace:*",
+    "@trakrai/roi-configurator": "workspace:*",
     "@trakrai/runtime-manager-ui": "workspace:*",
     "@trakrai/webrtc": "workspace:*",
     "next": "16.2.3",

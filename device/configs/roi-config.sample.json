@@ -1,0 +1,9 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "storage": {
+    "file_path": "/home/hacklab/trakrai-device-runtime/shared/roi-config.json"
+  }
+}

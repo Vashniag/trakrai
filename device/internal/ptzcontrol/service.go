@@ -63,6 +63,14 @@ type zoomCommand struct {
 	Zoom       float64 `json:"zoom"`
 }
 
+type positionCommand struct {
+	CameraName string  `json:"cameraName"`
+	Pan        float64 `json:"pan"`
+	RequestID  string  `json:"requestId"`
+	Tilt       float64 `json:"tilt"`
+	Zoom       float64 `json:"zoom"`
+}
+
 type Service struct {
 	cfg        *Config
 	ipcClient  *ipc.Client
@@ -164,6 +172,8 @@ func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
 		s.handleStopMove(ctx, env)
 	case "set-zoom":
 		s.handleSetZoom(ctx, env)
+	case "set-position":
+		s.handleSetPosition(ctx, env)
 	case "go-home":
 		s.handleGoHome(ctx, env)
 	default:
@@ -403,6 +413,46 @@ func (s *Service) handleGoHome(ctx context.Context, env ipc.MQTTEnvelope) {
 		RequestID:    strings.TrimSpace(payload.RequestID),
 	}); err != nil {
 		s.log.Warn("publish PTZ home ack failed", "error", err)
+	}
+	if err := s.reportStatus("idle"); err != nil {
+		s.log.Debug("PTZ status report failed", "error", err)
+	}
+}
+
+func (s *Service) handleSetPosition(ctx context.Context, env ipc.MQTTEnvelope) {
+	var payload positionCommand
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		s.publishError("", "", env.Type, fmt.Errorf("invalid set-position payload: %w", err))
+		return
+	}
+
+	camera, err := s.cameraByName(payload.CameraName)
+	if err != nil {
+		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
+		return
+	}
+
+	position, err := camera.SetPosition(ctx, payload.Pan, payload.Tilt, payload.Zoom)
+	if err != nil {
+		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
+		return
+	}
+
+	s.state.ActiveCamera = position.CameraName
+	s.state.Capabilities = position.Capabilities
+	s.state.Position = position
+	s.state.LastCommand = env.Type
+	s.state.LastError = ""
+
+	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
+		Capabilities: position.Capabilities,
+		CameraName:   payload.CameraName,
+		Command:      env.Type,
+		Ok:           true,
+		Position:     position,
+		RequestID:    strings.TrimSpace(payload.RequestID),
+	}); err != nil {
+		s.log.Warn("publish PTZ absolute move ack failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)

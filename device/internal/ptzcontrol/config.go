@@ -26,6 +26,7 @@ type HomePosition struct {
 
 type rawCameraConfig struct {
 	Name         string        `json:"name"`
+	Driver       string        `json:"driver,omitempty"`
 	Address      string        `json:"address"`
 	OnvifPort    int           `json:"onvif_port"`
 	Username     string        `json:"username"`
@@ -44,6 +45,7 @@ type rawConfig struct {
 
 type CameraConfig struct {
 	Name         string
+	Driver       string
 	Address      string
 	OnvifPort    int
 	Username     string
@@ -135,6 +137,7 @@ func resolveCamera(rawCamera rawCameraConfig) CameraConfig {
 
 	return CameraConfig{
 		Name:         rawCamera.Name,
+		Driver:       resolveDriver(rawCamera.Driver),
 		Address:      rawCamera.Address,
 		OnvifPort:    port,
 		Username:     rawCamera.Username,
@@ -145,9 +148,26 @@ func resolveCamera(rawCamera rawCameraConfig) CameraConfig {
 	}
 }
 
+func resolveDriver(driver string) string {
+	switch driver {
+	case "", "onvif":
+		return "onvif"
+	case "mock":
+		return "mock"
+	default:
+		return driver
+	}
+}
+
 func validateCamera(camera CameraConfig) error {
 	if camera.Name == "" {
 		return fmt.Errorf("missing name")
+	}
+	if camera.Driver != "onvif" && camera.Driver != "mock" {
+		return fmt.Errorf("unsupported driver %q", camera.Driver)
+	}
+	if camera.Driver == "mock" {
+		return nil
 	}
 	if camera.Address == "" {
 		return fmt.Errorf("missing address")

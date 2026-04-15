@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-16T00:00:00Z",
+  "cameras": [
+    {
+      "cameraName": "Camera-1",
+      "baseLocations": [
+        {
+          "id": "home",
+          "name": "Home",
+          "active": true,
+          "ptz": {
+            "pan": 0,
+            "tilt": 0,
+            "zoom": 0.25
+          },
+          "rois": [
+            {
+              "id": "entry-zone",
+              "name": "Entry zone",
+              "active": true,
+              "color": "#22c55e",
+              "bounds": {
+                "x": 0.16,
+                "y": 0.2,
+                "width": 0.28,
+                "height": 0.38
+              },
+              "tags": [
+                "entry",
+                "localdev"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

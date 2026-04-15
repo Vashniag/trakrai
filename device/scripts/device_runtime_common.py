@@ -30,6 +30,7 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("cloud-transfer", "Dockerfile", "./cmd/cloud-transfer"),
     ("live-feed", "Dockerfile.gstreamer", "./cmd/live-feed"),
     ("ptz-control", "Dockerfile", "./cmd/ptz-control"),
+    ("roi-config", "Dockerfile", "./cmd/roi-config"),
     ("rtsp-feeder", "Dockerfile.gstreamer", "./cmd/rtsp-feeder"),
     ("runtime-manager", "Dockerfile", "./cmd/runtime-manager"),
 )
@@ -39,6 +40,7 @@ CONFIG_NAMES: tuple[str, ...] = (
     "cloud-transfer.json",
     "live-feed.json",
     "ptz-control.json",
+    "roi-config.json",
     "rtsp-feeder.json",
     "ai-inference.json",
     "workflow-engine.json",
@@ -247,7 +249,7 @@ def prepare_stage(
     patch_cloud_comm_config(config_map["cloud-comm.json"], options)
 
     for service_name in [service_name for service_name, _dockerfile, _cmd_path in SERVICE_BUILD_TARGETS]:
-        if service_name in {"live-feed", "ptz-control", "rtsp-feeder"} and f"{service_name}.json" not in config_map:
+        if service_name in {"live-feed", "ptz-control", "roi-config", "rtsp-feeder"} and f"{service_name}.json" not in config_map:
             continue
         shutil.copy2(artifact_paths[service_name], binaries_dir / service_name)
 
@@ -378,6 +380,7 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
         ("cloud-transfer", "Cloud transfer", "Queued upload/download worker backed by SQLite."),
         ("live-feed", "Live feed", "On-device WebRTC streaming service."),
         ("ptz-control", "PTZ control", "PTZ command service."),
+        ("roi-config", "ROI config", "Per-camera PTZ base-location and ROI document service."),
         ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
     ]:
         if f"{service_name}.json" not in available_configs:
@@ -486,7 +489,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
     wheels: list[dict[str, Any]] = []
     dynamic_units: list[str] = []
 
-    for service_name in ["cloud-transfer", "live-feed", "ptz-control", "rtsp-feeder"]:
+    for service_name in ["cloud-transfer", "live-feed", "ptz-control", "roi-config", "rtsp-feeder"]:
         if f"{service_name}.json" not in available_configs:
             continue
         configs.append({"source": f"configs/{service_name}.json", "target": f"configs/{service_name}.json"})
@@ -560,6 +563,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "cloud-transfer",
             "live-feed",
             "ptz-control",
+            "roi-config",
             "rtsp-feeder",
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
@@ -578,6 +582,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             f"{runtime_root}/cloud-transfer",
             f"{runtime_root}/live-feed",
             f"{runtime_root}/ptz-control",
+            f"{runtime_root}/roi-config",
             f"{runtime_root}/rtsp-feeder",
             f"{runtime_root}/serve-device-ui.sh",
             runtime_config_path(runtime_root, "ai-inference.json"),

@@ -38,6 +38,11 @@ const EDGE_ROUTE_ITEMS = [
     href: '/transfers',
     label: 'Transfers',
   },
+  {
+    description: 'PTZ base locations and ROI region management.',
+    href: '/roi',
+    label: 'ROI',
+  },
 ] as const;
 
 const ACTIVE_CLASSES = 'border-primary/40 bg-primary/10 text-primary';
@@ -85,8 +90,8 @@ export const EdgeConsoleSurface = ({ children, description, title }: EdgeConsole
       bridgeLabel={modeLabels[runtimeConfig.transportMode]}
       bridgeStatus={bridgeStatus}
       contractNotes={[
-        'The edge app keeps transport setup in the app shell, and only the live route mounts WebRTC.',
-        'Runtime and transfer routes are transport-only surfaces that call device services through the same local request/response contract.',
+        'The edge app keeps transport setup in the app shell, and only the live and ROI routes mount WebRTC.',
+        'Runtime and transfer routes stay transport-only surfaces, while ROI adds device-local editing on top of the same request/response contract.',
         'This keeps exported edge pages smaller and easier to debug while preserving the same feature packages as the cloud app.',
       ]}
       description={description}
@@ -99,7 +104,7 @@ export const EdgeConsoleSurface = ({ children, description, title }: EdgeConsole
       ]}
       eyebrow="TrakrAI Edge Runtime"
       navigation={
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="grid gap-3 md:grid-cols-4">
           {EDGE_ROUTE_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             return (

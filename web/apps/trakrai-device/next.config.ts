@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
     '@trakrai/live-ui',
     '@trakrai/live-viewer',
     '@trakrai/ptz-controller',
+    '@trakrai/roi-configurator',
     '@trakrai/runtime-manager-ui',
     '@trakrai/webrtc',
   ],

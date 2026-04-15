@@ -46,3 +46,9 @@ export type PtzState = {
   position: PtzPosition | null;
   status: string | null;
 };
+
+export type PtzTargetPosition = {
+  pan: number;
+  tilt: number;
+  zoom: number;
+};
