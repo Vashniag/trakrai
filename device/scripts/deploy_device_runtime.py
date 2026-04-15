@@ -42,7 +42,9 @@ def main() -> int:
     artifact_paths = common.ensure_local_artifacts(
         skip_build=args.skip_build,
         platform=common.DEFAULT_ARM64_PLATFORM,
-        include_ai_wheel="ai-inference.json" in config_map,
+        include_python_wheels={
+            target.config_name for target in common.PYTHON_WHEEL_TARGETS if target.config_name in config_map
+        },
         require_ui=True,
         build_ui_if_missing=False,
     )

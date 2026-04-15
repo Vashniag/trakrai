@@ -25,6 +25,7 @@ DEFAULT_PUBLIC_HTTP_PORT = 18080
 DEFAULT_PUBLIC_RTSP_PORT = 18554
 DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
+LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
 
 
 def main() -> int:
@@ -127,7 +128,9 @@ def cmd_up(args: argparse.Namespace) -> int:
     artifact_paths = common.ensure_local_artifacts(
         skip_build=args.skip_build,
         platform=args.platform,
-        include_ai_wheel="ai-inference.json" in config_map,
+        include_python_wheels={
+            target.config_name for target in common.PYTHON_WHEEL_TARGETS if target.config_name in config_map
+        },
         require_ui=True,
         build_ui_if_missing=not args.skip_ui_build,
     )
@@ -153,6 +156,7 @@ def cmd_up(args: argparse.Namespace) -> int:
 
     LOCALDEV_ROOT.mkdir(parents=True, exist_ok=True)
     SHARED_DIR.mkdir(parents=True, exist_ok=True)
+    seed_local_workflow_assets(config_map)
     write_compose_env(
         compose_project_name=args.compose_project_name,
         stage_dir=STAGE_DIR,
@@ -221,6 +225,10 @@ def patch_local_configs(
     if isinstance(cloud_transfer, dict):
         cloud_transfer["device_id"] = device_id
 
+    workflow_engine = patched.get("workflow-engine.json")
+    if isinstance(workflow_engine, dict):
+        workflow_engine["device_id"] = device_id
+
     live_feed = patched.get("live-feed.json")
     if isinstance(live_feed, dict):
         webrtc = live_feed.setdefault("webrtc", {})
@@ -231,6 +239,26 @@ def patch_local_configs(
             "max": webrtc_udp_port_max,
         }
     return patched
+
+
+def seed_local_workflow_assets(config_map: dict[str, dict[str, object]]) -> None:
+    workflow_config = config_map.get("workflow-engine.json")
+    if not isinstance(workflow_config, dict):
+        return
+    workflow = workflow_config.get("workflow")
+    if not isinstance(workflow, dict):
+        return
+    workflow_path = str(workflow.get("file_path", "")).strip()
+    runtime_shared_prefix = f"{DEFAULT_RUNTIME_ROOT}/shared/"
+    if not workflow_path.startswith(runtime_shared_prefix):
+        return
+
+    relative_path = Path(workflow_path[len(runtime_shared_prefix) :])
+    host_path = SHARED_DIR / relative_path
+    if host_path.exists():
+        return
+    host_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(LOCALDEV_WORKFLOW_TEMPLATE, host_path)
 
 
 def write_compose_env(
@@ -326,6 +354,7 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
                 "systemctl is-active trakrai-runtime-manager.service; "
                 "systemctl is-active trakrai-cloud-comm.service; "
                 "systemctl is-active trakrai-cloud-transfer.service; "
+                "systemctl is-active trakrai-workflow-engine.service; "
                 "systemctl is-active trakrai-live-feed.service; "
                 "systemctl is-active trakrai-rtsp-feeder.service"
             ),

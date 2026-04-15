@@ -1,0 +1,34 @@
+{
+  "delayMs": 200,
+  "frames": [
+    {
+      "cameraId": "1",
+      "cameraName": "Camera-1",
+      "frameId": "frame-0001",
+      "detections": [
+        {
+          "label": "person",
+          "confidence": 0.97,
+          "bbox": [42, 18, 180, 260]
+        },
+        {
+          "label": "helmet",
+          "confidence": 0.83,
+          "bbox": [70, 20, 132, 96]
+        }
+      ]
+    },
+    {
+      "cameraId": "1",
+      "cameraName": "Camera-1",
+      "frameId": "frame-0002",
+      "detections": [
+        {
+          "label": "truck",
+          "confidence": 0.91,
+          "bbox": [15, 40, 240, 210]
+        }
+      ]
+    }
+  ]
+}

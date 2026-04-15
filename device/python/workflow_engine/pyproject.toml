@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trakrai-workflow-engine"
+description = "Minimal TrakrAI workflow engine runtime service for edge devices"
+readme = "README.md"
+requires-python = ">=3.8"
+dynamic = ["version"]
+authors = [
+  { name = "TrakrAI" },
+]
+license = { text = "Proprietary" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Operating System :: POSIX :: Linux",
+]
+
+[project.scripts]
+trakrai-workflow-engine = "trakrai_workflow_engine.main:main"
+trakrai-workflow-feed = "trakrai_workflow_engine.mock_feed:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "trakrai_workflow_engine._version.__version__" }

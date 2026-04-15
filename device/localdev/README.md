@@ -16,6 +16,7 @@ Default local configs only include the services that can run meaningfully withou
 - `cloud-transfer`
 - `live-feed`
 - `rtsp-feeder`
+- `workflow-engine`
 - `runtime-manager`
 
 The local stack also starts mock cloud storage infrastructure for the transfer worker:
@@ -47,6 +48,7 @@ Important defaults:
 - edge UI/API: `http://127.0.0.1:18080`
 - fake RTSP feed: `rtsp://127.0.0.1:18554/stream`
 - host-backed transfer shared dir: `trakrai/device/.localdev/shared`
+- host-backed workflow file: `trakrai/device/.localdev/shared/workflow.json`
 - broker host inside containers: `host.docker.internal:1883`
 - local MinIO API: `http://127.0.0.1:19000`
 - local MinIO console: `http://127.0.0.1:19001`
@@ -106,6 +108,57 @@ That script:
 - simulates a short timeout window to verify expiry/failure behavior
 - enqueues a download for the same object
 - verifies the downloaded payload matches the original file
+
+## Using The Workflow Engine
+
+The local stack now also includes `workflow-engine` as a wheel-installed managed service.
+Its workflow definition is read from the shared host-backed file:
+
+```bash
+trakrai/device/.localdev/shared/workflow.json
+```
+
+On first `up`, that file is seeded from the tracked template at:
+
+```bash
+trakrai/device/localdev/workflows/minimal-detection-workflow.json
+```
+
+The service polls the workflow file contents and reloads automatically when the file
+changes. When a reload happens, queued runs are dropped and any in-flight run result is
+discarded if it completes against the previous workflow generation.
+
+To feed mock detections into the workflow queue from the host:
+
+```bash
+python3 trakrai/device/scripts/mock_workflow_detections.py \
+  --input trakrai/device/localdev/detections/sample-detections.json
+```
+
+That script copies the payload file into the shared device volume and then runs the
+in-container feeder CLI, which submits each frame to `workflow-engine` over the local IPC bus.
+
+Input format example:
+
+```json
+{
+  "delayMs": 200,
+  "frames": [
+    {
+      "cameraId": "1",
+      "cameraName": "Camera-1",
+      "frameId": "frame-0001",
+      "detections": [
+        { "label": "person", "confidence": 0.97, "bbox": [42, 18, 180, 260] }
+      ]
+    }
+  ]
+}
+```
+
+Each frame can also include `requestId`, `delayMs`, or a raw `detectionData` object if
+you want to send the workflow payload directly instead of the friendly `cameraId` /
+`cameraName` / `detections` shape.
 
 ## Using Next Dev Server
 

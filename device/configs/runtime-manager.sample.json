@@ -190,6 +190,42 @@
         "--version"
       ],
       "systemd_unit": "trakrai-ai-inference.service"
+    },
+    {
+      "name": "workflow-engine",
+      "display_name": "Workflow engine",
+      "description": "Queued workflow execution service backed by a hot-reloaded workflow JSON file.",
+      "kind": "wheel",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "exec_start": [
+        "python3",
+        "-m",
+        "trakrai_workflow_engine",
+        "--config",
+        "/home/hacklab/trakrai-device-runtime/workflow-engine.json"
+      ],
+      "environment": {
+        "HOME": "/home/hacklab",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "setup_command": [
+        "python3",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--force-reinstall",
+        "{{artifact_path}}"
+      ],
+      "version_command": [
+        "python3",
+        "-m",
+        "trakrai_workflow_engine",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-workflow-engine.service"
     }
   ]
 }

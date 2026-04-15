@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEVICE_ROOT = REPO_ROOT / "device"
 WEB_DEVICE_APP_ROOT = REPO_ROOT / "web" / "apps" / "trakrai-device"
 DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
+DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
 GO_LDFLAGS = os.environ.get("GO_LDFLAGS", "")
 DEFAULT_ARM64_PLATFORM = "linux/arm64"
 DEFAULT_LOCAL_PLATFORM = {
@@ -40,6 +41,7 @@ CONFIG_NAMES: tuple[str, ...] = (
     "ptz-control.json",
     "rtsp-feeder.json",
     "ai-inference.json",
+    "workflow-engine.json",
 )
 
 DEFAULT_UI_DEV_ORIGINS: tuple[str, ...] = tuple(
@@ -63,6 +65,42 @@ class StageOptions:
     public_http_port: int | None = None
 
 
+@dataclass(frozen=True)
+class PythonWheelTarget:
+    artifact_key: str
+    config_name: str
+    context_dir: Path
+    default_version: str
+    description: str
+    display_name: str
+    module_name: str
+    service_name: str
+
+
+PYTHON_WHEEL_TARGETS: tuple[PythonWheelTarget, ...] = (
+    PythonWheelTarget(
+        artifact_key="ai-wheel",
+        config_name="ai-inference.json",
+        context_dir=DEVICE_ROOT / "python" / "ai_inference",
+        default_version=DEFAULT_AI_INFERENCE_VERSION,
+        description="Wheel-installed Redis-driven AI inference worker.",
+        display_name="AI inference",
+        module_name="ai_inference",
+        service_name="trakrai-ai-inference",
+    ),
+    PythonWheelTarget(
+        artifact_key="workflow-engine-wheel",
+        config_name="workflow-engine.json",
+        context_dir=DEVICE_ROOT / "python" / "workflow_engine",
+        default_version=DEFAULT_WORKFLOW_ENGINE_VERSION,
+        description="Queued workflow execution service with hot-reloaded workflow JSON.",
+        display_name="Workflow engine",
+        module_name="trakrai_workflow_engine",
+        service_name="workflow-engine",
+    ),
+)
+
+
 def load_local_config_dir(config_dir: Path, *, require_cloud_comm: bool = True) -> dict[str, dict[str, Any]]:
     configs: dict[str, dict[str, Any]] = {}
     for name in CONFIG_NAMES:
@@ -80,7 +118,7 @@ def ensure_local_artifacts(
     *,
     skip_build: bool,
     platform: str,
-    include_ai_wheel: bool,
+    include_python_wheels: set[str],
     require_ui: bool,
     build_ui_if_missing: bool,
 ) -> dict[str, Path]:
@@ -89,13 +127,21 @@ def ensure_local_artifacts(
         for service_name, _dockerfile, _cmd_path in SERVICE_BUILD_TARGETS
     }
 
-    if include_ai_wheel:
-        artifacts["ai-wheel"] = find_single_file(DEVICE_ROOT / "out" / "ai-inference-wheel", "*.whl")
+    for target in PYTHON_WHEEL_TARGETS:
+        if target.config_name in include_python_wheels:
+            artifacts[target.artifact_key] = find_single_file(
+                DEVICE_ROOT / "out" / target.artifact_key,
+                "*.whl",
+            )
 
     if not skip_build:
-        build_device_artifacts(platform=platform, include_ai_wheel=include_ai_wheel)
-        if include_ai_wheel:
-            artifacts["ai-wheel"] = find_single_file(DEVICE_ROOT / "out" / "ai-inference-wheel", "*.whl")
+        build_device_artifacts(platform=platform, include_python_wheels=include_python_wheels)
+        for target in PYTHON_WHEEL_TARGETS:
+            if target.config_name in include_python_wheels:
+                artifacts[target.artifact_key] = find_single_file(
+                    DEVICE_ROOT / "out" / target.artifact_key,
+                    "*.whl",
+                )
 
     missing = [name for name, path in artifacts.items() if path is None or not Path(path).exists()]
     if missing:
@@ -125,7 +171,7 @@ def ensure_device_ui_export(*, build_if_missing: bool, require_ui: bool) -> None
     )
 
 
-def build_device_artifacts(*, platform: str, include_ai_wheel: bool) -> None:
+def build_device_artifacts(*, platform: str, include_python_wheels: set[str]) -> None:
     for service_name, dockerfile, cmd_path in SERVICE_BUILD_TARGETS:
         docker_buildx(
             output_dir=DEVICE_ROOT / "out" / service_name,
@@ -139,14 +185,16 @@ def build_device_artifacts(*, platform: str, include_ai_wheel: bool) -> None:
             platform=platform,
         )
 
-    if include_ai_wheel:
+    for target in PYTHON_WHEEL_TARGETS:
+        if target.config_name not in include_python_wheels:
+            continue
         docker_buildx(
-            output_dir=DEVICE_ROOT / "out" / "ai-inference-wheel",
+            output_dir=DEVICE_ROOT / "out" / target.artifact_key,
             dockerfile="Dockerfile.wheel",
             build_args={
-                "PACKAGE_VERSION": DEFAULT_AI_INFERENCE_VERSION,
+                "PACKAGE_VERSION": target.default_version,
             },
-            context_dir=DEVICE_ROOT / "python" / "ai_inference",
+            context_dir=target.context_dir,
             platform=platform,
         )
 
@@ -203,13 +251,17 @@ def prepare_stage(
             continue
         shutil.copy2(artifact_paths[service_name], binaries_dir / service_name)
 
-    wheel_name = ""
-    if "ai-inference.json" in config_map:
-        wheel_path = artifact_paths.get("ai-wheel")
+    wheel_names: dict[str, str] = {}
+    for target in PYTHON_WHEEL_TARGETS:
+        if target.config_name not in config_map:
+            continue
+        wheel_path = artifact_paths.get(target.artifact_key)
         if wheel_path is None:
-            raise SystemExit("ai-inference.json requires a built wheel artifact under device/out/ai-inference-wheel")
+            raise SystemExit(
+                f"{target.config_name} requires a built wheel artifact under device/out/{target.artifact_key}"
+            )
         shutil.copy2(wheel_path, wheels_dir / wheel_path.name)
-        wheel_name = wheel_path.name
+        wheel_names[target.config_name] = wheel_path.name
 
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
     create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
@@ -223,7 +275,7 @@ def prepare_stage(
     for name, payload in config_map.items():
         (configs_dir / name).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    manifest = build_manifest(options, set(config_map), wheel_name)
+    manifest = build_manifest(options, set(config_map), wheel_names)
     manifest_path = stage_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
@@ -326,48 +378,9 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
             )
         )
 
-    if "ai-inference.json" in available_configs:
-        services.append(
-            {
-                "name": "trakrai-ai-inference",
-                "display_name": "AI inference",
-                "description": "Wheel-installed Redis-driven AI inference worker.",
-                "kind": "wheel",
-                "allow_control": True,
-                "allow_update": True,
-                "enabled": True,
-                "exec_start": [
-                    "python3",
-                    "-m",
-                    "ai_inference",
-                    "--config",
-                    f"{runtime_root}/ai-inference.json",
-                ],
-                "setup_command": [
-                    "python3",
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-deps",
-                    "--force-reinstall",
-                    "{{artifact_path}}",
-                ],
-                "version_command": [
-                    "python3",
-                    "-m",
-                    "ai_inference",
-                    "--version",
-                ],
-                "systemd_unit": "trakrai-ai-inference.service",
-                "user": options.runtime_user,
-                "group": options.runtime_group,
-                "environment": {
-                    "HOME": f"/home/{options.runtime_user}",
-                    "PYTHONUNBUFFERED": "1",
-                },
-                "working_directory": runtime_root,
-            }
-        )
+    for target in PYTHON_WHEEL_TARGETS:
+        if target.config_name in available_configs:
+            services.append(build_wheel_service(target, options))
 
     return {
         "log_level": "info",
@@ -436,7 +449,7 @@ def build_binary_service(
     return payload
 
 
-def build_manifest(options: StageOptions, available_configs: set[str], wheel_name: str) -> dict[str, Any]:
+def build_manifest(options: StageOptions, available_configs: set[str], wheel_names: dict[str, str]) -> dict[str, Any]:
     runtime_root = options.runtime_root
     directories = ["bin", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
     stop_units = [
@@ -463,8 +476,13 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         binaries.append({"source": f"binaries/{service_name}", "target": f"bin/{service_name}", "mode": "0755"})
         dynamic_units.append(f"trakrai-{service_name}.service")
 
-    if "ai-inference.json" in available_configs:
-        configs.append({"source": "configs/ai-inference.json", "target": "ai-inference.json"})
+    for target in PYTHON_WHEEL_TARGETS:
+        if target.config_name not in available_configs:
+            continue
+        wheel_name = wheel_names.get(target.config_name, "")
+        if not wheel_name:
+            raise SystemExit(f"missing wheel artifact name for {target.config_name}")
+        configs.append({"source": f"configs/{target.config_name}", "target": target.config_name})
         wheels.append(
             {
                 "source": f"wheels/{wheel_name}",
@@ -480,7 +498,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
                 ],
             }
         )
-        dynamic_units.append("trakrai-ai-inference.service")
+        dynamic_units.append(wheel_systemd_unit(target))
 
     stop_units.extend(dynamic_units)
     wait_for_units.extend(dynamic_units)
@@ -530,6 +548,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "trakrai-device-ui-current.zip",
             "ui",
             "ai_inference",
+            "workflow-engine",
             "managed-services.json",
             "*.log",
         ],
@@ -541,12 +560,62 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             f"{runtime_root}/rtsp-feeder",
             f"{runtime_root}/serve-device-ui.sh",
             f"{runtime_root}/ai-inference.json",
+            f"{runtime_root}/workflow-engine.json",
         ],
         "stop_units": stop_units,
         "wait_for_units": wait_for_units,
         "start_units": start_units,
         "verify_units": verify_units,
     }
+
+
+def build_wheel_service(target: PythonWheelTarget, options: StageOptions) -> dict[str, Any]:
+    runtime_root = options.runtime_root
+    return {
+        "name": target.service_name,
+        "display_name": target.display_name,
+        "description": target.description,
+        "kind": "wheel",
+        "allow_control": True,
+        "allow_update": True,
+        "enabled": True,
+        "exec_start": [
+            "python3",
+            "-m",
+            target.module_name,
+            "--config",
+            f"{runtime_root}/{target.config_name}",
+        ],
+        "setup_command": [
+            "python3",
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--force-reinstall",
+            "{{artifact_path}}",
+        ],
+        "version_command": [
+            "python3",
+            "-m",
+            target.module_name,
+            "--version",
+        ],
+        "systemd_unit": wheel_systemd_unit(target),
+        "user": options.runtime_user,
+        "group": options.runtime_group,
+        "environment": {
+            "HOME": f"/home/{options.runtime_user}",
+            "PYTHONUNBUFFERED": "1",
+        },
+        "working_directory": runtime_root,
+    }
+
+
+def wheel_systemd_unit(target: PythonWheelTarget) -> str:
+    if target.service_name.startswith("trakrai-"):
+        return f"{target.service_name}.service"
+    return f"trakrai-{target.service_name}.service"
 
 
 def create_ui_zip(source_dir: Path, output_path: Path) -> None:

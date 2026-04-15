@@ -1,0 +1,17 @@
+{
+  "log_level": "info",
+  "device_id": "trakrai-device-001",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "queue": {
+    "max_pending": 256,
+    "status_report_interval_sec": 15
+  },
+  "workflow": {
+    "file_path": "/home/hacklab/trakrai-device-runtime/shared/workflow.json",
+    "reload_poll_interval_ms": 1000,
+    "max_workers": 4,
+    "result_history_size": 20
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "name": "Minimal Detection Workflow",
+    "description": "Local development workflow that exposes camera metadata and detections."
+  },
+  "nodes": [
+    {
+      "id": "camera",
+      "type": "get-camera-id",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Camera Metadata",
+        "configuration": {}
+      }
+    },
+    {
+      "id": "detections",
+      "type": "get-detections",
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "data": {
+        "label": "Detections",
+        "configuration": {}
+      }
+    }
+  ],
+  "edges": []
+}
