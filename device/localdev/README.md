@@ -46,10 +46,41 @@ Important defaults:
 
 - edge UI/API: `http://127.0.0.1:18080`
 - fake RTSP feed: `rtsp://127.0.0.1:18554/stream`
+- host-backed transfer shared dir: `trakrai/device/.localdev/shared`
 - broker host inside containers: `host.docker.internal:1883`
 - local MinIO API: `http://127.0.0.1:19000`
 - local MinIO console: `http://127.0.0.1:19001`
 - local mock cloud API: `http://127.0.0.1:18090`
+
+## Using Uploads And Downloads From The UI
+
+`cloud-transfer` only reads and writes files inside the device shared directory. In local dev,
+that directory is now bind-mounted to the host at:
+
+```bash
+trakrai/device/.localdev/shared
+```
+
+Use the transfers UI like this:
+
+- for uploads, create the source file under `trakrai/device/.localdev/shared`
+- in the UI, enter the `localPath` relative to that directory, for example `manual-tests/sample.txt`
+- use any scoped S3 path for `remotePath`, for example `manual-tests/sample.txt`
+- for downloads, use an existing remote path and a target `localPath` like `manual-tests/downloaded.txt`
+- timeout values accept Go-style durations like `4h`, and also day-based values like `1d`
+
+Examples:
+
+```text
+Upload localPath:  manual-tests/sample.txt
+Upload remotePath: manual-tests/sample.txt
+
+Download localPath:  manual-tests/downloaded.txt
+Download remotePath: manual-tests/sample.txt
+```
+
+Host filesystem paths like `/Users/...` will fail, because `cloud-transfer` only accepts paths
+inside the device shared directory.
 
 ## Verifying Cloud Transfer
 

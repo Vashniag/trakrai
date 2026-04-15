@@ -55,6 +55,17 @@ func TestParseTimeoutWindow(t *testing.T) {
 		t.Fatalf("unexpected deadline: got %s want %s", got, want)
 	}
 
+	dayDeadline, err := parseTimeoutWindow("1d", now)
+	if err != nil {
+		t.Fatalf("parseTimeoutWindow for day duration returned error: %v", err)
+	}
+	if dayDeadline == nil {
+		t.Fatal("expected day duration deadline to be set")
+	}
+	if got, want := dayDeadline.UTC(), now.Add(24*time.Hour); !got.Equal(want) {
+		t.Fatalf("unexpected day deadline: got %s want %s", got, want)
+	}
+
 	if _, err := parseTimeoutWindow("bad", now); err == nil {
 		t.Fatal("expected invalid timeout to fail")
 	}

@@ -16,6 +16,7 @@ COMPOSE_FILE = common.DEVICE_ROOT / "localdev" / "docker-compose.yml"
 LOCALDEV_ROOT = common.DEVICE_ROOT / ".localdev"
 STAGE_DIR = LOCALDEV_ROOT / "stage"
 COMPOSE_ENV_FILE = LOCALDEV_ROOT / "compose.env"
+SHARED_DIR = LOCALDEV_ROOT / "shared"
 DEFAULT_CONFIG_DIR = common.DEVICE_ROOT / "localdev" / "configs"
 DEFAULT_PROJECT_NAME = "trakrai-local-device"
 DEFAULT_RUNTIME_ROOT = "/home/hacklab/trakrai-device-runtime"
@@ -151,9 +152,11 @@ def cmd_up(args: argparse.Namespace) -> int:
     shutil.copy2(common.DEVICE_ROOT / "scripts" / "bootstrap_device_runtime.py", STAGE_DIR / "bootstrap_device_runtime.py")
 
     LOCALDEV_ROOT.mkdir(parents=True, exist_ok=True)
+    SHARED_DIR.mkdir(parents=True, exist_ok=True)
     write_compose_env(
         compose_project_name=args.compose_project_name,
         stage_dir=STAGE_DIR,
+        shared_dir=SHARED_DIR,
         video_path=video_path,
         http_port=args.http_port,
         rtsp_port=args.rtsp_port,
@@ -168,6 +171,7 @@ def cmd_up(args: argparse.Namespace) -> int:
     print("")
     print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
     print(f"Fake RTSP feed: rtsp://127.0.0.1:{args.rtsp_port}/stream")
+    print(f"Host shared dir: {SHARED_DIR}")
     return 0
 
 
@@ -233,6 +237,7 @@ def write_compose_env(
     *,
     compose_project_name: str,
     stage_dir: Path,
+    shared_dir: Path,
     video_path: Path,
     http_port: int,
     rtsp_port: int,
@@ -244,6 +249,7 @@ def write_compose_env(
             [
                 f"COMPOSE_PROJECT_NAME={compose_project_name}",
                 f"TRAKRAI_LOCAL_STAGE_DIR={stage_dir}",
+                f"TRAKRAI_LOCAL_SHARED_DIR={shared_dir}",
                 f"TRAKRAI_LOCAL_VIDEO_FILE={video_path}",
                 f"TRAKRAI_LOCAL_HTTP_PORT={http_port}",
                 f"TRAKRAI_LOCAL_RTSP_PORT={rtsp_port}",

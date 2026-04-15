@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -56,7 +57,7 @@ func parseTimeoutWindow(raw string, now time.Time) (*time.Time, error) {
 	if trimmed == "" {
 		return nil, nil
 	}
-	duration, err := time.ParseDuration(trimmed)
+	duration, err := parseTransferDuration(trimmed)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timeout %q: %w", raw, err)
 	}
@@ -65,4 +66,26 @@ func parseTimeoutWindow(raw string, now time.Time) (*time.Time, error) {
 	}
 	deadline := now.Add(duration)
 	return &deadline, nil
+}
+
+func parseTransferDuration(raw string) (time.Duration, error) {
+	trimmed := strings.TrimSpace(strings.ToLower(raw))
+	switch {
+	case strings.HasSuffix(trimmed, "days"):
+		return parseDayDuration(strings.TrimSuffix(trimmed, "days"))
+	case strings.HasSuffix(trimmed, "day"):
+		return parseDayDuration(strings.TrimSuffix(trimmed, "day"))
+	case strings.HasSuffix(trimmed, "d"):
+		return parseDayDuration(strings.TrimSuffix(trimmed, "d"))
+	default:
+		return time.ParseDuration(trimmed)
+	}
+}
+
+func parseDayDuration(raw string) (time.Duration, error) {
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(value * float64(24*time.Hour)), nil
 }

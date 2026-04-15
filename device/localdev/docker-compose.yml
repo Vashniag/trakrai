@@ -84,6 +84,7 @@ services:
     volumes:
       - '${TRAKRAI_LOCAL_STAGE_DIR}:/stage:ro'
       - trakrai_local_runtime:/home/hacklab/trakrai-device-runtime
+      - '${TRAKRAI_LOCAL_SHARED_DIR}:/home/hacklab/trakrai-device-runtime/shared'
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/api/runtime-config >/dev/null']
       interval: 10s

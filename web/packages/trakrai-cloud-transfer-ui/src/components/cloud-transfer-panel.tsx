@@ -216,7 +216,7 @@ export const CloudTransferPanel = ({ controller }: CloudTransferPanelProps) => {
           <CardHeader className="border-b">
             <CardTitle className="text-base">Queue upload</CardTitle>
             <CardDescription>
-              Provide a shared-directory file and the remote object path.
+              Provide a path relative to the device shared directory and the remote object path.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -224,11 +224,15 @@ export const CloudTransferPanel = ({ controller }: CloudTransferPanelProps) => {
               <Label htmlFor="upload-local-path">Local path</Label>
               <Input
                 id="upload-local-path"
+                placeholder="manual-tests/sample.txt"
                 value={uploadDraft.localPath}
                 onChange={(event) => {
                   setUploadDraft((current) => ({ ...current, localPath: event.target.value }));
                 }}
               />
+              <p className="text-muted-foreground text-xs">
+                Relative to the shared directory shown above. Absolute host paths will be rejected.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="upload-remote-path">Remote path</Label>
@@ -255,7 +259,7 @@ export const CloudTransferPanel = ({ controller }: CloudTransferPanelProps) => {
                 <Label htmlFor="upload-timeout">Timeout</Label>
                 <Input
                   id="upload-timeout"
-                  placeholder="4h"
+                  placeholder="4h or 1d"
                   value={uploadDraft.timeout}
                   onChange={(event) => {
                     setUploadDraft((current) => ({ ...current, timeout: event.target.value }));
@@ -284,7 +288,7 @@ export const CloudTransferPanel = ({ controller }: CloudTransferPanelProps) => {
           <CardHeader className="border-b">
             <CardTitle className="text-base">Queue download</CardTitle>
             <CardDescription>
-              Request a device-side download into the shared directory.
+              Request a device-side download into a path relative to the shared directory.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -292,11 +296,15 @@ export const CloudTransferPanel = ({ controller }: CloudTransferPanelProps) => {
               <Label htmlFor="download-local-path">Local path</Label>
               <Input
                 id="download-local-path"
+                placeholder="manual-tests/downloaded.txt"
                 value={downloadDraft.localPath}
                 onChange={(event) => {
                   setDownloadDraft((current) => ({ ...current, localPath: event.target.value }));
                 }}
               />
+              <p className="text-muted-foreground text-xs">
+                Relative to the shared directory shown above. The file will be created there.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="download-remote-path">Remote path</Label>
@@ -312,7 +320,7 @@ export const CloudTransferPanel = ({ controller }: CloudTransferPanelProps) => {
               <Label htmlFor="download-timeout">Timeout</Label>
               <Input
                 id="download-timeout"
-                placeholder="1d"
+                placeholder="4h or 1d"
                 value={downloadDraft.timeout}
                 onChange={(event) => {
                   setDownloadDraft((current) => ({ ...current, timeout: event.target.value }));
