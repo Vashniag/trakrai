@@ -16,12 +16,9 @@ import {
 
 import { VideoPlayer } from './video-player';
 
+import type { LiveViewerState } from '../hooks/use-live-viewer';
 import type { LiveFrameSource, LiveLayoutMode } from '../lib/live-viewer-types';
-import type {
-  ConnectionState,
-  DeviceCamera,
-  StreamStats,
-} from '@trakrai/live-transport/lib/live-types';
+import type { DeviceCamera } from '@trakrai/live-transport/lib/live-types';
 
 import { LIVE_LAYOUT_OPTIONS } from '../lib/live-layout-utils';
 
@@ -115,16 +112,12 @@ const LayoutGlyph = ({ mode }: Readonly<{ mode: LiveLayoutMode }>) => {
   );
 };
 
-export type LiveViewerPanelProps = Readonly<{
-  activeCameraName: string | null;
+export type LiveViewerLayoutModel = Readonly<{
   activeFrameSourceLabel: string;
   activePageNumber: number;
   canPageBackward: boolean;
   canPageForward: boolean;
-  connectionState: ConnectionState;
-  error: string | null;
   frameSource: LiveFrameSource;
-  isBusy: boolean;
   isStreamSessionActive: boolean;
   layoutMode: LiveLayoutMode;
   pageCount: number;
@@ -132,48 +125,52 @@ export type LiveViewerPanelProps = Readonly<{
   primaryCameraLabel: string;
   primaryResolutionLabel: string;
   selectedCameraName: string;
-  stream: MediaStream | null;
-  streamStats: StreamStats | null;
   visibleCameraNamesLabel: string;
   visibleCameras: DeviceCamera[];
   onFrameSourceChange: (frameSource: LiveFrameSource) => void;
   onLayoutChange: (mode: LiveLayoutMode) => void;
   onPageShift: (direction: -1 | 1) => void;
-  onRefreshStatus: () => void;
   onSelectCamera: (cameraName: string) => void;
   onStartLive: () => void;
-  onStopLive: () => void;
 }>;
 
-export const LiveViewerPanel = ({
-  activeCameraName,
-  activeFrameSourceLabel,
-  activePageNumber,
-  canPageBackward,
-  canPageForward,
-  connectionState,
-  error,
-  frameSource,
-  isBusy,
-  isStreamSessionActive,
-  layoutMode,
-  pageCount,
-  pageLabel,
-  primaryCameraLabel,
-  primaryResolutionLabel,
-  selectedCameraName,
-  stream,
-  streamStats,
-  visibleCameraNamesLabel,
-  visibleCameras,
-  onFrameSourceChange,
-  onLayoutChange,
-  onPageShift,
-  onRefreshStatus,
-  onSelectCamera,
-  onStartLive,
-  onStopLive,
-}: LiveViewerPanelProps) => {
+export type LiveViewerPanelProps = Readonly<{
+  layout: LiveViewerLayoutModel;
+  viewer: LiveViewerState;
+}>;
+
+export const LiveViewerPanel = ({ layout, viewer }: LiveViewerPanelProps) => {
+  const {
+    activeFrameSourceLabel,
+    activePageNumber,
+    canPageBackward,
+    canPageForward,
+    frameSource,
+    isStreamSessionActive,
+    layoutMode,
+    pageCount,
+    pageLabel,
+    primaryCameraLabel,
+    primaryResolutionLabel,
+    selectedCameraName,
+    visibleCameraNamesLabel,
+    visibleCameras,
+    onFrameSourceChange,
+    onLayoutChange,
+    onPageShift,
+    onSelectCamera,
+    onStartLive,
+  } = layout;
+  const {
+    activeCameraName,
+    connectionState,
+    error,
+    isBusy,
+    refreshStatus: onRefreshStatus,
+    stopLive: onStopLive,
+    stream,
+    streamStats,
+  } = viewer;
   const statusClasses = getStatusClasses(connectionState);
 
   return (
@@ -383,7 +380,9 @@ export const LiveViewerPanel = ({
           <Button
             disabled={isBusy || visibleCameras.length === 0}
             type="button"
-            onClick={onStartLive}
+            onClick={() => {
+              onStartLive();
+            }}
           >
             {isStreamSessionActive ? 'Restart live view' : 'Start live view'}
           </Button>

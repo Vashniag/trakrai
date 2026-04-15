@@ -35,17 +35,12 @@
     "typescript": "^6"
   },
   "exports": {
-    "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",
     "./providers/*": "./src/providers/*.tsx"
   },
   "publishConfig": {
     "access": "public",
     "exports": {
-      "./hooks/*": {
-        "import": "./dist/hooks/*.js",
-        "types": "./dist/hooks/*.d.ts"
-      },
       "./lib/*": {
         "import": "./dist/lib/*.js",
         "types": "./dist/lib/*.d.ts"

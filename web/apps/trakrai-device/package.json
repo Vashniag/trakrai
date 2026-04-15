@@ -9,10 +9,12 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@trakrai/cloud-transfer-ui": "workspace:*",
     "@trakrai/design-system": "workspace:*",
-    "@trakrai/edge-protocol": "workspace:*",
     "@trakrai/live-transport": "workspace:*",
     "@trakrai/live-ui": "workspace:*",
+    "@trakrai/runtime-manager-ui": "workspace:*",
+    "@trakrai/webrtc": "workspace:*",
     "next": "16.2.3",
     "react": "19.2.5",
     "react-dom": "19.2.5",

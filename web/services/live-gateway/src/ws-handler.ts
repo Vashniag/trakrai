@@ -15,6 +15,28 @@ type ClientContext = {
   deviceId: string;
 };
 
+type GatewayWebSocketRateLimit = {
+  maxCommandMessages: number;
+  maxMessages: number;
+  maxPayloadBytes: number;
+  windowMs: number;
+};
+
+type WebSocketDependencies = {
+  now: () => number;
+  onMqttMessage: typeof onMqttMessage;
+  parseDeviceTopic: typeof parseDeviceTopic;
+  publishMqtt: typeof publishMqtt;
+  subscribeToDevice: typeof subscribeToDevice;
+  unsubscribeFromDevice: typeof unsubscribeFromDevice;
+  warn: (message: string) => void;
+};
+
+export type WebSocketSetupOptions = {
+  deps?: Partial<WebSocketDependencies>;
+  rateLimit?: GatewayWebSocketRateLimit;
+};
+
 type TransportEnvelope = {
   msgId?: string;
   payload?: unknown;
@@ -49,6 +71,59 @@ const sessionOwners = new Map<string, WebSocket>();
 const clientRequests = new Map<WebSocket, Set<string>>();
 const clientSessions = new Map<WebSocket, Set<string>>();
 const lastKnownStatuses = new Map<string, TransportPacket>();
+const inboundRateLimits = new Map<
+  WebSocket,
+  { commandTimestamps: number[]; messageTimestamps: number[] }
+>();
+const defaultGatewayRateLimit: GatewayWebSocketRateLimit = {
+  maxCommandMessages: 40,
+  maxMessages: 120,
+  maxPayloadBytes: 1024 * 1024,
+  windowMs: 5000,
+};
+
+const defaultWebSocketDependencies: WebSocketDependencies = {
+  now: () => Date.now(),
+  onMqttMessage,
+  parseDeviceTopic,
+  publishMqtt,
+  subscribeToDevice,
+  unsubscribeFromDevice,
+  warn: (message: string) => {
+    console.warn(`[ws] ${message}`);
+  },
+};
+
+const normalizeGatewayRateLimit = (
+  rateLimit: GatewayWebSocketRateLimit | undefined,
+): GatewayWebSocketRateLimit => {
+  const candidate = rateLimit ?? defaultGatewayRateLimit;
+  const maxMessages =
+    Number.isFinite(candidate.maxMessages) && candidate.maxMessages > 0
+      ? candidate.maxMessages
+      : defaultGatewayRateLimit.maxMessages;
+  const maxCommandMessages =
+    Number.isFinite(candidate.maxCommandMessages) &&
+    candidate.maxCommandMessages > 0 &&
+    candidate.maxCommandMessages <= maxMessages
+      ? candidate.maxCommandMessages
+      : Math.min(defaultGatewayRateLimit.maxCommandMessages, maxMessages);
+  const maxPayloadBytes =
+    Number.isFinite(candidate.maxPayloadBytes) && candidate.maxPayloadBytes > 0
+      ? candidate.maxPayloadBytes
+      : defaultGatewayRateLimit.maxPayloadBytes;
+  const windowMs =
+    Number.isFinite(candidate.windowMs) && candidate.windowMs > 0
+      ? candidate.windowMs
+      : defaultGatewayRateLimit.windowMs;
+
+  return {
+    maxCommandMessages,
+    maxMessages,
+    maxPayloadBytes,
+    windowMs,
+  };
+};
 
 const getDeviceIdFromRequest = (requestUrl: string | undefined): string => {
   if (requestUrl === undefined) {
@@ -105,8 +180,74 @@ const buildEnvelope = (
   type,
 });
 
-const requestDeviceStatus = (deviceId: string): void => {
-  publishMqtt(deviceId, 'command', JSON.stringify(buildEnvelope('get-status', {})));
+const requestDeviceStatus = (
+  publishMessage: WebSocketDependencies['publishMqtt'],
+  deviceId: string,
+): void => {
+  publishMessage(deviceId, 'command', JSON.stringify(buildEnvelope('get-status', {})));
+};
+
+const getInboundRateLimiter = (ws: WebSocket) => {
+  let limiter = inboundRateLimits.get(ws);
+  if (limiter !== undefined) {
+    return limiter;
+  }
+
+  limiter = {
+    commandTimestamps: [],
+    messageTimestamps: [],
+  };
+  inboundRateLimits.set(ws, limiter);
+  return limiter;
+};
+
+const pruneExpiredTimestamps = (timestamps: number[], cutoffMs: number): number[] => {
+  let firstActiveIndex = 0;
+  while (firstActiveIndex < timestamps.length && timestamps[firstActiveIndex] < cutoffMs) {
+    firstActiveIndex += 1;
+  }
+
+  if (firstActiveIndex === 0) {
+    return timestamps;
+  }
+  if (firstActiveIndex >= timestamps.length) {
+    return [];
+  }
+  return timestamps.slice(firstActiveIndex);
+};
+
+const recordInboundMessage = (
+  limiter: { commandTimestamps: number[]; messageTimestamps: number[] },
+  nowMs: number,
+  rateLimit: GatewayWebSocketRateLimit,
+): string | null => {
+  limiter.messageTimestamps = pruneExpiredTimestamps(
+    limiter.messageTimestamps,
+    nowMs - rateLimit.windowMs,
+  );
+  if (limiter.messageTimestamps.length >= rateLimit.maxMessages) {
+    return 'too many websocket messages';
+  }
+
+  limiter.messageTimestamps.push(nowMs);
+  return null;
+};
+
+const recordInboundCommand = (
+  limiter: { commandTimestamps: number[]; messageTimestamps: number[] },
+  nowMs: number,
+  rateLimit: GatewayWebSocketRateLimit,
+): string | null => {
+  limiter.commandTimestamps = pruneExpiredTimestamps(
+    limiter.commandTimestamps,
+    nowMs - rateLimit.windowMs,
+  );
+  if (limiter.commandTimestamps.length >= rateLimit.maxCommandMessages) {
+    return 'too many websocket commands';
+  }
+
+  limiter.commandTimestamps.push(nowMs);
+  return null;
 };
 
 const readRoutingIds = (
@@ -214,14 +355,25 @@ const clearClientRoutes = (ws: WebSocket): void => {
   }
 };
 
-const cleanupClient = (ws: WebSocket): void => {
+const cleanupClient = (ws: WebSocket, deps: WebSocketDependencies): void => {
   const context = clients.get(ws);
   if (context !== undefined) {
-    unsubscribeFromDevice(context.deviceId);
+    deps.unsubscribeFromDevice(context.deviceId);
   }
 
   clearClientRoutes(ws);
   clients.delete(ws);
+  inboundRateLimits.delete(ws);
+};
+
+export const resetWebSocketStateForTests = (): void => {
+  clients.clear();
+  requestOwners.clear();
+  sessionOwners.clear();
+  clientRequests.clear();
+  clientSessions.clear();
+  lastKnownStatuses.clear();
+  inboundRateLimits.clear();
 };
 
 const packetTargets = (packet: TransportPacket): Set<WebSocket> | null => {
@@ -281,6 +433,17 @@ const sendGatewayError = (
   );
 };
 
+const inboundMessageCountsAsCommand = (message: InboundFrame): boolean =>
+  isSetDeviceFrame(message) || (isPacketFrame(message) && message.subtopic.trim() === 'command');
+
+const closeForRateLimit = (ws: WebSocket, deps: WebSocketDependencies, reason: string): void => {
+  deps.warn(`closing websocket for rate limit violation: ${reason}`);
+  cleanupClient(ws, deps);
+  if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+    ws.close(1008, reason);
+  }
+};
+
 const sendSessionInfo = (ws: WebSocket, deviceId: string): void => {
   sendJson(ws, {
     deviceId,
@@ -288,7 +451,11 @@ const sendSessionInfo = (ws: WebSocket, deviceId: string): void => {
   });
 };
 
-const syncClientDevice = async (ws: WebSocket, deviceId: string): Promise<void> => {
+const syncClientDevice = async (
+  ws: WebSocket,
+  deviceId: string,
+  deps: WebSocketDependencies,
+): Promise<void> => {
   const nextDeviceId = deviceId.trim() !== '' ? deviceId.trim() : config.defaultDeviceId;
   const context = clients.get(ws);
   if (context === undefined) {
@@ -296,9 +463,9 @@ const syncClientDevice = async (ws: WebSocket, deviceId: string): Promise<void> 
   }
 
   if (context.deviceId !== nextDeviceId) {
-    await subscribeToDevice(nextDeviceId);
+    await deps.subscribeToDevice(nextDeviceId);
     clearClientRoutes(ws);
-    unsubscribeFromDevice(context.deviceId);
+    deps.unsubscribeFromDevice(context.deviceId);
     clients.set(ws, { deviceId: nextDeviceId });
   }
 
@@ -309,14 +476,26 @@ const syncClientDevice = async (ws: WebSocket, deviceId: string): Promise<void> 
     sendPacket(ws, cachedStatus);
   }
 
-  requestDeviceStatus(nextDeviceId);
+  requestDeviceStatus(deps.publishMqtt, nextDeviceId);
 };
 
-export function setupWebSocket(server: Server): void {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+export function setupWebSocket(
+  server: Server,
+  options: WebSocketSetupOptions = {},
+): WebSocketServer {
+  const deps: WebSocketDependencies = {
+    ...defaultWebSocketDependencies,
+    ...options.deps,
+  };
+  const rateLimit = normalizeGatewayRateLimit(options.rateLimit ?? config.wsRateLimit);
+  const wss = new WebSocketServer({
+    maxPayload: rateLimit.maxPayloadBytes,
+    path: '/ws',
+    server,
+  });
 
-  onMqttMessage((topic, payload) => {
-    const parsedTopic = parseDeviceTopic(topic);
+  deps.onMqttMessage((topic, payload) => {
+    const parsedTopic = deps.parseDeviceTopic(topic);
     if (parsedTopic === null) {
       return;
     }
@@ -365,7 +544,7 @@ export function setupWebSocket(server: Server): void {
     clients.set(ws, { deviceId });
 
     try {
-      await subscribeToDevice(deviceId);
+      await deps.subscribeToDevice(deviceId);
       sendSessionInfo(ws, deviceId);
 
       const cachedStatus = lastKnownStatuses.get(deviceId);
@@ -373,7 +552,7 @@ export function setupWebSocket(server: Server): void {
         sendPacket(ws, cachedStatus);
       }
 
-      requestDeviceStatus(deviceId);
+      requestDeviceStatus(deps.publishMqtt, deviceId);
     } catch (error) {
       sendGatewayError(ws, deviceId, error instanceof Error ? error.message : 'subscribe failed', {
         requestType: 'set-device',
@@ -381,6 +560,14 @@ export function setupWebSocket(server: Server): void {
     }
 
     ws.on('message', (data) => {
+      const limiter = getInboundRateLimiter(ws);
+      const nowMs = deps.now();
+      const messageViolation = recordInboundMessage(limiter, nowMs, rateLimit);
+      if (messageViolation !== null) {
+        closeForRateLimit(ws, deps, messageViolation);
+        return;
+      }
+
       let message: InboundFrame;
       try {
         message = JSON.parse(data.toString()) as InboundFrame;
@@ -393,9 +580,17 @@ export function setupWebSocket(server: Server): void {
         return;
       }
 
+      if (inboundMessageCountsAsCommand(message)) {
+        const commandViolation = recordInboundCommand(limiter, nowMs, rateLimit);
+        if (commandViolation !== null) {
+          closeForRateLimit(ws, deps, commandViolation);
+          return;
+        }
+      }
+
       if (isSetDeviceFrame(message)) {
         const nextDeviceId = normalizeOptionalString(message.deviceId) ?? config.defaultDeviceId;
-        void syncClientDevice(ws, nextDeviceId).catch((error) => {
+        void syncClientDevice(ws, nextDeviceId, deps).catch((error) => {
           sendGatewayError(
             ws,
             context.deviceId,
@@ -427,7 +622,7 @@ export function setupWebSocket(server: Server): void {
         registerRequestOwner(ws, requestId);
       }
 
-      publishMqtt(
+      deps.publishMqtt(
         context.deviceId,
         normalizedPacket.subtopic,
         JSON.stringify(normalizedPacket.envelope),
@@ -436,13 +631,14 @@ export function setupWebSocket(server: Server): void {
     });
 
     ws.on('close', () => {
-      cleanupClient(ws);
+      cleanupClient(ws, deps);
     });
 
     ws.on('error', () => {
-      cleanupClient(ws);
+      cleanupClient(ws, deps);
     });
   });
 
   console.log('[ws] WebSocket server attached on /ws');
+  return wss;
 }

@@ -19,6 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@trakrai/cloud-transfer-ui": "workspace:*",
     "@trakrai/design-system": "workspace:*",
     "@trakrai/live-transport": "workspace:*",
     "@trakrai/live-viewer": "workspace:*",

@@ -27,8 +27,11 @@ import {
   type StatsSnapshot,
 } from '@trakrai/live-transport/lib/live-transport-utils';
 
-import type { StreamStats, WebRtcConnectionState, WebRtcEvent } from '@trakrai/live-transport/lib/live-types';
-
+import type {
+  StreamStats,
+  WebRtcConnectionState,
+  WebRtcEvent,
+} from '@trakrai/live-transport/lib/live-types';
 
 type WebRtcSignalSender = (type: 'ice-candidate' | 'sdp-answer', payload: unknown) => void;
 
@@ -298,6 +301,9 @@ export const WebRtcProvider = ({
           }
 
           switch (peerConnection.connectionState) {
+            case 'new':
+            case 'connecting':
+              break;
             case 'connected':
               if (disconnectTimerRef.current !== null) {
                 window.clearTimeout(disconnectTimerRef.current);
@@ -375,7 +381,7 @@ export const WebRtcProvider = ({
         emitEvent({ message, type: 'error' });
       }
     },
-    [cleanupPeer, collectStats, currentSessionId, emitEvent, iceTransportPolicy, normalizedHttpBaseUrl],
+    [cleanupPeer, currentSessionId, emitEvent, iceTransportPolicy, normalizedHttpBaseUrl],
   );
 
   const handleRemoteIceCandidate = useCallback(
@@ -464,10 +470,10 @@ export const WebRtcProvider = ({
   return <WebRtcContext.Provider value={value}>{children}</WebRtcContext.Provider>;
 };
 
-export const useWebRtcContext = (): WebRtcContextValue => {
+export const useWebRtc = (): WebRtcContextValue => {
   const context = useContext(WebRtcContext);
   if (context === null) {
-    throw new Error('useWebRtcContext must be used within a WebRtcProvider.');
+    throw new Error('useWebRtc must be used within a WebRtcProvider.');
   }
 
   return context;

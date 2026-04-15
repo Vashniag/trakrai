@@ -32,6 +32,7 @@ const (
 	runtimeManagerStatusType     = "runtime-manager-status"
 	runtimeManagerUpdateType     = "runtime-manager-update"
 	statusRefreshInterval        = 20 * time.Second
+	statusSnapshotCacheTTL       = time.Second
 	systemCommandTimeout         = 15 * time.Second
 	versionCommandTimeout        = 5 * time.Second
 )
@@ -64,6 +65,12 @@ type Service struct {
 	stateMu    sync.RWMutex
 	lastAction string
 	lastError  string
+
+	statusSnapshotMu      sync.Mutex
+	statusSnapshot        RuntimeStatusPayload
+	statusSnapshotAt      time.Time
+	statusSnapshotValid   bool
+	statusSnapshotBuildCh chan struct{}
 
 	execCommand func(context.Context, string, ...string) ([]byte, error)
 	now         func() time.Time
@@ -358,6 +365,7 @@ func (s *Service) handleServiceAction(ctx context.Context, env ipc.MQTTEnvelope,
 		s.log.Warn("inspect service after action failed", "service", serviceConfig.Name, "error", inspectErr)
 	}
 
+	s.invalidateStatusSnapshot()
 	s.recordAction(fmt.Sprintf("%s %s", action, serviceConfig.Name), nil)
 	if err := s.publishResponse(runtimeManagerActionType, RuntimeActionPayload{
 		Action:      action,
@@ -451,6 +459,7 @@ func (s *Service) handleUpdateService(ctx context.Context, env ipc.MQTTEnvelope)
 		return
 	}
 
+	s.invalidateStatusSnapshot()
 	s.recordAction(fmt.Sprintf("update %s", serviceConfig.Name), nil)
 	if err := s.publishResponse(runtimeManagerUpdateType, RuntimeActionPayload{
 		Action:      "update-service",
@@ -530,6 +539,7 @@ func (s *Service) handleUpsertService(ctx context.Context, env ipc.MQTTEnvelope)
 		s.log.Warn("inspect service after definition update failed", "service", serviceConfig.Name, "error", inspectErr)
 	}
 
+	s.invalidateStatusSnapshot()
 	s.recordAction(fmt.Sprintf("save definition for %s", serviceConfig.Name), nil)
 	if err := s.publishResponse(runtimeManagerActionType, RuntimeActionPayload{
 		Action:      "upsert-service",
@@ -617,6 +627,7 @@ func (s *Service) handleRemoveService(ctx context.Context, env ipc.MQTTEnvelope)
 		return
 	}
 
+	s.invalidateStatusSnapshot()
 	s.recordAction(fmt.Sprintf("remove %s", serviceConfig.Name), nil)
 	if err := s.publishResponse(runtimeManagerActionType, RuntimeActionPayload{
 		Action:      "remove-service",
@@ -633,6 +644,46 @@ func (s *Service) handleRemoveService(ctx context.Context, env ipc.MQTTEnvelope)
 }
 
 func (s *Service) buildStatusPayload(ctx context.Context) (RuntimeStatusPayload, error) {
+	for {
+		s.statusSnapshotMu.Lock()
+		if s.statusSnapshotValid && s.now().Sub(s.statusSnapshotAt) < statusSnapshotCacheTTL {
+			payload := s.statusSnapshot
+			s.statusSnapshotMu.Unlock()
+			return payload, nil
+		}
+
+		if buildCh := s.statusSnapshotBuildCh; buildCh != nil {
+			s.statusSnapshotMu.Unlock()
+
+			select {
+			case <-ctx.Done():
+				return RuntimeStatusPayload{}, ctx.Err()
+			case <-buildCh:
+				continue
+			}
+		}
+
+		buildCh := make(chan struct{})
+		s.statusSnapshotBuildCh = buildCh
+		s.statusSnapshotMu.Unlock()
+
+		payload, err := s.buildFreshStatusPayload(ctx)
+
+		s.statusSnapshotMu.Lock()
+		if err == nil {
+			s.statusSnapshot = payload
+			s.statusSnapshotAt = s.now()
+			s.statusSnapshotValid = true
+		}
+		close(buildCh)
+		s.statusSnapshotBuildCh = nil
+		s.statusSnapshotMu.Unlock()
+
+		return payload, err
+	}
+}
+
+func (s *Service) buildFreshStatusPayload(ctx context.Context) (RuntimeStatusPayload, error) {
 	managedServices := s.listManagedServices()
 	services := make([]ManagedServiceSnapshot, 0, len(managedServices))
 	for _, serviceConfig := range managedServices {
@@ -665,6 +716,15 @@ func (s *Service) buildStatusPayload(ctx context.Context) (RuntimeStatusPayload,
 		StateFile:    s.cfg.Runtime.StateFile,
 		VersionDir:   s.cfg.Runtime.VersionDir,
 	}, nil
+}
+
+func (s *Service) invalidateStatusSnapshot() {
+	s.statusSnapshotMu.Lock()
+	defer s.statusSnapshotMu.Unlock()
+
+	s.statusSnapshot = RuntimeStatusPayload{}
+	s.statusSnapshotAt = time.Time{}
+	s.statusSnapshotValid = false
 }
 
 func (s *Service) inspectManagedService(ctx context.Context, serviceConfig ManagedServiceConfig) (*ManagedServiceSnapshot, error) {

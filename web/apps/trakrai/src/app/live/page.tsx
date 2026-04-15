@@ -1,68 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
+import { DeviceLivePage } from '@trakrai/live-ui/components/device-live-page';
+import { WebRtcProvider } from '@trakrai/webrtc/providers/webrtc-provider';
 
-import { CloudDeviceProtocolProvider } from '@trakrai/cloud-protocol/providers/cloud-device-protocol-provider';
-import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
-import { LiveWorkspace } from '@trakrai/live-ui/components/live-workspace';
+import {
+  CloudConsoleSurface,
+  cloudGatewayIceTransportPolicy,
+} from '@/components/cloud-console-surface';
 
-const DEFAULT_LIVE_DEVICE_ID = 'hacklab@10.8.0.50';
-
-const liveGatewayWsUrl =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'] ??
-  'ws://localhost:4000/ws';
-
-const liveGatewayHttpUrl =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'] ??
-  'http://localhost:4000';
-
-const liveGatewayIceTransportPolicy =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY'] === 'relay' ? 'relay' : 'all';
-
-const LivePage = () => {
-  const [deviceId, setDeviceId] = useState(DEFAULT_LIVE_DEVICE_ID);
+const CloudLiveRoute = () => {
+  const { httpBaseUrl } = useLiveTransport();
 
   return (
-    <LiveConsoleShell
-      bridgeDescription="Routes signaling through the cloud-connected bridge while keeping the live and PTZ workspace identical to the device-hosted edge client."
-      bridgeLabel="Cloud bridge"
-      bridgeStatus="Shared workspace"
-      contractNotes={[
-        'The live feed, PTZ controls, diagnostics, and camera inventory all come from the same shared package.',
-        'Cloud and edge only swap the active bridge target and the runtime metadata shown above the workspace.',
-        'The browser still uses the same WebRTC negotiation path, including the shared ICE-configuration fetch contract.',
-      ]}
-      description="Shared live and PTZ console for cloud-connected devices, with WebRTC diagnostics and the same transport abstraction used by the edge app."
-      detailItems={[
-        { label: 'Device default', value: DEFAULT_LIVE_DEVICE_ID },
-        { label: 'HTTP endpoint', value: liveGatewayHttpUrl },
-        { label: 'WebSocket', value: liveGatewayWsUrl },
-        { label: 'ICE config', value: `${liveGatewayHttpUrl}/api/ice-config` },
-        { label: 'ICE transport', value: liveGatewayIceTransportPolicy },
-      ]}
-      eyebrow="TrakrAI Cloud Operations"
-      title="Live feed and PTZ"
-    >
-      <CloudDeviceProtocolProvider
-        deviceId={deviceId}
-        httpBaseUrl={liveGatewayHttpUrl}
-        iceTransportPolicy={liveGatewayIceTransportPolicy}
-        signalingUrl={liveGatewayWsUrl}
-      >
-        <LiveWorkspace
-          defaultDeviceId={DEFAULT_LIVE_DEVICE_ID}
-          deviceId={deviceId}
-          deviceIdEditable
-          diagnosticsEnabled
-          onDeviceIdChange={setDeviceId}
-        />
-      </CloudDeviceProtocolProvider>
-    </LiveConsoleShell>
+    <WebRtcProvider httpBaseUrl={httpBaseUrl} iceTransportPolicy={cloudGatewayIceTransportPolicy}>
+      <DeviceLivePage />
+    </WebRtcProvider>
   );
 };
+
+const LivePage = () => (
+  <CloudConsoleSurface
+    description="Focused live monitoring and PTZ controls for cloud-connected devices, with WebRTC only mounted on this route."
+    title="Live feed and PTZ"
+  >
+    <CloudLiveRoute />
+  </CloudConsoleSurface>
+);
 
 export default LivePage;

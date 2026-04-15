@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -545,6 +546,89 @@ func TestEdgeWebSocketServerDoesNotBroadcastBrowserOriginIce(t *testing.T) {
 	_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	if _, _, err := conn.ReadMessage(); err == nil {
 		t.Fatalf("expected no websocket message for suppressed browser-origin ICE")
+	}
+}
+
+func TestEdgeWebSocketServerClosesFloodingClient(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+			RateLimit: EdgeRateLimitConfig{
+				MaxCommandMessages: 2,
+				MaxMessages:        10,
+				WindowSec:          1,
+			},
+		},
+	}
+
+	var dispatchedCount atomic.Int32
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			_ = route
+			_ = env
+			dispatchedCount.Add(1)
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	httpServer := httptest.NewServer(httpTestMux(server))
+	defer httpServer.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/ws?deviceId=edge-device-1"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket failed: %v", err)
+	}
+	defer conn.Close()
+
+	for i := 0; i < 2; i++ {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			t.Fatalf("failed to read initial websocket message: %v", err)
+		}
+	}
+
+	packet := map[string]interface{}{
+		"envelope": map[string]interface{}{
+			"payload": map[string]interface{}{
+				"requestId": "req-1",
+			},
+			"type": "get-status",
+		},
+		"kind":     "packet",
+		"service":  "runtime-manager",
+		"subtopic": "command",
+	}
+
+	for i := 0; i < 3; i++ {
+		if err := conn.WriteJSON(packet); err != nil && i < 2 {
+			t.Fatalf("failed to write websocket packet %d: %v", i+1, err)
+		}
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, _, err := conn.ReadMessage(); err == nil {
+		t.Fatal("expected websocket connection to close after rate limit violation")
+	} else {
+		closeErr, ok := err.(*websocket.CloseError)
+		if !ok {
+			t.Fatalf("expected close error, got %T: %v", err, err)
+		}
+		if closeErr.Code != websocket.ClosePolicyViolation {
+			t.Fatalf("expected policy violation close code, got %d", closeErr.Code)
+		}
+	}
+
+	if dispatchedCount.Load() != 2 {
+		t.Fatalf("expected only 2 dispatched packets before close, got %d", dispatchedCount.Load())
 	}
 }
 

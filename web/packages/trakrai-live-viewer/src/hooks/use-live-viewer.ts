@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runtime';
 import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
-import { useLiveTransport } from '@trakrai/live-transport/hooks/use-live-transport';
 import {
   createClientRequestId,
   normalizeOptionalString,
 } from '@trakrai/live-transport/lib/live-transport-utils';
-import { useWebRtc } from '@trakrai/webrtc/hooks/use-webrtc';
+import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
+import { useWebRtc } from '@trakrai/webrtc/providers/webrtc-provider';
 
 import type { LiveFrameSource, LiveLayoutSelection } from '../lib/live-viewer-types';
 import type {
@@ -119,15 +118,18 @@ const mapTransportStateToConnectionState = (
 export const useLiveViewer = (): LiveViewerState => {
   const liveFeedService = useDeviceService(LIVE_VIEWER_SERVICE_NAME);
   const {
+    appendLog,
     deviceId,
+    deviceStatus,
+    heartbeatAgeSeconds,
     httpBaseUrl,
     requestDeviceStatus,
+    runtimeError,
     signalingUrl,
     transportError,
     transportMode,
     transportState,
   } = useLiveTransport();
-  const { appendLog, deviceStatus, heartbeatAgeSeconds, runtimeError } = useDeviceRuntime();
   const {
     closePeer,
     currentSessionId,
@@ -335,14 +337,14 @@ export const useLiveViewer = (): LiveViewerState => {
           },
         )
         .then((response) => {
-          const {payload} = response;
+          const { payload } = response;
           if (payload.ok === false || payload.error !== undefined) {
             const errorMessage = payload.error ?? 'Device rejected the live start request';
             setViewerError(errorMessage);
             setViewerState('idle');
             appendLog('error', errorMessage);
             closePeer({ clearSession: true });
-            return;
+            return undefined;
           }
 
           const acknowledgedCameraName = normalizeOptionalString(payload.cameraName);
@@ -356,6 +358,7 @@ export const useLiveViewer = (): LiveViewerState => {
               acknowledgedCameraName !== null ? ` for ${acknowledgedCameraName}` : ''
             }`,
           );
+          return undefined;
         })
         .catch((error) => {
           const errorMessage =
@@ -434,10 +437,10 @@ export const useLiveViewer = (): LiveViewerState => {
                 : ''
             }`,
           );
+          return undefined;
         })
         .catch((error) => {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Live layout update failed';
+          const errorMessage = error instanceof Error ? error.message : 'Live layout update failed';
           setViewerError(errorMessage);
           appendLog('error', errorMessage);
         });

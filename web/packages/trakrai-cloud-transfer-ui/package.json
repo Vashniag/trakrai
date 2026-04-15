@@ -1,0 +1,60 @@
+{
+  "name": "@trakrai/cloud-transfer-ui",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && pnpm run build:types",
+    "build:types": "tsc -p tsconfig.build.json",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings=0 .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@trakrai/design-system": "workspace:*",
+    "@trakrai/live-transport": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^10.2.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^6"
+  },
+  "exports": {
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      "./components/*": {
+        "import": "./dist/components/*.js",
+        "types": "./dist/components/*.d.ts"
+      },
+      "./hooks/*": {
+        "import": "./dist/hooks/*.js",
+        "types": "./dist/hooks/*.d.ts"
+      },
+      "./lib/*": {
+        "import": "./dist/lib/*.js",
+        "types": "./dist/lib/*.d.ts"
+      }
+    }
+  }
+}

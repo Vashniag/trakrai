@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runtime';
 import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
-import { useLiveTransport } from '@trakrai/live-transport/hooks/use-live-transport';
 import { isDeviceProtocolRequestError } from '@trakrai/live-transport/lib/device-protocol-types';
+import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
 import type {
   ManagedRuntimeService,
@@ -42,6 +41,7 @@ export type RuntimeManagerState = {
 };
 
 const RESPONSE_SUBTOPIC = 'response';
+const ACTION_RESPONSE_TYPES = ['runtime-manager-service-action', 'runtime-manager-update'] as const;
 
 const mergeUpdatedService = (
   currentServices: ManagedRuntimeService[],
@@ -53,9 +53,8 @@ const mergeUpdatedService = (
 
 export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
   const normalizedServiceName = serviceName.trim();
-  const { appendLog, deviceStatus } = useDeviceRuntime();
+  const { appendLog, deviceStatus, transportState } = useLiveTransport();
   const runtimeManagerService = useDeviceService(normalizedServiceName);
-  const { transportState } = useLiveTransport();
   const [services, setServices] = useState<ManagedRuntimeService[]>([]);
   const [paths, setPaths] = useState<RuntimeManagerPaths | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
@@ -98,6 +97,30 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
     [appendLog],
   );
 
+  const applyActionPayload = useCallback(
+    (payload: RuntimeManagerActionPayload) => {
+      const updatedService = payload.service;
+
+      if (updatedService !== undefined) {
+        setServices((currentServices) => mergeUpdatedService(currentServices, updatedService));
+      }
+
+      if (payload.definition !== undefined) {
+        setActiveDefinition(payload.definition);
+      } else if (payload.removed === true && activeDefinition?.name === payload.serviceName) {
+        setActiveDefinition(null);
+      }
+
+      setIsBusy(false);
+      appendLog(
+        'info',
+        payload.message ??
+          `${payload.action} completed for ${updatedService?.displayName ?? payload.serviceName}`,
+      );
+    },
+    [activeDefinition?.name, appendLog],
+  );
+
   const refreshStatus = useCallback(() => {
     if (normalizedServiceName === '') {
       return;
@@ -106,12 +129,17 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
     setError(null);
     setIsBusy(true);
     void runtimeManagerService
-      .request<Record<string, never>, RuntimeManagerStatusPayload>('get-status', {}, {
-        responseSubtopics: [RESPONSE_SUBTOPIC],
-        responseTypes: ['runtime-manager-status'],
-      })
+      .request<Record<string, never>, RuntimeManagerStatusPayload>(
+        'get-status',
+        {},
+        {
+          responseSubtopics: [RESPONSE_SUBTOPIC],
+          responseTypes: ['runtime-manager-status'],
+        },
+      )
       .then((response) => {
         applyStatusPayload(response.payload);
+        return undefined;
       })
       .catch(handleRequestError);
   }, [applyStatusPayload, handleRequestError, normalizedServiceName, runtimeManagerService]);
@@ -139,6 +167,7 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
         .then((response) => {
           setLastLog(response.payload);
           setIsBusy(false);
+          return undefined;
         })
         .catch(handleRequestError);
     },
@@ -161,34 +190,18 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
           },
           {
             responseSubtopics: [RESPONSE_SUBTOPIC],
-            responseTypes: ['runtime-manager-service-action', 'runtime-manager-update'],
+            responseTypes: ACTION_RESPONSE_TYPES,
           },
         )
         .then((response) => {
-          const {payload} = response;
-          if (payload.service !== undefined) {
-            setServices((currentServices) => mergeUpdatedService(currentServices, payload.service!));
-          }
-          if (payload.definition !== undefined) {
-            setActiveDefinition(payload.definition);
-          } else if (payload.removed === true && activeDefinition?.name === payload.serviceName) {
-            setActiveDefinition(null);
-          }
-          setIsBusy(false);
-          appendLog(
-            'info',
-            payload.message ??
-              `${payload.action} completed for ${
-                payload.service?.displayName ?? payload.serviceName
-              }`,
-          );
+          applyActionPayload(response.payload);
           refreshStatus();
+          return undefined;
         })
         .catch(handleRequestError);
     },
     [
-      activeDefinition?.name,
-      appendLog,
+      applyActionPayload,
       handleRequestError,
       normalizedServiceName,
       refreshStatus,
@@ -213,30 +226,23 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
           },
           {
             responseSubtopics: [RESPONSE_SUBTOPIC],
-            responseTypes: ['runtime-manager-service-action', 'runtime-manager-update'],
+            responseTypes: ACTION_RESPONSE_TYPES,
           },
         )
         .then((response) => {
-          const {payload} = response;
-          if (payload.service !== undefined) {
-            setServices((currentServices) => mergeUpdatedService(currentServices, payload.service!));
-          }
-          if (payload.definition !== undefined) {
-            setActiveDefinition(payload.definition);
-          }
-          setIsBusy(false);
-          appendLog(
-            'info',
-            payload.message ??
-              `${payload.action} completed for ${
-                payload.service?.displayName ?? payload.serviceName
-              }`,
-          );
+          applyActionPayload(response.payload);
           refreshStatus();
+          return undefined;
         })
         .catch(handleRequestError);
     },
-    [appendLog, handleRequestError, normalizedServiceName, refreshStatus, runtimeManagerService],
+    [
+      applyActionPayload,
+      handleRequestError,
+      normalizedServiceName,
+      refreshStatus,
+      runtimeManagerService,
+    ],
   );
 
   const loadServiceDefinition = useCallback(
@@ -261,6 +267,7 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
         .then((response) => {
           setActiveDefinition(response.payload.definition);
           setIsBusy(false);
+          return undefined;
         })
         .catch(handleRequestError);
     },
@@ -283,30 +290,23 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
           },
           {
             responseSubtopics: [RESPONSE_SUBTOPIC],
-            responseTypes: ['runtime-manager-service-action', 'runtime-manager-update'],
+            responseTypes: ACTION_RESPONSE_TYPES,
           },
         )
         .then((response) => {
-          const {payload} = response;
-          if (payload.service !== undefined) {
-            setServices((currentServices) => mergeUpdatedService(currentServices, payload.service!));
-          }
-          if (payload.definition !== undefined) {
-            setActiveDefinition(payload.definition);
-          }
-          setIsBusy(false);
-          appendLog(
-            'info',
-            payload.message ??
-              `${payload.action} completed for ${
-                payload.service?.displayName ?? payload.serviceName
-              }`,
-          );
+          applyActionPayload(response.payload);
           refreshStatus();
+          return undefined;
         })
         .catch(handleRequestError);
     },
-    [appendLog, handleRequestError, normalizedServiceName, refreshStatus, runtimeManagerService],
+    [
+      applyActionPayload,
+      handleRequestError,
+      normalizedServiceName,
+      refreshStatus,
+      runtimeManagerService,
+    ],
   );
 
   const removeService = useCallback(
@@ -326,34 +326,18 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
           },
           {
             responseSubtopics: [RESPONSE_SUBTOPIC],
-            responseTypes: ['runtime-manager-service-action', 'runtime-manager-update'],
+            responseTypes: ACTION_RESPONSE_TYPES,
           },
         )
         .then((response) => {
-          const {payload} = response;
-          if (payload.service !== undefined) {
-            setServices((currentServices) => mergeUpdatedService(currentServices, payload.service!));
-          }
-          if (payload.definition !== undefined) {
-            setActiveDefinition(payload.definition);
-          } else if (payload.removed === true && activeDefinition?.name === payload.serviceName) {
-            setActiveDefinition(null);
-          }
-          setIsBusy(false);
-          appendLog(
-            'info',
-            payload.message ??
-              `${payload.action} completed for ${
-                payload.service?.displayName ?? payload.serviceName
-              }`,
-          );
+          applyActionPayload(response.payload);
           refreshStatus();
+          return undefined;
         })
         .catch(handleRequestError);
     },
     [
-      activeDefinition?.name,
-      appendLog,
+      applyActionPayload,
       handleRequestError,
       normalizedServiceName,
       refreshStatus,
@@ -366,8 +350,27 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
       return;
     }
 
-    refreshStatus();
-  }, [normalizedServiceName, refreshStatus, transportState]);
+    void runtimeManagerService
+      .request<Record<string, never>, RuntimeManagerStatusPayload>(
+        'get-status',
+        {},
+        {
+          responseSubtopics: [RESPONSE_SUBTOPIC],
+          responseTypes: ['runtime-manager-status'],
+        },
+      )
+      .then((response) => {
+        applyStatusPayload(response.payload);
+        return undefined;
+      })
+      .catch(handleRequestError);
+  }, [
+    applyStatusPayload,
+    handleRequestError,
+    normalizedServiceName,
+    runtimeManagerService,
+    transportState,
+  ]);
 
   return useMemo(
     () => ({

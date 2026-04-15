@@ -65,9 +65,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.96.0
         version: 5.99.0(react@19.2.5)
-      '@trakrai/cloud-protocol':
+      '@trakrai/cloud-transfer-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-cloud-protocol
+        version: link:../../packages/trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../../packages/trakrai-design-system
@@ -77,6 +77,12 @@ importers:
       '@trakrai/live-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-ui
+      '@trakrai/runtime-manager-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-runtime-manager-ui
+      '@trakrai/webrtc':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-webrtc
       '@trpc/client':
         specifier: ^11.16.0
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.2))(typescript@6.0.2)
@@ -183,18 +189,24 @@ importers:
 
   apps/trakrai-device:
     dependencies:
+      '@trakrai/cloud-transfer-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../../packages/trakrai-design-system
-      '@trakrai/edge-protocol':
-        specifier: workspace:*
-        version: link:../../packages/trakrai-edge-protocol
       '@trakrai/live-transport':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-transport
       '@trakrai/live-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-ui
+      '@trakrai/runtime-manager-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-runtime-manager-ui
+      '@trakrai/webrtc':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-webrtc
       next:
         specifier: 16.2.3
         version: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -305,14 +317,14 @@ importers:
         specifier: ^8.58.1
         version: 8.58.1(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
 
-  packages/trakrai-cloud-protocol:
+  packages/trakrai-cloud-transfer-ui:
     dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
         version: link:../trakrai-live-transport
-      '@trakrai/webrtc':
-        specifier: workspace:*
-        version: link:../trakrai-webrtc
       react:
         specifier: ^18.0.0 || ^19.0.0
         version: 19.2.5
@@ -469,46 +481,6 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/trakrai-edge-protocol:
-    dependencies:
-      '@trakrai/live-transport':
-        specifier: workspace:*
-        version: link:../trakrai-live-transport
-      '@trakrai/webrtc':
-        specifier: workspace:*
-        version: link:../trakrai-webrtc
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5(react@19.2.5)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      '@types/react':
-        specifier: ^19.2.10
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      eslint:
-        specifier: ^10.2.0
-        version: 10.2.0(jiti@2.6.1)
-      tsdown:
-        specifier: ^0.21.7
-        version: 0.21.7(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
-      typescript:
-        specifier: ^6
-        version: 6.0.2
-
   packages/trakrai-live-transport:
     dependencies:
       '@trakrai/design-system':
@@ -554,6 +526,9 @@ importers:
 
   packages/trakrai-live-ui:
     dependencies:
+      '@trakrai/cloud-transfer-ui':
+        specifier: workspace:*
+        version: link:../trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../trakrai-design-system

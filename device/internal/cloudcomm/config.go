@@ -37,13 +37,20 @@ type EdgeUIConfig struct {
 	ManagementService  string `json:"management_service"`
 }
 
+type EdgeRateLimitConfig struct {
+	MaxCommandMessages int `json:"max_command_messages"`
+	MaxMessages        int `json:"max_messages"`
+	WindowSec          int `json:"window_sec"`
+}
+
 type EdgeWebSocketConfig struct {
-	Enabled        bool             `json:"enabled"`
-	ListenAddr     string           `json:"listen_addr"`
-	Path           string           `json:"path"`
-	AllowedOrigins []string         `json:"allowed_origins"`
-	WebRTC         EdgeWebRTCConfig `json:"webrtc"`
-	UI             EdgeUIConfig     `json:"ui"`
+	Enabled        bool                `json:"enabled"`
+	ListenAddr     string              `json:"listen_addr"`
+	Path           string              `json:"path"`
+	AllowedOrigins []string            `json:"allowed_origins"`
+	RateLimit      EdgeRateLimitConfig `json:"rate_limit"`
+	WebRTC         EdgeWebRTCConfig    `json:"webrtc"`
+	UI             EdgeUIConfig        `json:"ui"`
 }
 
 type CameraConfig struct {
@@ -76,6 +83,11 @@ func LoadConfig(path string) (*Config, error) {
 			Enabled:    false,
 			ListenAddr: ":8080",
 			Path:       "/ws",
+			RateLimit: EdgeRateLimitConfig{
+				MaxCommandMessages: 40,
+				MaxMessages:        120,
+				WindowSec:          5,
+			},
 			WebRTC: EdgeWebRTCConfig{
 				ICEServers: []EdgeICEServerConfig{
 					{URLs: []string{"stun:stun.l.google.com:19302"}},
@@ -106,6 +118,18 @@ func LoadConfig(path string) (*Config, error) {
 		if cfg.Edge.Path == "" {
 			return nil, fmt.Errorf("edge.path is required when edge is enabled")
 		}
+	}
+	if cfg.Edge.RateLimit.MaxMessages <= 0 {
+		return nil, fmt.Errorf("edge.rate_limit.max_messages must be greater than 0")
+	}
+	if cfg.Edge.RateLimit.MaxCommandMessages <= 0 {
+		return nil, fmt.Errorf("edge.rate_limit.max_command_messages must be greater than 0")
+	}
+	if cfg.Edge.RateLimit.MaxCommandMessages > cfg.Edge.RateLimit.MaxMessages {
+		return nil, fmt.Errorf("edge.rate_limit.max_command_messages must be less than or equal to edge.rate_limit.max_messages")
+	}
+	if cfg.Edge.RateLimit.WindowSec <= 0 {
+		return nil, fmt.Errorf("edge.rate_limit.window_sec must be greater than 0")
 	}
 	if cfg.Edge.UI.StaticDir != "" {
 		cfg.Edge.UI.Enabled = true

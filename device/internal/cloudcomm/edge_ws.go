@@ -47,6 +47,89 @@ func (c *edgeClient) writeJSON(value interface{}) error {
 	return c.conn.WriteJSON(value)
 }
 
+type edgeInboundRateLimiter struct {
+	commandTimestamps  []time.Time
+	maxCommandMessages int
+	maxMessages        int
+	messageTimestamps  []time.Time
+	window             time.Duration
+}
+
+func newEdgeInboundRateLimiter(cfg EdgeRateLimitConfig) *edgeInboundRateLimiter {
+	cfg = normalizeEdgeRateLimitConfig(cfg)
+	return &edgeInboundRateLimiter{
+		maxCommandMessages: cfg.MaxCommandMessages,
+		maxMessages:        cfg.MaxMessages,
+		window:             time.Duration(cfg.WindowSec) * time.Second,
+	}
+}
+
+func normalizeEdgeRateLimitConfig(cfg EdgeRateLimitConfig) EdgeRateLimitConfig {
+	const (
+		defaultMaxCommandMessages = 40
+		defaultMaxMessages        = 120
+		defaultWindowSec          = 5
+	)
+
+	maxMessages := cfg.MaxMessages
+	if maxMessages <= 0 {
+		maxMessages = defaultMaxMessages
+	}
+
+	maxCommandMessages := cfg.MaxCommandMessages
+	if maxCommandMessages <= 0 || maxCommandMessages > maxMessages {
+		maxCommandMessages = defaultMaxCommandMessages
+		if maxCommandMessages > maxMessages {
+			maxCommandMessages = maxMessages
+		}
+	}
+
+	windowSec := cfg.WindowSec
+	if windowSec <= 0 {
+		windowSec = defaultWindowSec
+	}
+
+	return EdgeRateLimitConfig{
+		MaxCommandMessages: maxCommandMessages,
+		MaxMessages:        maxMessages,
+		WindowSec:          windowSec,
+	}
+}
+
+func (l *edgeInboundRateLimiter) allowMessage(now time.Time) bool {
+	l.messageTimestamps = pruneExpiredEdgeTimestamps(l.messageTimestamps, now.Add(-l.window))
+	if len(l.messageTimestamps) >= l.maxMessages {
+		return false
+	}
+
+	l.messageTimestamps = append(l.messageTimestamps, now)
+	return true
+}
+
+func (l *edgeInboundRateLimiter) allowCommand(now time.Time) bool {
+	l.commandTimestamps = pruneExpiredEdgeTimestamps(l.commandTimestamps, now.Add(-l.window))
+	if len(l.commandTimestamps) >= l.maxCommandMessages {
+		return false
+	}
+
+	l.commandTimestamps = append(l.commandTimestamps, now)
+	return true
+}
+
+func pruneExpiredEdgeTimestamps(values []time.Time, cutoff time.Time) []time.Time {
+	firstActiveIndex := 0
+	for firstActiveIndex < len(values) && values[firstActiveIndex].Before(cutoff) {
+		firstActiveIndex++
+	}
+	if firstActiveIndex == 0 {
+		return values
+	}
+	if firstActiveIndex >= len(values) {
+		return nil
+	}
+	return values[firstActiveIndex:]
+}
+
 type EdgeWebSocketServer struct {
 	cfg *Config
 	log *slog.Logger
@@ -287,6 +370,7 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 	}
 
 	client := &edgeClient{conn: conn}
+	limiter := newEdgeInboundRateLimiter(s.cfg.Edge.RateLimit)
 	s.addClient(client)
 	defer func() {
 		s.removeClient(client)
@@ -322,8 +406,8 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 
 	conn.SetReadLimit(1024 * 1024)
 	for {
-		var message edgeInboundFrame
-		if err := conn.ReadJSON(&message); err != nil {
+		_, data, err := conn.ReadMessage()
+		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) &&
 				!errors.Is(err, net.ErrClosed) {
 				s.log.Debug("edge WebSocket read failed", "error", err)
@@ -331,7 +415,47 @@ func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Req
 			return
 		}
 
+		now := time.Now()
+		if !limiter.allowMessage(now) {
+			s.closeConnectionForRateLimit(conn, r.RemoteAddr, "too many websocket messages")
+			return
+		}
+
+		var message edgeInboundFrame
+		if err := json.Unmarshal(data, &message); err != nil {
+			continue
+		}
+
+		if edgeMessageCountsAsCommand(message) && !limiter.allowCommand(now) {
+			s.closeConnectionForRateLimit(conn, r.RemoteAddr, "too many websocket commands")
+			return
+		}
+
 		s.handleWebSocketMessage(client, message)
+	}
+}
+
+func (s *EdgeWebSocketServer) closeConnectionForRateLimit(
+	conn *websocket.Conn,
+	remoteAddr string,
+	reason string,
+) {
+	s.log.Warn("closing edge websocket for rate limit violation", "remote_addr", remoteAddr, "reason", reason)
+	_ = conn.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.ClosePolicyViolation, reason),
+		time.Now().Add(250*time.Millisecond),
+	)
+}
+
+func edgeMessageCountsAsCommand(message edgeInboundFrame) bool {
+	switch strings.TrimSpace(message.Kind) {
+	case "set-device":
+		return true
+	case "packet":
+		return normalizeEdgeSubtopic(message.Subtopic) == "command"
+	default:
+		return false
 	}
 }
 

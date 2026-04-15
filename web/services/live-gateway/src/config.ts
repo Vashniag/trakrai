@@ -79,6 +79,12 @@ export const config = {
   mqttBrokerUrl: normalizeEnvValue(process.env['MQTT_BROKER_URL'], 'mqtt://localhost:1883'),
   port: parseNumber(process.env['PORT'], 4000),
   turn: resolveTurnConfig(),
+  wsRateLimit: {
+    maxCommandMessages: parseNumber(process.env['WS_RATE_LIMIT_MAX_COMMAND_MESSAGES'], 40),
+    maxMessages: parseNumber(process.env['WS_RATE_LIMIT_MAX_MESSAGES'], 120),
+    maxPayloadBytes: parseNumber(process.env['WS_MAX_PAYLOAD_BYTES'], 1024 * 1024),
+    windowMs: parseNumber(process.env['WS_RATE_LIMIT_WINDOW_MS'], 5000),
+  },
 } as const;
 
 export type ParsedDeviceTopic = {

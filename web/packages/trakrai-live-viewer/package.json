@@ -43,7 +43,6 @@
     "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",
-    "./providers/*": "./src/providers/*.tsx",
     "./styles.css": "./src/styles.css"
   },
   "publishConfig": {
@@ -60,10 +59,6 @@
       "./lib/*": {
         "import": "./dist/lib/*.js",
         "types": "./dist/lib/*.d.ts"
-      },
-      "./providers/*": {
-        "import": "./dist/providers/*.js",
-        "types": "./dist/providers/*.d.ts"
       },
       "./styles.css": "./dist/styles.css"
     }

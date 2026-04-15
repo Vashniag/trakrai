@@ -10,7 +10,7 @@ import type {
 import type { TransportPacket } from '../lib/live-types';
 
 import { getEnvelopeType, unwrapPayload } from '../lib/live-transport-utils';
-import { useLiveTransportContext } from '../providers/live-transport-provider';
+import { useLiveTransport } from '../providers/live-transport-provider';
 
 export type DeviceServiceEvent<TPayload = unknown> = Readonly<{
   packet: TransportPacket;
@@ -24,7 +24,7 @@ export type DeviceServiceSubscriptionOptions = Readonly<{
 }>;
 
 export const useDeviceService = (serviceName: string) => {
-  const protocol = useLiveTransportContext();
+  const protocol = useLiveTransport();
   const normalizedServiceName = serviceName.trim();
 
   const request = useCallback(
@@ -63,7 +63,7 @@ export const useDeviceService = (serviceName: string) => {
       handler: (event: DeviceServiceEvent<TPayload>) => void,
       options?: DeviceServiceSubscriptionOptions,
     ) =>
-      protocol.subscribeToPackets((packet) => {
+      protocol.subscribeToPackets((packet: TransportPacket) => {
         if ((packet.service ?? '') !== normalizedServiceName) {
           return;
         }

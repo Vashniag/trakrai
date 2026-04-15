@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useDeviceRuntime } from '@trakrai/live-transport/hooks/use-device-runtime';
 import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
-import { useLiveTransport } from '@trakrai/live-transport/hooks/use-live-transport';
 import { isDeviceProtocolRequestError } from '@trakrai/live-transport/lib/device-protocol-types';
 import { normalizeOptionalString } from '@trakrai/live-transport/lib/live-transport-utils';
+import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
 import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from '../lib/ptz-types';
 
@@ -34,6 +33,7 @@ export type PtzControllerState = {
 const PTZ_RESPONSE_SUBTOPIC = 'response';
 const PTZ_GET_POSITION_COMMAND = 'get-position';
 const PTZ_GET_STATUS_COMMAND = 'get-status';
+const PTZ_COMMAND_ACK_RESPONSE_TYPES = ['ptz-command-ack'] as const;
 
 type PtzStatusPayload = Readonly<{
   activeCamera?: string | null;
@@ -59,9 +59,8 @@ type PtzErrorPayload = Readonly<{
 }>;
 
 export const usePtzController = (selectedCameraName: string): PtzControllerState => {
-  const { transportState } = useLiveTransport();
+  const { appendLog, deviceStatus, transportState } = useLiveTransport();
   const ptzService = useDeviceService(PTZ_SERVICE_NAME);
-  const { appendLog, deviceStatus } = useDeviceRuntime();
   const [ptzState, setPtzState] = useState<ReturnType<typeof readPtzState>>(null);
   const [ptzError, setPtzError] = useState<string | null>(null);
   const [activeDirection, setActiveDirection] = useState<string | null>(null);
@@ -179,8 +178,7 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
           ? (nextError.payload as PtzErrorPayload)
           : null;
       const errorMessage =
-        payload?.error ??
-        (nextError instanceof Error ? nextError.message : 'PTZ request failed');
+        payload?.error ?? (nextError instanceof Error ? nextError.message : 'PTZ request failed');
       setPtzError(errorMessage);
       setPtzState((currentState) => ({
         activeCamera:
@@ -218,6 +216,7 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
       )
       .then((response) => {
         applyPositionPayload(response.payload);
+        return undefined;
       })
       .catch(handlePtzError);
   }, [appendLog, applyPositionPayload, cameraName, handlePtzError, ptzService]);
@@ -245,6 +244,7 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
         )
         .then((response) => {
           applyStatusPayload(response.payload);
+          return undefined;
         })
         .catch(handlePtzError);
     }
@@ -271,9 +271,17 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
       )
       .then((response) => {
         applyPositionPayload(response.payload);
+        return undefined;
       })
       .catch(handlePtzError);
-  }, [applyPositionPayload, applyStatusPayload, cameraName, handlePtzError, ptzService, transportState]);
+  }, [
+    applyPositionPayload,
+    applyStatusPayload,
+    cameraName,
+    handlePtzError,
+    ptzService,
+    transportState,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -291,10 +299,7 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
 
       setPtzError(null);
       void ptzService
-        .request<
-          { cameraName: string; velocity: PtzVelocityCommand },
-          PtzCommandAckPayload
-        >(
+        .request<{ cameraName: string; velocity: PtzVelocityCommand }, PtzCommandAckPayload>(
           'start-move',
           {
             cameraName,
@@ -302,12 +307,13 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
           },
           {
             responseSubtopics: [PTZ_RESPONSE_SUBTOPIC],
-            responseTypes: ['ptz-command-ack'],
+            responseTypes: PTZ_COMMAND_ACK_RESPONSE_TYPES,
           },
         )
         .then((response) => {
           applyCommandAckPayload(response.payload);
           setActiveDirection(directionId);
+          return undefined;
         })
         .catch((error) => {
           setActiveDirection(null);
@@ -328,12 +334,13 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
         { cameraName },
         {
           responseSubtopics: [PTZ_RESPONSE_SUBTOPIC],
-          responseTypes: ['ptz-command-ack'],
+          responseTypes: PTZ_COMMAND_ACK_RESPONSE_TYPES,
         },
       )
       .then((response) => {
         applyCommandAckPayload(response.payload);
         setActiveDirection(null);
+        return undefined;
       })
       .catch((error) => {
         setActiveDirection(null);
@@ -358,11 +365,12 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
           },
           {
             responseSubtopics: [PTZ_RESPONSE_SUBTOPIC],
-            responseTypes: ['ptz-command-ack'],
+            responseTypes: PTZ_COMMAND_ACK_RESPONSE_TYPES,
           },
         )
         .then((response) => {
           applyCommandAckPayload(response.payload);
+          return undefined;
         })
         .catch(handlePtzError);
     },
@@ -382,11 +390,12 @@ export const usePtzController = (selectedCameraName: string): PtzControllerState
         { cameraName },
         {
           responseSubtopics: [PTZ_RESPONSE_SUBTOPIC],
-          responseTypes: ['ptz-command-ack'],
+          responseTypes: PTZ_COMMAND_ACK_RESPONSE_TYPES,
         },
       )
       .then((response) => {
         applyCommandAckPayload(response.payload);
+        return undefined;
       })
       .catch(handlePtzError);
   }, [appendLog, applyCommandAckPayload, cameraName, handlePtzError, ptzService]);

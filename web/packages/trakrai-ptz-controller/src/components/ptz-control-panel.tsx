@@ -13,7 +13,7 @@ import {
 import { Separator } from '@trakrai/design-system/components/separator';
 import { getServiceStatusClasses } from '@trakrai/live-transport/lib/live-display-utils';
 
-import type { PtzCapabilities, PtzPosition, PtzVelocityCommand } from '../lib/ptz-types';
+import type { PtzControllerState } from '../hooks/use-ptz-controller';
 
 import {
   canStartPtzMove,
@@ -37,22 +37,7 @@ import {
 } from '../lib/ptz-ui-utils';
 
 type PtzControlPanelProps = Readonly<{
-  activeDirection: string | null;
-  cameraName: string;
-  capabilities: PtzCapabilities | null;
-  controlsEnabled: boolean;
-  error: string | null;
-  isCameraConfigured: boolean;
-  lastCommand: string;
-  lastMovement: string;
-  onBeginMove: (directionId: string, velocity: PtzVelocityCommand) => void;
-  onEndMove: () => void;
-  onGoHome: () => void;
-  onRefreshPosition: () => void;
-  onSetZoom: (zoom: number) => void;
-  position: PtzPosition | null;
-  serviceRegistered: boolean;
-  statusLabel: string;
+  controller: PtzControllerState;
 }>;
 
 const GRID_BUTTON_LAYOUT_CLASSES = 'px-3 py-4 text-center';
@@ -68,24 +53,25 @@ const getZoomButtonClasses = (isActive: boolean): string =>
     isActive ? PTZ_BUTTON_ACTIVE_CLASSES : PTZ_BUTTON_INACTIVE_CLASSES
   }`;
 
-export const PtzControlPanel = ({
-  activeDirection,
-  cameraName,
-  capabilities,
-  controlsEnabled,
-  error,
-  isCameraConfigured,
-  lastCommand,
-  lastMovement,
-  onBeginMove,
-  onEndMove,
-  onGoHome,
-  onRefreshPosition,
-  onSetZoom,
-  position,
-  serviceRegistered,
-  statusLabel,
-}: PtzControlPanelProps) => {
+export const PtzControlPanel = ({ controller }: PtzControlPanelProps) => {
+  const {
+    activeDirection,
+    beginMove: onBeginMove,
+    cameraName,
+    capabilities,
+    controlsEnabled,
+    endMove: onEndMove,
+    error,
+    goHome: onGoHome,
+    isCameraConfigured,
+    lastCommand,
+    lastMovement,
+    position,
+    refreshPosition: onRefreshPosition,
+    serviceRegistered,
+    setZoom: onSetZoom,
+    statusLabel,
+  } = controller;
   const [zoomTargetDraft, setZoomTargetDraft] = useState<number | null>(null);
 
   const hasCamera = cameraName.trim() !== '';

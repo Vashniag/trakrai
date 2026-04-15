@@ -22,6 +22,8 @@ export type LiveConsoleShellProps = Readonly<{
   bridgeStatus: string;
   detailItems: readonly LiveConsoleDetail[];
   contractNotes: readonly string[];
+  controls?: React.ReactNode;
+  navigation?: React.ReactNode;
   children: React.ReactNode;
 }>;
 
@@ -30,10 +32,12 @@ export const LiveConsoleShell = ({
   bridgeLabel,
   bridgeStatus,
   children,
+  controls,
   contractNotes,
   description,
   detailItems,
   eyebrow,
+  navigation,
   title,
 }: LiveConsoleShellProps) => (
   <main className="bg-background min-h-screen px-6 py-8 md:px-10">
@@ -96,6 +100,9 @@ export const LiveConsoleShell = ({
           </CardContent>
         </Card>
       </section>
+
+      {controls ?? null}
+      {navigation ?? null}
 
       {children}
     </div>

@@ -1,11 +1,16 @@
 package runtimemanager
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestParseSystemdShowOutput(t *testing.T) {
@@ -224,6 +229,137 @@ func TestSaveAndLoadManagedServicesState(t *testing.T) {
 	if len(loadedServices) != 1 || loadedServices[0].Name != "cloud-comm" {
 		t.Fatalf("unexpected loaded services %#v", loadedServices)
 	}
+}
+
+func TestBuildStatusPayloadCachesFreshSnapshot(t *testing.T) {
+	t.Parallel()
+
+	currentTime := time.Date(2026, time.April, 15, 18, 0, 0, 0, time.UTC)
+	service, commandCount := newStatusPayloadTestService(t, func() time.Time {
+		return currentTime
+	})
+
+	firstPayload, err := service.buildStatusPayload(context.Background())
+	if err != nil {
+		t.Fatalf("build status payload failed: %v", err)
+	}
+
+	secondPayload, err := service.buildStatusPayload(context.Background())
+	if err != nil {
+		t.Fatalf("build cached status payload failed: %v", err)
+	}
+
+	if commandCount.Load() != 2 {
+		t.Fatalf("expected cached status payload to reuse 2 command calls, got %d", commandCount.Load())
+	}
+	if firstPayload.GeneratedAt != secondPayload.GeneratedAt {
+		t.Fatalf("expected cached payload generatedAt to match, got %q and %q", firstPayload.GeneratedAt, secondPayload.GeneratedAt)
+	}
+
+	currentTime = currentTime.Add(statusSnapshotCacheTTL + time.Millisecond)
+	thirdPayload, err := service.buildStatusPayload(context.Background())
+	if err != nil {
+		t.Fatalf("build refreshed status payload failed: %v", err)
+	}
+
+	if commandCount.Load() != 4 {
+		t.Fatalf("expected expired cache to rebuild status payload, got %d command calls", commandCount.Load())
+	}
+	if thirdPayload.GeneratedAt == secondPayload.GeneratedAt {
+		t.Fatalf("expected refreshed payload to have a new generatedAt value, got %q", thirdPayload.GeneratedAt)
+	}
+}
+
+func TestBuildStatusPayloadCoalescesConcurrentRequests(t *testing.T) {
+	t.Parallel()
+
+	service, commandCount := newStatusPayloadTestService(t, time.Now)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errCh := make(chan error, 8)
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := service.buildStatusPayload(context.Background())
+			errCh <- err
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected concurrent status payload build to succeed, got %v", err)
+		}
+	}
+
+	if commandCount.Load() != 2 {
+		t.Fatalf("expected concurrent requests to share 2 command calls, got %d", commandCount.Load())
+	}
+}
+
+func newStatusPayloadTestService(
+	t *testing.T,
+	now func() time.Time,
+) (*Service, *atomic.Int32) {
+	t.Helper()
+
+	commandCount := &atomic.Int32{}
+	service := &Service{
+		cfg: &Config{
+			Runtime: RuntimePathsConfig{
+				BinaryDir:   "/opt/trakrai/bin",
+				DownloadDir: "/opt/trakrai/downloads",
+				LogDir:      "/opt/trakrai/logs",
+				RootDir:     "/opt/trakrai",
+				ScriptDir:   "/opt/trakrai/scripts",
+				StateFile:   "/opt/trakrai/managed-services.json",
+				VersionDir:  "/opt/trakrai/versions",
+			},
+			Systemd: SystemdConfig{
+				Bin:           "systemctl",
+				Shell:         "/bin/bash",
+				UnitDirectory: "/etc/systemd/system",
+			},
+		},
+		managed: map[string]ManagedServiceConfig{
+			"cloud-comm": {
+				DisplayName: "Cloud comm",
+				Enabled:     true,
+				InstallPath: "/opt/trakrai/bin/cloud-comm",
+				Kind:        "binary",
+				Name:        "cloud-comm",
+				SystemdUnit: "trakrai-cloud-comm.service",
+			},
+		},
+		execCommand: func(_ context.Context, command string, args ...string) ([]byte, error) {
+			commandCount.Add(1)
+			time.Sleep(20 * time.Millisecond)
+
+			switch {
+			case command == "systemctl" && len(args) >= 2 && args[0] == "show":
+				return []byte(strings.Join([]string{
+					"ActiveState=active",
+					"LoadState=loaded",
+					"MainPID=42",
+					"SubState=running",
+					"UnitFileState=enabled",
+				}, "\n")), nil
+			case command == "ps" && len(args) >= 1:
+				return []byte("12.5 1024 00:10"), nil
+			default:
+				return nil, fmt.Errorf("unexpected command: %s %v", command, args)
+			}
+		},
+		now: now,
+	}
+
+	return service, commandCount
 }
 
 func containsAll(input string, values ...string) bool {

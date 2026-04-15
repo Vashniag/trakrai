@@ -14,33 +14,11 @@ import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
 import { Separator } from '@trakrai/design-system/components/separator';
 
-import type {
-  ManagedRuntimeService,
-  ManagedRuntimeServiceDefinition,
-  RuntimeManagerLogPayload,
-  RuntimeManagerPaths,
-} from '@trakrai/live-transport/lib/runtime-manager-types';
+import type { RuntimeManagerState } from '../hooks/use-runtime-manager';
+import type { ManagedRuntimeServiceDefinition } from '@trakrai/live-transport/lib/runtime-manager-types';
 
 type RuntimeManagerPanelProps = Readonly<{
-  activeDefinition: ManagedRuntimeServiceDefinition | null;
-  error: string | null;
-  isBusy: boolean;
-  lastLog: RuntimeManagerLogPayload | null;
-  lastRefreshedAt: string | null;
-  paths: RuntimeManagerPaths | null;
-  serviceRegistered: boolean;
-  services: ManagedRuntimeService[];
-  statusLabel: string;
-  onLoadServiceDefinition: (serviceName: string) => void;
-  onRefreshLogs: (serviceName: string, lines?: number) => void;
-  onRefreshStatus: () => void;
-  onRemoveService: (serviceName: string, purgeFiles?: boolean) => void;
-  onRunServiceAction: (
-    serviceName: string,
-    action: 'restart-service' | 'start-service' | 'stop-service',
-  ) => void;
-  onUpdateService: (serviceName: string, artifactUrl: string) => void;
-  onUpsertServiceDefinition: (definition: ManagedRuntimeServiceDefinition) => void;
+  manager: RuntimeManagerState;
 }>;
 
 const statusClasses = (state: string): string => {
@@ -147,24 +125,25 @@ const createServiceTemplate = (
   };
 };
 
-export const RuntimeManagerPanel = ({
-  activeDefinition,
-  error,
-  isBusy,
-  lastLog,
-  lastRefreshedAt,
-  paths,
-  serviceRegistered,
-  services,
-  statusLabel,
-  onLoadServiceDefinition,
-  onRefreshLogs,
-  onRefreshStatus,
-  onRemoveService,
-  onRunServiceAction,
-  onUpdateService,
-  onUpsertServiceDefinition,
-}: RuntimeManagerPanelProps) => {
+export const RuntimeManagerPanel = ({ manager }: RuntimeManagerPanelProps) => {
+  const {
+    activeDefinition,
+    error,
+    isBusy,
+    lastLog,
+    lastRefreshedAt,
+    loadServiceDefinition: onLoadServiceDefinition,
+    paths,
+    refreshLogs: onRefreshLogs,
+    refreshStatus: onRefreshStatus,
+    removeService: onRemoveService,
+    runServiceAction: onRunServiceAction,
+    serviceRegistered,
+    services,
+    statusLabel,
+    updateService: onUpdateService,
+    upsertServiceDefinition: onUpsertServiceDefinition,
+  } = manager;
   const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
   const [definitionDraft, setDefinitionDraft] = useState<{
     sourceKey: string;
