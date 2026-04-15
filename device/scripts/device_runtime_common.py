@@ -26,6 +26,7 @@ DEFAULT_LOCAL_PLATFORM = {
 
 SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("cloud-comm", "Dockerfile", "./cmd/cloud-comm"),
+    ("cloud-transfer", "Dockerfile", "./cmd/cloud-transfer"),
     ("live-feed", "Dockerfile.gstreamer", "./cmd/live-feed"),
     ("ptz-control", "Dockerfile", "./cmd/ptz-control"),
     ("rtsp-feeder", "Dockerfile.gstreamer", "./cmd/rtsp-feeder"),
@@ -34,6 +35,7 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
 
 CONFIG_NAMES: tuple[str, ...] = (
     "cloud-comm.json",
+    "cloud-transfer.json",
     "live-feed.json",
     "ptz-control.json",
     "rtsp-feeder.json",
@@ -305,6 +307,7 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
     ]
 
     for service_name, display_name, description in [
+        ("cloud-transfer", "Cloud transfer", "Queued upload/download worker backed by SQLite."),
         ("live-feed", "Live feed", "On-device WebRTC streaming service."),
         ("ptz-control", "PTZ control", "PTZ command service."),
         ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
@@ -435,7 +438,7 @@ def build_binary_service(
 
 def build_manifest(options: StageOptions, available_configs: set[str], wheel_name: str) -> dict[str, Any]:
     runtime_root = options.runtime_root
-    directories = ["bin", "downloads", "logs", "scripts", "ui", "versions"]
+    directories = ["bin", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
     stop_units = [
         "trakrai-runtime-manager.service",
         "trakrai-cloud-comm.service",
@@ -453,7 +456,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
     wheels: list[dict[str, Any]] = []
     dynamic_units: list[str] = []
 
-    for service_name in ["live-feed", "ptz-control", "rtsp-feeder"]:
+    for service_name in ["cloud-transfer", "live-feed", "ptz-control", "rtsp-feeder"]:
         if f"{service_name}.json" not in available_configs:
             continue
         configs.append({"source": f"configs/{service_name}.json", "target": f"{service_name}.json"})
@@ -519,6 +522,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         },
         "legacy_backup_names": [
             "cloud-comm",
+            "cloud-transfer",
             "live-feed",
             "ptz-control",
             "rtsp-feeder",
@@ -531,6 +535,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         ],
         "manual_process_patterns": [
             f"{runtime_root}/cloud-comm",
+            f"{runtime_root}/cloud-transfer",
             f"{runtime_root}/live-feed",
             f"{runtime_root}/ptz-control",
             f"{runtime_root}/rtsp-feeder",

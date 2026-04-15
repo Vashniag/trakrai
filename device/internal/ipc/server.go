@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -178,6 +179,36 @@ func (s *Server) handleRequest(client *serviceClient, req Request) Response {
 		}
 		return okResponse(req.ID)
 
+	case "send-service-message":
+		var messageReq SendServiceMessageRequest
+		if err := json.Unmarshal(req.Params, &messageReq); err != nil {
+			return Response{ID: req.ID, Error: &Error{Code: -1, Message: err.Error()}}
+		}
+		if strings.TrimSpace(messageReq.TargetService) == "" {
+			return Response{ID: req.ID, Error: &Error{Code: -7, Message: "targetService is required"}}
+		}
+		if strings.TrimSpace(messageReq.Subtopic) == "" || strings.TrimSpace(messageReq.Type) == "" {
+			return Response{ID: req.ID, Error: &Error{Code: -4, Message: "subtopic and type are required"}}
+		}
+
+		sourceService := strings.TrimSpace(messageReq.SourceService)
+		if sourceService == "" {
+			sourceService = client.serviceName()
+		}
+		if sourceService == "" {
+			return Response{ID: req.ID, Error: &Error{Code: -8, Message: "source service is not registered"}}
+		}
+
+		if err := s.NotifyLocalService(ServiceMessageNotification{
+			SourceService: sourceService,
+			Service:       strings.TrimSpace(messageReq.TargetService),
+			Subtopic:      strings.Trim(strings.TrimSpace(messageReq.Subtopic), "/"),
+			Envelope:      BuildEnvelope(strings.TrimSpace(messageReq.Type), messageReq.Payload),
+		}); err != nil {
+			return Response{ID: req.ID, Error: &Error{Code: -9, Message: err.Error()}}
+		}
+		return okResponse(req.ID)
+
 	case "report-status":
 		var report StatusReport
 		if err := json.Unmarshal(req.Params, &report); err != nil {
@@ -234,6 +265,30 @@ func (s *Server) unregister(client *serviceClient) {
 }
 
 func (s *Server) NotifyService(service string, message MqttMessageNotification) error {
+	params, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	return s.sendNotification(service, Notification{
+		Method: "mqtt-message",
+		Params: params,
+	})
+}
+
+func (s *Server) NotifyLocalService(message ServiceMessageNotification) error {
+	params, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	return s.sendNotification(message.Service, Notification{
+		Method: "service-message",
+		Params: params,
+	})
+}
+
+func (s *Server) sendNotification(service string, notification Notification) error {
 	s.mu.RLock()
 	client := s.services[service]
 	s.mu.RUnlock()
@@ -241,15 +296,6 @@ func (s *Server) NotifyService(service string, message MqttMessageNotification) 
 		return fmt.Errorf("service %q is not registered", service)
 	}
 
-	params, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-
-	notification := Notification{
-		Method: "mqtt-message",
-		Params: params,
-	}
 	return client.writeJSON(notification)
 }
 

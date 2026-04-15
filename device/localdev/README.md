@@ -13,9 +13,15 @@ What it does:
 Default local configs only include the services that can run meaningfully without hardware or cloud credentials:
 
 - `cloud-comm`
+- `cloud-transfer`
 - `live-feed`
 - `rtsp-feeder`
 - `runtime-manager`
+
+The local stack also starts mock cloud storage infrastructure for the transfer worker:
+
+- `minio` on `http://127.0.0.1:19000`
+- `mock-cloud-api` on `http://127.0.0.1:18090`
 
 If you want to add more services, pass `--config-dir` to [`local_device_runtime.py`](/Users/hardikj/code/web-apps/trakrbi/trakrai/device/scripts/local_device_runtime.py).
 
@@ -41,6 +47,34 @@ Important defaults:
 - edge UI/API: `http://127.0.0.1:18080`
 - fake RTSP feed: `rtsp://127.0.0.1:18554/stream`
 - broker host inside containers: `host.docker.internal:1883`
+- local MinIO API: `http://127.0.0.1:19000`
+- local MinIO console: `http://127.0.0.1:19001`
+- local mock cloud API: `http://127.0.0.1:18090`
+
+## Verifying Cloud Transfer
+
+The local stack now includes `cloud-transfer`, which no longer exposes a private HTTP API.
+Instead, it uses the same `cloud-comm`-owned IPC bus pattern as the other device services:
+commands are routed through the Unix socket, and responses come back through routed
+`response` packets.
+
+Run the end-to-end verifier from the repository root:
+
+```bash
+python3 trakrai/device/scripts/verify_cloud_transfer_local.py
+```
+
+That script:
+
+- writes a file into the runtime shared directory
+- registers a temporary verifier service on the IPC socket
+- enqueues an upload through `cloud-transfer` over the local service bus
+- waits for the upload to complete
+- confirms the object exists in the mock cloud bucket
+- simulates a cloud outage to verify retry/backoff recovery
+- simulates a short timeout window to verify expiry/failure behavior
+- enqueues a download for the same object
+- verifies the downloaded payload matches the original file
 
 ## Using Next Dev Server
 

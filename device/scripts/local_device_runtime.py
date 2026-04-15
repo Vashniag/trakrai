@@ -81,7 +81,11 @@ def main() -> int:
 
     logs_parser = subparsers.add_parser("logs", help="tail compose logs")
     logs_parser.add_argument("--compose-project-name", default=DEFAULT_PROJECT_NAME)
-    logs_parser.add_argument("--service", choices=["device-emulator", "fake-camera", "redis"], help="optional service filter")
+    logs_parser.add_argument(
+        "--service",
+        choices=["device-emulator", "fake-camera", "minio", "mock-cloud-api", "redis"],
+        help="optional service filter",
+    )
     logs_parser.add_argument("--lines", type=int, default=200)
 
     args = parser.parse_args()
@@ -209,6 +213,10 @@ def patch_local_configs(
     mqtt["broker_url"] = f"tcp://{mqtt_host}:{mqtt_port}"
     cloud_comm["device_id"] = device_id
 
+    cloud_transfer = patched.get("cloud-transfer.json")
+    if isinstance(cloud_transfer, dict):
+        cloud_transfer["device_id"] = device_id
+
     live_feed = patched.get("live-feed.json")
     if isinstance(live_feed, dict):
         webrtc = live_feed.setdefault("webrtc", {})
@@ -305,11 +313,13 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
             (
                 "set -euo pipefail; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm; "
+                "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-transfer; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/live-feed; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
                 "python3.8 --version; "
                 "systemctl is-active trakrai-runtime-manager.service; "
                 "systemctl is-active trakrai-cloud-comm.service; "
+                "systemctl is-active trakrai-cloud-transfer.service; "
                 "systemctl is-active trakrai-live-feed.service; "
                 "systemctl is-active trakrai-rtsp-feeder.service"
             ),

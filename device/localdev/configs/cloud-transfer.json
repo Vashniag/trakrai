@@ -1,0 +1,25 @@
+{
+  "log_level": "info",
+  "device_id": "trakrai-device-local",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "storage": {
+    "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
+    "database_path": "/home/hacklab/trakrai-device-runtime/state/cloud-transfer/transfers.sqlite"
+  },
+  "cloud_api": {
+    "base_url": "http://mock-cloud-api:8080",
+    "auth_token": "",
+    "upload_presign_path": "/api/v1/device-storage/presign-upload",
+    "download_presign_path": "/api/v1/device-storage/presign-download",
+    "request_timeout_sec": 15
+  },
+  "queue": {
+    "worker_count": 1,
+    "poll_interval_ms": 500,
+    "initial_backoff_sec": 2,
+    "max_backoff_sec": 30,
+    "status_report_interval_sec": 5
+  }
+}

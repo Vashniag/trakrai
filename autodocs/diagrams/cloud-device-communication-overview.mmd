@@ -1,0 +1,83 @@
+%%{init: {'flowchart': {'htmlLabels': true, 'curve': 'basis', 'nodeSpacing': 32, 'rankSpacing': 68}, 'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'Arial'}}}%%
+flowchart TB
+  subgraph Browsers["User-Facing Apps"]
+    direction LR
+    CloudApp["Cloud App<br/>Next.js /live"]
+    EdgeUI["Edge UI<br/>Served by cloud-comm<br/>or local Next.js dev server"]
+  end
+
+  subgraph Cloud["Cloud Stack"]
+    direction TB
+    LiveGateway["Gateway App<br/>HTTP + WebSocket :4000<br/>/ws, /api/ice-config"]
+    Mosquitto["Mosquitto Broker<br/>MQTT/TCP :1883"]
+    CloudAPI["Cloud API + Object Storage<br/>Presign endpoints + S3/MinIO"]
+  end
+
+  subgraph Device["Device Stack"]
+    direction TB
+    CloudComm["cloud-comm<br/>MQTT bridge + edge HTTP/WS<br/>:8080, /ws, /api/runtime-config, /api/ice-config"]
+    IPC["IPC Bus<br/>Unix socket<br/>/tmp/trakrai-cloud-comm.sock"]
+
+    subgraph Services["Managed Device Services"]
+      direction LR
+      RuntimeManager["runtime-manager<br/>Service control + status"]
+      LiveFeed["live-feed<br/>WebRTC signaling + session control"]
+      CloudTransfer["cloud-transfer<br/>Queued upload/download"]
+      PTZ["ptz-control<br/>PTZ command handler"]
+      RTSPFeeder["rtsp-feeder<br/>RTSP ingest + frame publish"]
+      OtherServices["Other services<br/>AI / analytics / custom workers"]
+    end
+
+    subgraph LocalInfra["Local Device Infrastructure"]
+      direction LR
+      Redis["Redis<br/>Frame cache / latest JPEGs"]
+      Cameras["RTSP Cameras<br/>or fake camera"]
+      Systemd["Systemd<br/>Service units"]
+    end
+  end
+
+  NoteIngress["Ingress rule<br/>Only cloud-comm is exposed outside the device."]:::note
+  NoteMedia["Media rule<br/>WebRTC media goes browser ↔ live-feed directly after signaling."]:::note
+  NoteTopics["MQTT topic shape<br/>trakrai/device/&lt;deviceId&gt;/service/&lt;service&gt;/&lt;subtopic&gt;"]:::note
+  NoteIPC["IPC message types<br/>mqtt-message, response, status, service-message"]:::note
+
+  CloudApp <-->|"HTTPS + WS"| LiveGateway
+  LiveGateway <-->|"MQTT/TCP 1883"| Mosquitto
+  Mosquitto <-->|"MQTT/TCP 1883"| CloudComm
+  EdgeUI <-->|"HTTP 8080 + WS /ws"| CloudComm
+
+  CloudComm <-->|"Unix IPC"| IPC
+  IPC <-->|"commands + status"| RuntimeManager
+  IPC <-->|"commands + signaling"| LiveFeed
+  IPC <-->|"enqueue + query"| CloudTransfer
+  IPC <-->|"commands + status"| PTZ
+  IPC <-->|"commands + status"| RTSPFeeder
+  IPC <-->|"commands + status"| OtherServices
+
+  RuntimeManager -->|"systemctl start / stop / status"| Systemd
+  RTSPFeeder -->|"RTSP pull"| Cameras
+  RTSPFeeder -->|"JPEG frames + metadata"| Redis
+  LiveFeed -->|"read frames"| Redis
+  CloudTransfer -->|"HTTPS presign + PUT/GET object data"| CloudAPI
+  OtherServices -.->|"local service-to-service IPC"| CloudTransfer
+
+  CloudApp <-.->|"WebRTC UDP + ICE"| LiveFeed
+  EdgeUI <-.->|"WebRTC UDP + ICE"| LiveFeed
+
+  NoteIngress -.-> CloudComm
+  NoteMedia -.-> LiveFeed
+  NoteMedia -.-> CloudApp
+  NoteMedia -.-> EdgeUI
+  NoteTopics -.-> Mosquitto
+  NoteIPC -.-> IPC
+
+  classDef browser fill:#EAF4FF,stroke:#1E5AA8,color:#0B2748,stroke-width:2px;
+  classDef cloud fill:#F4EEFF,stroke:#6A42C2,color:#2D1A57,stroke-width:2px;
+  classDef device fill:#EEF9F1,stroke:#2E7D32,color:#123D17,stroke-width:2px;
+  classDef infra fill:#FFF5E6,stroke:#B26A00,color:#5B3200,stroke-width:2px;
+  classDef note fill:#FFF8D8,stroke:#A67C00,color:#5C4300,stroke-dasharray: 5 5;
+
+  class CloudApp,EdgeUI browser;
+  class LiveGateway,Mosquitto,CloudAPI cloud;
+  class CloudComm,IPC,RuntimeManager,LiveFeed,CloudTransfer,PTZ,RTSPFeeder,OtherServices device;
+  class Redis,Cameras,Systemd infra;

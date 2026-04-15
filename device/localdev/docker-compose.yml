@@ -1,4 +1,39 @@
 services:
+  minio:
+    build:
+      context: ./minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - '19000:9000'
+      - '19001:9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+
+  mock-cloud-api:
+    build:
+      context: ./mock-cloud-api
+    restart: unless-stopped
+    depends_on:
+      - minio
+    ports:
+      - '18090:8080'
+    environment:
+      MOCK_CLOUD_API_BUCKET: trakrai-local
+      MOCK_CLOUD_API_LISTEN_ADDR: ':8080'
+      MOCK_CLOUD_API_MINIO_ACCESS_KEY: minioadmin
+      MOCK_CLOUD_API_MINIO_ENDPOINT: minio:9000
+      MOCK_CLOUD_API_MINIO_SECRET_KEY: minioadmin
+      MOCK_CLOUD_API_MINIO_USE_SSL: 'false'
+      MOCK_CLOUD_API_PREFIX: devices
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O - http://127.0.0.1:8080/api/health >/dev/null 2>&1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -38,6 +73,8 @@ services:
       redis:
         condition: service_healthy
       fake-camera:
+        condition: service_healthy
+      mock-cloud-api:
         condition: service_healthy
     extra_hosts:
       - 'host.docker.internal:host-gateway'

@@ -1,6 +1,10 @@
 package ipc
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
 
 type MQTTEnvelope struct {
 	MsgID     string          `json:"msgId"`
@@ -58,4 +62,33 @@ type MqttMessageNotification struct {
 	Service  string       `json:"service"`
 	Subtopic string       `json:"subtopic"`
 	Envelope MQTTEnvelope `json:"envelope"`
+}
+
+type SendServiceMessageRequest struct {
+	SourceService string          `json:"sourceService,omitempty"`
+	TargetService string          `json:"targetService"`
+	Subtopic      string          `json:"subtopic"`
+	Type          string          `json:"type"`
+	Payload       json.RawMessage `json:"payload"`
+}
+
+type ServiceMessageNotification struct {
+	SourceService string       `json:"sourceService,omitempty"`
+	Service       string       `json:"service"`
+	Subtopic      string       `json:"subtopic"`
+	Envelope      MQTTEnvelope `json:"envelope"`
+}
+
+func BuildEnvelope(msgType string, payload json.RawMessage) MQTTEnvelope {
+	if len(payload) == 0 {
+		payload = json.RawMessage(`{}`)
+	}
+
+	now := time.Now().UTC()
+	return MQTTEnvelope{
+		MsgID:     fmt.Sprintf("%d", now.UnixNano()),
+		Timestamp: now.Format(time.RFC3339),
+		Type:      msgType,
+		Payload:   payload,
+	}
 }

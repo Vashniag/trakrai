@@ -76,6 +76,26 @@
       "install_path": "/home/hacklab/trakrai-device-runtime/ui"
     },
     {
+      "name": "cloud-transfer",
+      "display_name": "Cloud transfer",
+      "description": "Queued upload/download worker backed by SQLite and presigned URLs.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/cloud-transfer",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/cloud-transfer.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-cloud-transfer.service"
+    },
+    {
       "name": "live-feed",
       "display_name": "Live feed",
       "description": "On-device WebRTC live streaming service.",

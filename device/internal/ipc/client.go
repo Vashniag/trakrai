@@ -118,6 +118,21 @@ func (c *Client) Publish(subtopic string, msgType string, payload interface{}) e
 	return err
 }
 
+func (c *Client) SendServiceMessage(targetService string, subtopic string, msgType string, payload interface{}) error {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal service payload: %w", err)
+	}
+
+	_, err = c.request("send-service-message", SendServiceMessageRequest{
+		TargetService: targetService,
+		Subtopic:      subtopic,
+		Type:          msgType,
+		Payload:       data,
+	}, 2)
+	return err
+}
+
 func (c *Client) ReportStatus(status string, details map[string]interface{}) error {
 	report := StatusReport{
 		Service: c.service,
