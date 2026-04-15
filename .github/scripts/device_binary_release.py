@@ -47,7 +47,6 @@ BINARY_DEFINITIONS = (
     BinaryDefinition("live-feed", "./cmd/live-feed", "Dockerfile.gstreamer"),
     BinaryDefinition("ptz-control", "./cmd/ptz-control", "Dockerfile"),
     BinaryDefinition("rtsp-feeder", "./cmd/rtsp-feeder", "Dockerfile.gstreamer"),
-    BinaryDefinition("workflow-comm", "./cmd/workflow-comm", "Dockerfile"),
 )
 
 

@@ -30,7 +30,6 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("ptz-control", "Dockerfile", "./cmd/ptz-control"),
     ("rtsp-feeder", "Dockerfile.gstreamer", "./cmd/rtsp-feeder"),
     ("runtime-manager", "Dockerfile", "./cmd/runtime-manager"),
-    ("workflow-comm", "Dockerfile", "./cmd/workflow-comm"),
 )
 
 CONFIG_NAMES: tuple[str, ...] = (
@@ -38,7 +37,6 @@ CONFIG_NAMES: tuple[str, ...] = (
     "live-feed.json",
     "ptz-control.json",
     "rtsp-feeder.json",
-    "workflow-comm.json",
     "ai-inference.json",
 )
 
@@ -199,8 +197,6 @@ def prepare_stage(
     patch_cloud_comm_config(config_map["cloud-comm.json"], options)
 
     for service_name in [service_name for service_name, _dockerfile, _cmd_path in SERVICE_BUILD_TARGETS]:
-        if service_name == "workflow-comm" and "workflow-comm.json" not in config_map:
-            continue
         if service_name in {"live-feed", "ptz-control", "rtsp-feeder"} and f"{service_name}.json" not in config_map:
             continue
         shutil.copy2(artifact_paths[service_name], binaries_dir / service_name)
@@ -312,7 +308,6 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
         ("live-feed", "Live feed", "On-device WebRTC streaming service."),
         ("ptz-control", "PTZ control", "PTZ command service."),
         ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
-        ("workflow-comm", "Workflow comm", "Workflow upload queue processor and cloud sync worker."),
     ]:
         if f"{service_name}.json" not in available_configs:
             continue
@@ -458,7 +453,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
     wheels: list[dict[str, Any]] = []
     dynamic_units: list[str] = []
 
-    for service_name in ["live-feed", "ptz-control", "rtsp-feeder", "workflow-comm"]:
+    for service_name in ["live-feed", "ptz-control", "rtsp-feeder"]:
         if f"{service_name}.json" not in available_configs:
             continue
         configs.append({"source": f"configs/{service_name}.json", "target": f"{service_name}.json"})
@@ -527,7 +522,6 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "live-feed",
             "ptz-control",
             "rtsp-feeder",
-            "workflow-comm",
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
             "ui",
@@ -540,7 +534,6 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             f"{runtime_root}/live-feed",
             f"{runtime_root}/ptz-control",
             f"{runtime_root}/rtsp-feeder",
-            f"{runtime_root}/workflow-comm",
             f"{runtime_root}/serve-device-ui.sh",
             f"{runtime_root}/ai-inference.json",
         ],
