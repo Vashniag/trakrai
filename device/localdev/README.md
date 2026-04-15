@@ -14,6 +14,8 @@ Default local configs only include the services that can run meaningfully withou
 
 - `cloud-comm`
 - `live-feed`
+- `ai-inference-native` (mock backend)
+- `event-recorder`
 - `rtsp-feeder`
 - `runtime-manager`
 

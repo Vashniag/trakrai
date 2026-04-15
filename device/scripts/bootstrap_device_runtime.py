@@ -51,6 +51,7 @@ def main() -> int:
 
     install_configs(stage_dir, runtime_root, manifest.get("configs", []), uid, gid)
     install_binaries(stage_dir, runtime_root, manifest.get("binaries", []), uid, gid)
+    install_assets(stage_dir, runtime_root, manifest.get("assets", []), uid, gid)
     install_ui_bundle(stage_dir, runtime_root, manifest.get("ui_bundle"))
     install_python_wheels(stage_dir, runtime_root, manifest.get("wheels", []), uid, gid)
 
@@ -130,6 +131,24 @@ def install_binaries(stage_dir: Path, runtime_root: Path, binaries: list[dict[st
         shutil.copy2(source, target)
         target.chmod(int(item.get("mode", "0755"), 8))
         os.chown(target, uid, gid)
+
+
+def install_assets(stage_dir: Path, runtime_root: Path, assets: list[dict[str, Any]], uid: int, gid: int) -> None:
+    for item in assets:
+        source = stage_dir / item["source"]
+        target = runtime_root / item["target"]
+        if target.exists():
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.is_dir():
+            shutil.copytree(source, target)
+            chown_recursive(target, uid, gid)
+        else:
+            shutil.copy2(source, target)
+            os.chown(target, uid, gid)
 
 
 def install_ui_bundle(stage_dir: Path, runtime_root: Path, bundle: dict[str, Any] | None) -> None:

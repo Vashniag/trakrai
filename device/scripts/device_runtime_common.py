@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 import zipfile
@@ -22,7 +23,7 @@ DEFAULT_LOCAL_PLATFORM = {
     "arm64": "linux/arm64",
     "x86_64": "linux/amd64",
     "amd64": "linux/amd64",
-}.get(os.uname().machine.lower(), "linux/amd64")
+}.get(platform.machine().lower(), "linux/amd64")
 
 SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("cloud-comm", "Dockerfile", "./cmd/cloud-comm"),
@@ -31,15 +32,37 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("rtsp-feeder", "Dockerfile.gstreamer", "./cmd/rtsp-feeder"),
     ("runtime-manager", "Dockerfile", "./cmd/runtime-manager"),
     ("workflow-comm", "Dockerfile", "./cmd/workflow-comm"),
+    ("ai-inference-native", "Dockerfile", "./cmd/ai-inference-native"),
+    ("event-recorder", "Dockerfile.gstreamer", "./cmd/event-recorder"),
 )
 
 CONFIG_NAMES: tuple[str, ...] = (
     "cloud-comm.json",
+    "deepstream-pipeline.json",
     "live-feed.json",
     "ptz-control.json",
     "rtsp-feeder.json",
     "workflow-comm.json",
+    "ai-inference-native.json",
+    "event-recorder.json",
     "ai-inference.json",
+)
+
+OPTIONAL_BINARY_SERVICES: tuple[tuple[str, str, str], ...] = (
+    ("live-feed", "Live feed", "On-device WebRTC streaming service."),
+    ("ptz-control", "PTZ control", "PTZ command service."),
+    ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
+    ("workflow-comm", "Workflow comm", "Workflow upload queue processor and cloud sync worker."),
+    (
+        "ai-inference-native",
+        "AI inference native",
+        "Compiled Redis-driven inference bridge for the native TensorRT backend.",
+    ),
+    (
+        "event-recorder",
+        "Event recorder",
+        "Fast-forward event clip recorder with workflow upload integration.",
+    ),
 )
 
 DEFAULT_UI_DEV_ORIGINS: tuple[str, ...] = tuple(
@@ -190,18 +213,19 @@ def prepare_stage(
     configs_dir = stage_dir / "configs"
     ui_dir = stage_dir / "ui"
     wheels_dir = stage_dir / "wheels"
+    assets_dir = stage_dir / "assets"
     binaries_dir.mkdir(parents=True, exist_ok=True)
     configs_dir.mkdir(parents=True, exist_ok=True)
     ui_dir.mkdir(parents=True, exist_ok=True)
     wheels_dir.mkdir(parents=True, exist_ok=True)
+    assets_dir.mkdir(parents=True, exist_ok=True)
 
     config_map = {name: json.loads(json.dumps(payload)) for name, payload in config_map.items()}
     patch_cloud_comm_config(config_map["cloud-comm.json"], options)
 
+    optional_binary_names = {service_name for service_name, _display_name, _description in OPTIONAL_BINARY_SERVICES}
     for service_name in [service_name for service_name, _dockerfile, _cmd_path in SERVICE_BUILD_TARGETS]:
-        if service_name == "workflow-comm" and "workflow-comm.json" not in config_map:
-            continue
-        if service_name in {"live-feed", "ptz-control", "rtsp-feeder"} and f"{service_name}.json" not in config_map:
+        if service_name in optional_binary_names and f"{service_name}.json" not in config_map:
             continue
         shutil.copy2(artifact_paths[service_name], binaries_dir / service_name)
 
@@ -215,6 +239,12 @@ def prepare_stage(
 
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
     create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
+
+    if "deepstream-pipeline.json" in config_map:
+        deepstream_asset_dir = assets_dir / "deepstream-pipeline-app"
+        if deepstream_asset_dir.exists():
+            shutil.rmtree(deepstream_asset_dir)
+        shutil.copytree(DEVICE_ROOT / "native" / "deepstream-pipeline-app", deepstream_asset_dir)
 
     runtime_manager_config = build_runtime_manager_config(options, set(config_map))
     config_map["runtime-manager.json"] = runtime_manager_config
@@ -274,6 +304,7 @@ def patch_cloud_comm_config(config: dict[str, Any], options: StageOptions) -> No
 
 def build_runtime_manager_config(options: StageOptions, available_configs: set[str]) -> dict[str, Any]:
     runtime_root = options.runtime_root
+    native_inference_enabled = "ai-inference-native.json" in available_configs
     services: list[dict[str, Any]] = [
         build_binary_service(
             "cloud-comm",
@@ -308,12 +339,7 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
         },
     ]
 
-    for service_name, display_name, description in [
-        ("live-feed", "Live feed", "On-device WebRTC streaming service."),
-        ("ptz-control", "PTZ control", "PTZ command service."),
-        ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
-        ("workflow-comm", "Workflow comm", "Workflow upload queue processor and cloud sync worker."),
-    ]:
+    for service_name, display_name, description in OPTIONAL_BINARY_SERVICES:
         if f"{service_name}.json" not in available_configs:
             continue
         services.append(
@@ -328,16 +354,44 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
             )
         )
 
+    if "deepstream-pipeline.json" in available_configs:
+        services.append(
+            {
+                "name": "deepstream-pipeline",
+                "display_name": "DeepStream pipeline",
+                "description": "GPU-native DeepStream ingest, inference, preview, and sampling pipeline.",
+                "kind": "binary",
+                "allow_control": True,
+                "allow_update": False,
+                "enabled": True,
+                "exec_start": [
+                    "python3",
+                    f"{runtime_root}/src/deepstream-pipeline-app/run_deepstream_pipeline.py",
+                    "-config",
+                    f"{runtime_root}/deepstream-pipeline.json",
+                ],
+                "version_command": [
+                    "python3",
+                    f"{runtime_root}/src/deepstream-pipeline-app/run_deepstream_pipeline.py",
+                    "--version",
+                ],
+                "systemd_unit": "trakrai-deepstream-pipeline.service",
+                "user": options.runtime_user,
+                "group": options.runtime_group,
+                "working_directory": runtime_root,
+            }
+        )
+
     if "ai-inference.json" in available_configs:
         services.append(
             {
-                "name": "trakrai-ai-inference",
-                "display_name": "AI inference",
-                "description": "Wheel-installed Redis-driven AI inference worker.",
+                "name": "trakrai-ai-inference-legacy",
+                "display_name": "AI inference legacy",
+                "description": "Wheel-installed Redis-driven AI inference worker kept only as a fallback during migration.",
                 "kind": "wheel",
                 "allow_control": True,
                 "allow_update": True,
-                "enabled": True,
+                "enabled": not native_inference_enabled,
                 "exec_start": [
                     "python3",
                     "-m",
@@ -360,7 +414,7 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
                     "ai_inference",
                     "--version",
                 ],
-                "systemd_unit": "trakrai-ai-inference.service",
+                "systemd_unit": "trakrai-ai-inference-legacy.service",
                 "user": options.runtime_user,
                 "group": options.runtime_group,
                 "environment": {
@@ -440,10 +494,16 @@ def build_binary_service(
 
 def build_manifest(options: StageOptions, available_configs: set[str], wheel_name: str) -> dict[str, Any]:
     runtime_root = options.runtime_root
+    native_inference_enabled = "ai-inference-native.json" in available_configs
     directories = ["bin", "downloads", "logs", "scripts", "ui", "versions"]
+    all_optional_units = [f"trakrai-{service_name}.service" for service_name, _display_name, _description in OPTIONAL_BINARY_SERVICES]
     stop_units = [
         "trakrai-runtime-manager.service",
         "trakrai-cloud-comm.service",
+        "trakrai-ai-inference.service",
+        "trakrai-ai-inference-legacy.service",
+        "trakrai-deepstream-pipeline.service",
+        *all_optional_units,
     ]
     wait_for_units = ["trakrai-cloud-comm.service"]
     configs = [
@@ -457,13 +517,24 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
     ]
     wheels: list[dict[str, Any]] = []
     dynamic_units: list[str] = []
+    active_units: list[str] = []
 
-    for service_name in ["live-feed", "ptz-control", "rtsp-feeder", "workflow-comm"]:
+    for service_name, _display_name, _description in OPTIONAL_BINARY_SERVICES:
         if f"{service_name}.json" not in available_configs:
             continue
         configs.append({"source": f"configs/{service_name}.json", "target": f"{service_name}.json"})
         binaries.append({"source": f"binaries/{service_name}", "target": f"bin/{service_name}", "mode": "0755"})
-        dynamic_units.append(f"trakrai-{service_name}.service")
+        unit_name = f"trakrai-{service_name}.service"
+        dynamic_units.append(unit_name)
+        active_units.append(unit_name)
+
+    assets: list[dict[str, str]] = []
+    if "deepstream-pipeline.json" in available_configs:
+        configs.append({"source": "configs/deepstream-pipeline.json", "target": "deepstream-pipeline.json"})
+        dynamic_units.append("trakrai-deepstream-pipeline.service")
+        active_units.append("trakrai-deepstream-pipeline.service")
+        assets.append({"source": "assets/deepstream-pipeline-app", "target": "src/deepstream-pipeline-app"})
+        directories.append("src")
 
     if "ai-inference.json" in available_configs:
         configs.append({"source": "configs/ai-inference.json", "target": "ai-inference.json"})
@@ -482,7 +553,9 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
                 ],
             }
         )
-        dynamic_units.append("trakrai-ai-inference.service")
+        dynamic_units.append("trakrai-ai-inference-legacy.service")
+        if not native_inference_enabled:
+            active_units.append("trakrai-ai-inference-legacy.service")
 
     stop_units.extend(dynamic_units)
     wait_for_units.extend(dynamic_units)
@@ -496,7 +569,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "trakrai-cloud-comm.service",
         ]
     else:
-        start_units = ["trakrai-cloud-comm.service", *dynamic_units]
+        start_units = ["trakrai-cloud-comm.service", *active_units]
         verify_units = ["trakrai-runtime-manager.service", *start_units]
 
     return {
@@ -507,6 +580,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         "directories": directories,
         "configs": configs,
         "binaries": binaries,
+        "assets": assets,
         "ui_bundle": {
             "source": "ui/trakrai-device-ui.zip",
             "target_dir": "ui",
@@ -528,6 +602,9 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "ptz-control",
             "rtsp-feeder",
             "workflow-comm",
+            "ai-inference-native",
+            "event-recorder",
+            "src",
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
             "ui",
@@ -536,13 +613,26 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "*.log",
         ],
         "manual_process_patterns": [
+            f"{runtime_root}/bin/cloud-comm",
+            f"{runtime_root}/bin/live-feed",
+            f"{runtime_root}/bin/ptz-control",
+            f"{runtime_root}/bin/rtsp-feeder",
+            f"{runtime_root}/bin/workflow-comm",
+            f"{runtime_root}/bin/ai-inference-native",
+            f"{runtime_root}/bin/event-recorder",
+            f"{runtime_root}/bin/trakrai-trt-yolo-server",
+            f"{runtime_root}/src/deepstream-pipeline-app/run_deepstream_pipeline.py",
+            "trakrai-deepstream-pipeline",
             f"{runtime_root}/cloud-comm",
             f"{runtime_root}/live-feed",
             f"{runtime_root}/ptz-control",
             f"{runtime_root}/rtsp-feeder",
             f"{runtime_root}/workflow-comm",
+            f"{runtime_root}/ai-inference-native",
+            f"{runtime_root}/event-recorder",
             f"{runtime_root}/serve-device-ui.sh",
             f"{runtime_root}/ai-inference.json",
+            "python3 -m ai_inference",
         ],
         "stop_units": stop_units,
         "wait_for_units": wait_for_units,

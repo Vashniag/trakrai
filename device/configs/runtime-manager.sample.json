@@ -76,6 +76,27 @@
       "install_path": "/home/hacklab/trakrai-device-runtime/ui"
     },
     {
+      "name": "deepstream-pipeline",
+      "display_name": "DeepStream pipeline",
+      "description": "GPU-native DeepStream ingest, inference, preview, and sampling pipeline.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": false,
+      "enabled": false,
+      "exec_start": [
+        "python3",
+        "/home/hacklab/trakrai-device-runtime/src/deepstream-pipeline-app/run_deepstream_pipeline.py",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/deepstream-pipeline.json"
+      ],
+      "version_command": [
+        "python3",
+        "/home/hacklab/trakrai-device-runtime/src/deepstream-pipeline-app/run_deepstream_pipeline.py",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-deepstream-pipeline.service"
+    },
+    {
       "name": "live-feed",
       "display_name": "Live feed",
       "description": "On-device WebRTC live streaming service.",
@@ -156,13 +177,53 @@
       "systemd_unit": "trakrai-workflow-comm.service"
     },
     {
-      "name": "trakrai-ai-inference",
-      "display_name": "AI inference",
-      "description": "Wheel-installed Python inference service using a module entrypoint.",
-      "kind": "wheel",
+      "name": "ai-inference-native",
+      "display_name": "AI inference native",
+      "description": "Compiled Redis-driven inference bridge for the native TensorRT backend.",
+      "kind": "binary",
       "allow_control": true,
       "allow_update": true,
       "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/ai-inference-native",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/ai-inference-native.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-ai-inference-native.service"
+    },
+    {
+      "name": "event-recorder",
+      "display_name": "Event recorder",
+      "description": "Fast-forward event clip recorder with workflow upload integration.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/event-recorder",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/event-recorder.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-event-recorder.service"
+    },
+    {
+      "name": "trakrai-ai-inference-legacy",
+      "display_name": "AI inference legacy",
+      "description": "Wheel-installed Python inference service kept only as a fallback during migration.",
+      "kind": "wheel",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": false,
       "exec_start": [
         "python3",
         "-m",
@@ -189,7 +250,7 @@
         "ai_inference",
         "--version"
       ],
-      "systemd_unit": "trakrai-ai-inference.service"
+      "systemd_unit": "trakrai-ai-inference-legacy.service"
     }
   ]
 }

@@ -1,0 +1,51 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "backend": {
+    "mode": "process",
+    "command": [
+      "/home/hacklab/trakrai-device-runtime/bin/trakrai-trt-yolo-server",
+      "--engine",
+      "/data/trakrai-models/yolov8n.engine",
+      "--labels",
+      "/data/trakrai-models/coco.txt",
+      "--input-width",
+      "640",
+      "--input-height",
+      "640",
+      "--confidence",
+      "0.35",
+      "--iou",
+      "0.45"
+    ],
+    "response_timeout_ms": 20000,
+    "restart_delay_ms": 1000
+  },
+  "inference": {
+    "poll_interval_ms": 5,
+    "idle_sleep_ms": 40,
+    "processed_images_maxlen": 4,
+    "iou_threshold": 0.45
+  },
+  "staging": {
+    "dir": "/data/trakrai-ai-native/staging",
+    "retain_input_jpg": false,
+    "retain_annotated_jpg": false
+  },
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Camera-1",
+      "enabled": true
+    }
+  ]
+}

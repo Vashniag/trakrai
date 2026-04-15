@@ -50,6 +50,7 @@ type SessionManager struct {
 	composer *MosaicComposer
 	frameSrc *FrameSource
 	cfg      *Config
+	external *externalStreamCatalog
 	log      *slog.Logger
 	sessions map[string]*liveSession
 }
@@ -61,6 +62,7 @@ func NewSessionManager(cfg *Config, frameSource *FrameSource, control ControlPla
 		frameSrc: frameSource,
 		composer: NewMosaicComposer(cfg.Composite, frameSource),
 		control:  control,
+		external: newExternalStreamCatalog(cfg.StreamSource),
 		log:      slog.With("component", "webrtc"),
 		sessions: make(map[string]*liveSession),
 	}
@@ -337,10 +339,20 @@ func (sm *SessionManager) pumpFrames(
 	ticker := time.NewTicker(frameDuration)
 	defer ticker.Stop()
 	var encoder PacketEncoder
+	var packetReader *PacketReader
+	var nativePipeline *NativeCompositePipeline
 	var encoderMode framePumpMode
+	var externalKey string
+	nativeEnabled := sm.cfg.NativePipeline.Enabled
 	defer func() {
 		if encoder != nil {
 			encoder.Stop()
+		}
+		if packetReader != nil {
+			packetReader.Stop()
+		}
+		if nativePipeline != nil {
+			nativePipeline.Stop()
 		}
 	}()
 
@@ -360,6 +372,110 @@ func (sm *SessionManager) pumpFrames(
 			plan, ok := sm.sessionPlan(sessionID)
 			if !ok {
 				return
+			}
+
+			if stream, matched := sm.external.match(plan); matched {
+				nextExternalKey := fmt.Sprintf("%s|%s|%s|%d", stream.layoutMode, stream.frameSource, strings.Join(stream.cameraNames, ","), stream.port)
+				if packetReader == nil || externalKey != nextExternalKey {
+					if packetReader != nil {
+						packetReader.Stop()
+						packetReader = nil
+					}
+					reader, err := NewPacketReader(buildPacketReaderPipeline(stream))
+					if err != nil {
+						sm.log.Warn("external stream reader creation failed, falling back to local pipeline",
+							"error", err,
+							"stream", stream.name,
+							"session_id", sessionID,
+						)
+					} else if err := reader.Start(); err != nil {
+						reader.Stop()
+						sm.log.Warn("external stream reader failed to start, falling back to local pipeline",
+							"error", err,
+							"stream", stream.name,
+							"session_id", sessionID,
+						)
+					} else {
+						packetReader = reader
+						externalKey = nextExternalKey
+						sm.log.Info("using external H264 stream for live session",
+							"session_id", sessionID,
+							"stream", stream.name,
+							"camera", plan.PrimaryCamera(),
+							"layoutMode", plan.Mode,
+							"frameSource", plan.FrameSource,
+							"port", stream.port,
+						)
+					}
+				}
+
+				if packetReader != nil {
+					packet, err := packetReader.PullPacket(uint64(sm.external.packetTimeout.Nanoseconds()))
+					if err == nil && len(packet) > 0 {
+						if err := track.WriteSample(media.Sample{
+							Data:     packet,
+							Duration: frameDuration,
+						}); err != nil {
+							sm.log.Warn("write sample failed", "error", err)
+						}
+						pts += uint64(frameDuration.Nanoseconds())
+						continue
+					}
+					if err != nil {
+						sm.log.Warn("external stream read failed, falling back to local pipeline",
+							"error", err,
+							"stream", stream.name,
+							"session_id", sessionID,
+						)
+						packetReader.Stop()
+						packetReader = nil
+						externalKey = ""
+					}
+				}
+			} else if packetReader != nil {
+				packetReader.Stop()
+				packetReader = nil
+				externalKey = ""
+			}
+
+			if nativeEnabled {
+				if nativePipeline == nil {
+					nextPipeline, err := NewNativeCompositePipeline(sm.cfg, sm.frameSrc, fps)
+					if err != nil {
+						sm.log.Warn("native pipeline initialization failed, falling back to legacy encoder",
+							"error", err,
+							"session_id", sessionID,
+						)
+						nativeEnabled = false
+					} else {
+						nativePipeline = nextPipeline
+					}
+				}
+
+				if nativePipeline != nil {
+					h264Data, err := nativePipeline.EncodeFrames(ctx, plan, pts)
+					if err == nil {
+						if err := track.WriteSample(media.Sample{
+							Data:     h264Data,
+							Duration: frameDuration,
+						}); err != nil {
+							sm.log.Warn("write sample failed", "error", err)
+						}
+						pts += uint64(frameDuration.Nanoseconds())
+						continue
+					}
+
+					sm.log.Warn("native pipeline failed, falling back to legacy encoder",
+						"error", err,
+						"session_id", sessionID,
+						"camera", plan.PrimaryCamera(),
+						"layoutMode", plan.Mode,
+						"frameSource", plan.FrameSource,
+					)
+					nativePipeline.Stop()
+					nativePipeline = nil
+					nativeEnabled = false
+				}
 			}
 
 			nextEncoderMode := framePumpModeForPlan(plan)

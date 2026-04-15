@@ -1,0 +1,50 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "sampling": {
+    "backend": "redis",
+    "frame_source": "both",
+    "sample_fps": 1,
+    "max_buffer_sec": 900,
+    "spool_dir": "/data/trakrai-recordings/ring"
+  },
+  "output": {
+    "files_root": "/var/lib/trakrai/workflow-comm/files",
+    "clips_subdir": "recordings",
+    "staging_dir": "/data/trakrai-recordings/staging",
+    "encoder": "auto",
+    "playback_fps": 24,
+    "jpeg_quality": 85
+  },
+  "workflow_queue": {
+    "enabled": true,
+    "pending_list": "workflow:cloud:pending",
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0,
+      "key_prefix": "workflow"
+    }
+  },
+  "composite": {
+    "width": 960,
+    "height": 540,
+    "tile_padding": 8
+  },
+  "cameras": [
+    {
+      "name": "Camera-1",
+      "enabled": true
+    }
+  ]
+}

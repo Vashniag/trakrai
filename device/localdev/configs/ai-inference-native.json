@@ -1,0 +1,36 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "redis": {
+    "host": "redis",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "backend": {
+    "mode": "mock",
+    "response_timeout_ms": 2000,
+    "restart_delay_ms": 1000
+  },
+  "inference": {
+    "poll_interval_ms": 5,
+    "idle_sleep_ms": 40,
+    "processed_images_maxlen": 10,
+    "iou_threshold": 0.45
+  },
+  "staging": {
+    "dir": "/home/hacklab/trakrai-device-runtime/tmp/ai-native",
+    "retain_input_jpg": false,
+    "retain_annotated_jpg": false
+  },
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Camera-1",
+      "enabled": true
+    }
+  ]
+}

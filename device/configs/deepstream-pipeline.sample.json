@@ -1,0 +1,48 @@
+{
+  "image": "trakrai/deepstream-l4t:6.0.1-build",
+  "build": {
+    "enabled": true,
+    "base_image": "nvcr.io/nvidia/deepstream-l4t:6.0.1-samples",
+    "dockerfile": "/home/hacklab/trakrai-device-runtime/src/deepstream-pipeline-app/Dockerfile"
+  },
+  "container_name": "trakrai-deepstream-pipeline",
+  "runtime_root": "/home/hacklab/trakrai-device-runtime",
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "password": "",
+    "key_prefix": "camera"
+  },
+  "network": {
+    "udp_host": "127.0.0.1"
+  },
+  "pipeline": {
+    "mux_width": 640,
+    "mux_height": 640,
+    "tile_width": 960,
+    "tile_height": 540,
+    "raw_grid_port": 5600,
+    "processed_grid_port": 5601
+  },
+  "sampling": {
+    "spool_dir": "/data/trakrai-recordings/ring",
+    "sample_fps": 1,
+    "jpeg_quality": 80
+  },
+  "nvinfer": {
+    "config_path": "/home/hacklab/trakrai-device-runtime/src/deepstream-pipeline-app/config_infer_primary_yolov5s.txt"
+  },
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Camera-1",
+      "rtsp_url": "rtsp://user:password@192.168.1.10:554/stream1",
+      "enabled": true,
+      "raw_port": 5611,
+      "processed_port": 5621,
+      "latency_ms": 200,
+      "rtp_protocol": 4,
+      "rotate_180": false
+    }
+  ]
+}

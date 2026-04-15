@@ -10,9 +10,9 @@
   "defaults": {
     "capture_method": "auto",
     "width": 640,
-    "height": 480,
-    "framerate": 10,
-    "jpeg_quality": 85,
+    "height": 360,
+    "framerate": 6,
+    "jpeg_quality": 80,
     "latency_ms": 200,
     "protocols": "tcp",
     "reconnect_delay_sec": 5,

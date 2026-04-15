@@ -22,11 +22,39 @@
         "credential": "trakrai-secret"
       }
     ],
-    "framerate_fps": 10
+    "framerate_fps": 6
   },
   "composite": {
     "width": 960,
     "height": 540,
     "tile_padding": 8
+  },
+  "native_pipeline": {
+    "enabled": true,
+    "encoder": "auto",
+    "jpeg_decoder": "auto"
+  },
+  "stream_source": {
+    "enabled": false,
+    "transport": "udp-h264-rtp",
+    "packet_timeout_ms": 2500,
+    "streams": [
+      {
+        "name": "camera-1-raw",
+        "layout_mode": "single",
+        "frame_source": "raw",
+        "camera_names": ["Camera-1"],
+        "host": "127.0.0.1",
+        "port": 5611
+      },
+      {
+        "name": "camera-1-processed",
+        "layout_mode": "single",
+        "frame_source": "processed",
+        "camera_names": ["Camera-1"],
+        "host": "127.0.0.1",
+        "port": 5621
+      }
+    ]
   }
 }

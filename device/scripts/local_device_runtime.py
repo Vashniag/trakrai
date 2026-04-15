@@ -159,7 +159,7 @@ def cmd_up(args: argparse.Namespace) -> int:
 
     env = compose_env(args.compose_project_name, args.platform)
     run_compose(["up", "--build", "-d", "--wait"], env=env)
-    verify_local_stack(env=env)
+    verify_local_stack(env=env, config_map=config_map)
 
     print("")
     print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
@@ -287,7 +287,36 @@ def run_local(command: list[str], *, env: dict[str, str], capture_output: bool =
     return result.stdout if capture_output else ""
 
 
-def verify_local_stack(*, env: dict[str, str]) -> None:
+def verify_local_stack(*, env: dict[str, str], config_map: dict[str, dict[str, object]]) -> None:
+    binary_checks = [
+        "/home/hacklab/trakrai-device-runtime/bin/cloud-comm",
+    ]
+    unit_checks = [
+        "trakrai-runtime-manager.service",
+        "trakrai-cloud-comm.service",
+    ]
+
+    for service_name in [
+        "live-feed",
+        "rtsp-feeder",
+        "ptz-control",
+        "workflow-comm",
+        "ai-inference-native",
+        "event-recorder",
+    ]:
+        if f"{service_name}.json" not in config_map:
+            continue
+        binary_checks.append(f"/home/hacklab/trakrai-device-runtime/bin/{service_name}")
+        unit_checks.append(f"trakrai-{service_name}.service")
+
+    if "ai-inference.json" in config_map and "ai-inference-native.json" not in config_map:
+        unit_checks.append("trakrai-ai-inference-legacy.service")
+
+    verify_command = "set -euo pipefail; " + " ".join(
+        [*(f"test -x {path};" for path in binary_checks), "python3.8 --version;"]
+        + [f"systemctl is-active {unit};" for unit in unit_checks]
+    )
+
     run_compose(["ps"], env=env)
     run_local(
         [
@@ -302,21 +331,13 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
             "device-emulator",
             "bash",
             "-lc",
-            (
-                "set -euo pipefail; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/live-feed; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
-                "python3.8 --version; "
-                "systemctl is-active trakrai-runtime-manager.service; "
-                "systemctl is-active trakrai-cloud-comm.service; "
-                "systemctl is-active trakrai-live-feed.service; "
-                "systemctl is-active trakrai-rtsp-feeder.service"
-            ),
+            verify_command,
         ],
         env=env,
     )
     wait_for_redis_frame(env=env)
+    if "ai-inference-native.json" in config_map or "ai-inference.json" in config_map:
+        wait_for_processed_frame(env=env)
     run_local(
         [
             "curl",
@@ -363,6 +384,31 @@ def wait_for_redis_frame(*, env: dict[str, str]) -> None:
             return
         time.sleep(1)
     raise SystemExit("Timed out waiting for rtsp-feeder to publish a frame into Redis")
+
+
+def wait_for_processed_frame(*, env: dict[str, str]) -> None:
+    command = [
+        "docker",
+        "compose",
+        "--env-file",
+        str(COMPOSE_ENV_FILE),
+        "-f",
+        str(COMPOSE_FILE),
+        "exec",
+        "-T",
+        "redis",
+        "redis-cli",
+        "--raw",
+        "EXISTS",
+        "camera:Camera-1:processed",
+    ]
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        output = run_local(command, env=env, capture_output=True, check=False).strip()
+        if output == "1":
+            return
+        time.sleep(1)
+    raise SystemExit("Timed out waiting for inference service to publish a processed frame into Redis")
 
 
 if __name__ == "__main__":
