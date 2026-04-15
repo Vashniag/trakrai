@@ -103,7 +103,8 @@ def backup_legacy_entries(runtime_root: Path, backup_dir: Path, names: list[str]
         for candidate in runtime_root.glob(name):
             if not candidate.exists():
                 continue
-            if candidate.name.endswith(".json") and candidate.name != "managed-services.json":
+            explicit_json_name = name.endswith(".json") and Path(name).name == candidate.name
+            if candidate.name.endswith(".json") and candidate.name != "managed-services.json" and not explicit_json_name:
                 continue
             backup_dir.mkdir(parents=True, exist_ok=True)
             shutil.move(str(candidate), str(backup_dir / candidate.name))

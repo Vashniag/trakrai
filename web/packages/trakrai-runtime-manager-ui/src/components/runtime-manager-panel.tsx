@@ -75,7 +75,7 @@ const createServiceTemplate = (
         '-m',
         'trakrai_service',
         '--config',
-        '/home/hacklab/trakrai-device-runtime/trakrai-service.json',
+        '/home/hacklab/trakrai-device-runtime/configs/trakrai-service.json',
       ],
       kind: 'wheel',
       name: 'trakrai-service',
@@ -117,7 +117,7 @@ const createServiceTemplate = (
     execStart: [
       '{{install_path}}',
       '-config',
-      '/home/hacklab/trakrai-device-runtime/new-service.json',
+      '/home/hacklab/trakrai-device-runtime/configs/new-service.json',
     ],
     kind: 'binary',
     name: 'new-service',

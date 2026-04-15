@@ -40,7 +40,7 @@ python3 -m pip install --no-deps --force-reinstall ./trakrai_ai_inference-0.1.0-
 Run the installed package:
 
 ```bash
-trakrai-ai-inference -config /home/hacklab/trakrai-device-runtime/ai-inference.json
+trakrai-ai-inference -config /home/hacklab/trakrai-device-runtime/configs/ai-inference.json
 ```
 
 Notes:

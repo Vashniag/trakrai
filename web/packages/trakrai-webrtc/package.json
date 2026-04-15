@@ -35,16 +35,11 @@
     "typescript": "^6"
   },
   "exports": {
-    "./lib/*": "./src/lib/*.ts",
     "./providers/*": "./src/providers/*.tsx"
   },
   "publishConfig": {
     "access": "public",
     "exports": {
-      "./lib/*": {
-        "import": "./dist/lib/*.js",
-        "types": "./dist/lib/*.d.ts"
-      },
       "./providers/*": {
         "import": "./dist/providers/*.js",
         "types": "./dist/providers/*.d.ts"

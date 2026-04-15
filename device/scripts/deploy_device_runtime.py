@@ -79,14 +79,19 @@ def load_device_configs(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         sftp = ssh_client.open_sftp()
         configs = {}
         for name in common.CONFIG_NAMES:
-            remote_path = PurePosixPath(args.runtime_root) / name
-            try:
-                with sftp.open(str(remote_path), "r") as remote_file:
-                    configs[name] = json.loads(remote_file.read().decode("utf-8"))
-            except IOError:
-                continue
+            candidate_paths = [
+                PurePosixPath(args.runtime_root) / "configs" / name,
+                PurePosixPath(args.runtime_root) / name,
+            ]
+            for remote_path in candidate_paths:
+                try:
+                    with sftp.open(str(remote_path), "r") as remote_file:
+                        configs[name] = json.loads(remote_file.read().decode("utf-8"))
+                    break
+                except IOError:
+                    continue
         if "cloud-comm.json" not in configs:
-            raise SystemExit(f"Unable to fetch {args.runtime_root}/cloud-comm.json from {args.host}")
+            raise SystemExit(f"Unable to fetch {args.runtime_root}/configs/cloud-comm.json from {args.host}")
         return configs
     finally:
         ssh_client.close()
@@ -133,8 +138,12 @@ def verify_remote_state(ssh_client: paramiko.SSHClient, args: argparse.Namespace
         f"ls -la {shlex.quote(args.runtime_root)}; "
         "echo '--- bin ---'; "
         f"ls -la {shlex.quote(args.runtime_root + '/bin')}; "
+        "echo '--- configs ---'; "
+        f"ls -la {shlex.quote(args.runtime_root + '/configs')}; "
         "echo '--- logs ---'; "
         f"ls -la {shlex.quote(args.runtime_root + '/logs')}; "
+        "echo '--- state ---'; "
+        f"ls -la {shlex.quote(args.runtime_root + '/state')}; "
         "echo '--- versions ---'; "
         f"ls -la {shlex.quote(args.runtime_root + '/versions')}; "
         "echo '--- generated units ---'; "

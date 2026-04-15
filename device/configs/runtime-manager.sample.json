@@ -11,10 +11,11 @@
   "runtime": {
     "root_dir": "/home/hacklab/trakrai-device-runtime",
     "binary_dir": "/home/hacklab/trakrai-device-runtime/bin",
+    "config_dir": "/home/hacklab/trakrai-device-runtime/configs",
     "download_dir": "/home/hacklab/trakrai-device-runtime/downloads",
     "log_dir": "/home/hacklab/trakrai-device-runtime/logs",
     "script_dir": "/home/hacklab/trakrai-device-runtime/scripts",
-    "state_file": "/home/hacklab/trakrai-device-runtime/managed-services.json",
+    "state_file": "/home/hacklab/trakrai-device-runtime/state/managed-services.json",
     "version_dir": "/home/hacklab/trakrai-device-runtime/versions"
   },
   "http": {
@@ -35,7 +36,7 @@
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/cloud-comm.json"
+        "/home/hacklab/trakrai-device-runtime/configs/cloud-comm.json"
       ],
       "version_command": [
         "{{install_path}}",
@@ -56,7 +57,7 @@
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/runtime-manager.json"
+        "/home/hacklab/trakrai-device-runtime/configs/runtime-manager.json"
       ],
       "version_command": [
         "{{install_path}}",
@@ -87,7 +88,7 @@
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/cloud-transfer.json"
+        "/home/hacklab/trakrai-device-runtime/configs/cloud-transfer.json"
       ],
       "version_command": [
         "{{install_path}}",
@@ -107,7 +108,7 @@
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/live-feed.json"
+        "/home/hacklab/trakrai-device-runtime/configs/live-feed.json"
       ],
       "version_command": [
         "{{install_path}}",
@@ -127,7 +128,7 @@
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/ptz-control.json"
+        "/home/hacklab/trakrai-device-runtime/configs/ptz-control.json"
       ],
       "version_command": [
         "{{install_path}}",
@@ -147,7 +148,7 @@
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/rtsp-feeder.json"
+        "/home/hacklab/trakrai-device-runtime/configs/rtsp-feeder.json"
       ],
       "version_command": [
         "{{install_path}}",
@@ -168,7 +169,7 @@
         "-m",
         "ai_inference",
         "--config",
-        "/home/hacklab/trakrai-device-runtime/ai-inference.json"
+        "/home/hacklab/trakrai-device-runtime/configs/ai-inference.json"
       ],
       "environment": {
         "HOME": "/home/hacklab",
@@ -204,7 +205,7 @@
         "-m",
         "trakrai_workflow_engine",
         "--config",
-        "/home/hacklab/trakrai-device-runtime/workflow-engine.json"
+        "/home/hacklab/trakrai-device-runtime/configs/workflow-engine.json"
       ],
       "environment": {
         "HOME": "/home/hacklab",

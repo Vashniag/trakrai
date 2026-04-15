@@ -14,7 +14,7 @@ COMPOSE_FILE = DEVICE_ROOT / "localdev" / "docker-compose.yml"
 COMPOSE_ENV_FILE = DEVICE_ROOT / ".localdev" / "compose.env"
 LOCAL_SHARED_DIR = DEVICE_ROOT / ".localdev" / "shared"
 RUNTIME_SHARED_DIR = "/home/hacklab/trakrai-device-runtime/shared"
-RUNTIME_CONFIG_PATH = "/home/hacklab/trakrai-device-runtime/workflow-engine.json"
+RUNTIME_CONFIG_PATH = "/home/hacklab/trakrai-device-runtime/configs/workflow-engine.json"
 
 
 def main() -> int:

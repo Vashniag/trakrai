@@ -135,7 +135,7 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.Runtime.ScriptDir = filepath.Join(cfg.Runtime.RootDir, "scripts")
 	}
 	if cfg.Runtime.StateFile == "" {
-		cfg.Runtime.StateFile = filepath.Join(cfg.Runtime.RootDir, "managed-services.json")
+		cfg.Runtime.StateFile = filepath.Join(cfg.Runtime.RootDir, "state", "managed-services.json")
 	}
 	if cfg.Runtime.VersionDir == "" {
 		cfg.Runtime.VersionDir = filepath.Join(cfg.Runtime.RootDir, "versions")

@@ -285,6 +285,22 @@ def prepare_stage(
     }
 
 
+def runtime_configs_dir(runtime_root: str) -> str:
+    return f"{runtime_root}/configs"
+
+
+def runtime_config_path(runtime_root: str, file_name: str) -> str:
+    return f"{runtime_configs_dir(runtime_root)}/{file_name}"
+
+
+def runtime_state_dir(runtime_root: str) -> str:
+    return f"{runtime_root}/state"
+
+
+def runtime_state_path(runtime_root: str, file_name: str) -> str:
+    return f"{runtime_state_dir(runtime_root)}/{file_name}"
+
+
 def patch_cloud_comm_config(config: dict[str, Any], options: StageOptions) -> None:
     edge = config.setdefault("edge", {})
     edge["enabled"] = True
@@ -395,10 +411,11 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
         "runtime": {
             "root_dir": runtime_root,
             "binary_dir": f"{runtime_root}/bin",
+            "config_dir": runtime_configs_dir(runtime_root),
             "download_dir": f"{runtime_root}/downloads",
             "log_dir": f"{runtime_root}/logs",
             "script_dir": f"{runtime_root}/scripts",
-            "state_file": f"{runtime_root}/managed-services.json",
+            "state_file": runtime_state_path(runtime_root, "managed-services.json"),
             "version_dir": f"{runtime_root}/versions",
         },
         "http": {
@@ -434,7 +451,7 @@ def build_binary_service(
         "exec_start": [
             "{{install_path}}",
             "-config",
-            f"{runtime_root}/{name}.json",
+            runtime_config_path(runtime_root, f"{name}.json"),
         ],
         "version_command": [
             "{{install_path}}",
@@ -451,16 +468,16 @@ def build_binary_service(
 
 def build_manifest(options: StageOptions, available_configs: set[str], wheel_names: dict[str, str]) -> dict[str, Any]:
     runtime_root = options.runtime_root
-    directories = ["bin", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
+    directories = ["bin", "configs", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
     stop_units = [
         "trakrai-runtime-manager.service",
         "trakrai-cloud-comm.service",
     ]
     wait_for_units = ["trakrai-cloud-comm.service"]
     configs = [
-        {"source": "configs/cloud-comm.json", "target": "cloud-comm.json"},
-        {"source": "configs/runtime-manager.json", "target": "runtime-manager.json"},
-        {"source": "configs/managed-services.json", "target": "managed-services.json"},
+        {"source": "configs/cloud-comm.json", "target": "configs/cloud-comm.json"},
+        {"source": "configs/runtime-manager.json", "target": "configs/runtime-manager.json"},
+        {"source": "configs/managed-services.json", "target": "state/managed-services.json"},
     ]
     binaries = [
         {"source": "binaries/cloud-comm", "target": "bin/cloud-comm", "mode": "0755"},
@@ -472,7 +489,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
     for service_name in ["cloud-transfer", "live-feed", "ptz-control", "rtsp-feeder"]:
         if f"{service_name}.json" not in available_configs:
             continue
-        configs.append({"source": f"configs/{service_name}.json", "target": f"{service_name}.json"})
+        configs.append({"source": f"configs/{service_name}.json", "target": f"configs/{service_name}.json"})
         binaries.append({"source": f"binaries/{service_name}", "target": f"bin/{service_name}", "mode": "0755"})
         dynamic_units.append(f"trakrai-{service_name}.service")
 
@@ -482,7 +499,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         wheel_name = wheel_names.get(target.config_name, "")
         if not wheel_name:
             raise SystemExit(f"missing wheel artifact name for {target.config_name}")
-        configs.append({"source": f"configs/{target.config_name}", "target": target.config_name})
+        configs.append({"source": f"configs/{target.config_name}", "target": f"configs/{target.config_name}"})
         wheels.append(
             {
                 "source": f"wheels/{wheel_name}",
@@ -530,7 +547,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         "wheels": wheels,
         "runtime_manager": {
             "binary_path": "bin/runtime-manager",
-            "config_path": "runtime-manager.json",
+            "config_path": "configs/runtime-manager.json",
             "group": "root",
             "log_path": "logs/runtime-manager.log",
             "script_path": "scripts/start-runtime-manager.sh",
@@ -549,6 +566,10 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "ui",
             "ai_inference",
             "workflow-engine",
+            "configs",
+            "state",
+            *CONFIG_NAMES,
+            "runtime-manager.json",
             "managed-services.json",
             "*.log",
         ],
@@ -559,8 +580,8 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             f"{runtime_root}/ptz-control",
             f"{runtime_root}/rtsp-feeder",
             f"{runtime_root}/serve-device-ui.sh",
-            f"{runtime_root}/ai-inference.json",
-            f"{runtime_root}/workflow-engine.json",
+            runtime_config_path(runtime_root, "ai-inference.json"),
+            runtime_config_path(runtime_root, "workflow-engine.json"),
         ],
         "stop_units": stop_units,
         "wait_for_units": wait_for_units,
@@ -584,7 +605,7 @@ def build_wheel_service(target: PythonWheelTarget, options: StageOptions) -> dic
             "-m",
             target.module_name,
             "--config",
-            f"{runtime_root}/{target.config_name}",
+            runtime_config_path(runtime_root, target.config_name),
         ],
         "setup_command": [
             "python3",

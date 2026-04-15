@@ -134,6 +134,26 @@ The shared stage layout looks like this:
 
 `bootstrap_device_runtime.py` relies on `manifest.json` rather than hardcoding what to install.
 
+When that stage is installed on the target runtime, the files land like this:
+
+```text
+<runtime-root>/
+  bin/
+  configs/
+    cloud-comm.json
+    runtime-manager.json
+    cloud-transfer.json
+    ...
+  downloads/
+  logs/
+  scripts/
+  shared/
+  state/
+    managed-services.json
+  ui/
+  versions/
+```
+
 ## What `local_device_runtime.py` Does
 
 `local_device_runtime.py` is the local developer entrypoint. It stages the runtime and then starts a Docker Compose stack that treats a container as the device.
@@ -301,7 +321,7 @@ It must run as root.
 
 The bootstrap script only writes one systemd unit directly: `trakrai-runtime-manager.service`.
 
-Everything else is described in `runtime-manager.json`, and `runtime-manager` is responsible for materializing and controlling the remaining service units. That is why bootstrap waits for generated units after starting the runtime manager.
+Everything else is described in `configs/runtime-manager.json`, and `runtime-manager` is responsible for materializing and controlling the remaining service units. That is why bootstrap waits for generated units after starting the runtime manager.
 
 ## Local Vs Real Deployment
 

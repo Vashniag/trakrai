@@ -38,7 +38,6 @@
     "typescript": "^6"
   },
   "exports": {
-    "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",
     "./providers/*": "./src/providers/*.tsx",
@@ -47,10 +46,6 @@
   "publishConfig": {
     "access": "public",
     "exports": {
-      "./components/*": {
-        "import": "./dist/components/*.js",
-        "types": "./dist/components/*.d.ts"
-      },
       "./hooks/*": {
         "import": "./dist/hooks/*.js",
         "types": "./dist/hooks/*.d.ts"

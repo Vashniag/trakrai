@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { defineConfig } from 'tsdown';
 
 type PackageJsonDependencies = {
@@ -30,8 +30,13 @@ const createDependencyConfig = (neverBundle: readonly string[] = []) => {
   };
 };
 
-const createEntries = (directory: string, extension: '.ts' | '.tsx') =>
-  readdirSync(new URL(`src/${directory}`, import.meta.url))
+const createEntries = (directory: string, extension: '.ts' | '.tsx') => {
+  const directoryUrl = new URL(`src/${directory}`, import.meta.url);
+  if (!existsSync(directoryUrl)) {
+    return {} as Record<string, string>;
+  }
+
+  return readdirSync(directoryUrl)
     .filter((fileName) => fileName.endsWith(extension))
     .reduce(
       (entries, fileName) => {
@@ -41,6 +46,7 @@ const createEntries = (directory: string, extension: '.ts' | '.tsx') =>
       },
       {} as Record<string, string>,
     );
+};
 
 export default defineConfig({
   entry: {

@@ -1,3 +1,4 @@
 .codex-logs
 .codex-temp-test
-./device/configs
+__pycache__/
+*.pyc

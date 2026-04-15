@@ -102,7 +102,7 @@ func TestNormalizeManagedServiceDefaults(t *testing.T) {
 			LogDir:      "/opt/trakrai/logs",
 			RootDir:     "/opt/trakrai",
 			ScriptDir:   "/opt/trakrai/scripts",
-			StateFile:   "/opt/trakrai/managed-services.json",
+			StateFile:   "/opt/trakrai/state/managed-services.json",
 			VersionDir:  "/opt/trakrai/versions",
 		},
 		Systemd: SystemdConfig{
@@ -116,7 +116,7 @@ func TestNormalizeManagedServiceDefaults(t *testing.T) {
 		AllowControl: true,
 		AllowUpdate:  true,
 		Enabled:      true,
-		ExecStart:    []string{"{{install_path}}", "-config", "/opt/trakrai/live-feed.json"},
+		ExecStart:    []string{"{{install_path}}", "-config", "/opt/trakrai/configs/live-feed.json"},
 		Kind:         "binary",
 		Name:         "live-feed",
 	})
@@ -155,7 +155,7 @@ func TestRenderWrapperScriptIncludesVersionCommandAndExec(t *testing.T) {
 	}
 
 	script, err := service.renderWrapperScript(ManagedServiceConfig{
-		ExecStart:      []string{"{{install_path}}", "-config", "/opt/trakrai/live-feed.json"},
+		ExecStart:      []string{"{{install_path}}", "-config", "/opt/trakrai/configs/live-feed.json"},
 		InstallPath:    "/opt/trakrai/bin/live-feed",
 		LogPath:        "/opt/trakrai/logs/live-feed.log",
 		Name:           "live-feed",
@@ -170,7 +170,7 @@ func TestRenderWrapperScriptIncludesVersionCommandAndExec(t *testing.T) {
 	if !strings.Contains(script, "exec >>'/opt/trakrai/logs/live-feed.log' 2>&1") {
 		t.Fatalf("wrapper script missing log redirection: %s", script)
 	}
-	if !containsAll(script, "'/opt/trakrai/bin/live-feed' '--version'", "'/opt/trakrai/bin/live-feed' '-config' '/opt/trakrai/live-feed.json'") {
+	if !containsAll(script, "'/opt/trakrai/bin/live-feed' '--version'", "'/opt/trakrai/bin/live-feed' '-config' '/opt/trakrai/configs/live-feed.json'") {
 		t.Fatalf("wrapper script missing substituted commands: %s", script)
 	}
 }
@@ -186,7 +186,7 @@ func TestSaveAndLoadManagedServicesState(t *testing.T) {
 			LogDir:      filepath.Join(tempDir, "logs"),
 			RootDir:     tempDir,
 			ScriptDir:   filepath.Join(tempDir, "scripts"),
-			StateFile:   filepath.Join(tempDir, "managed-services.json"),
+			StateFile:   filepath.Join(tempDir, "state", "managed-services.json"),
 			VersionDir:  filepath.Join(tempDir, "versions"),
 		},
 		Systemd: SystemdConfig{
@@ -318,7 +318,7 @@ func newStatusPayloadTestService(
 				LogDir:      "/opt/trakrai/logs",
 				RootDir:     "/opt/trakrai",
 				ScriptDir:   "/opt/trakrai/scripts",
-				StateFile:   "/opt/trakrai/managed-services.json",
+				StateFile:   "/opt/trakrai/state/managed-services.json",
 				VersionDir:  "/opt/trakrai/versions",
 			},
 			Systemd: SystemdConfig{
