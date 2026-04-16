@@ -267,16 +267,16 @@
     "live-feed": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "live-feed-linux-arm64-v0.1.0",
-          "remotePath": "live-feed/0.1.0/linux-arm64/live-feed-linux-arm64-v0.1.0",
-          "sha256": "874312ee38e7a9e5700e981ab42015fb2f2192debf8fe9612400a5c5019980fb",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "live-feed-linux-arm64-v0.1.1",
+          "remotePath": "live-feed/0.1.1/linux-arm64/live-feed-linux-arm64-v0.1.1",
+          "sha256": "df819711494e6f56d57d10ffa26a0696fad58c9a7c158b9359605a77c93ca2a6",
+          "updatedAt": "2026-04-16T16:06:31Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "live-feed",
-      "sourceHash": "sha256:055fdbddce269f7e07ce811e6837c6e38d28d791472c3ca356e109105165d29b",
+      "sourceHash": "sha256:563bd6644b4ed695a9effe6e537000fe01c2eb5728b8b16ce668deea17f29e14",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/live-feed/main.go",
@@ -300,7 +300,7 @@
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "ptz-control": {
       "artifacts": {
@@ -509,5 +509,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-16T15:15:23Z"
+  "updatedAt": "2026-04-16T16:06:31Z"
 }
