@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import urlopen
 
 import device_runtime_common as common
 
@@ -27,6 +29,7 @@ DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
 LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
 LOCALDEV_ROI_TEMPLATE = common.DEVICE_ROOT / "localdev" / "roi" / "roi-config.json"
+COMPOSE_SERVICES = {"device-emulator", "fake-camera", "minio", "mock-cloud-api", "redis"}
 
 
 def main() -> int:
@@ -54,6 +57,20 @@ def main() -> int:
     up_parser.add_argument("--platform", default=common.DEFAULT_LOCAL_PLATFORM, help="Docker platform for local builds, for example linux/arm64")
     up_parser.add_argument("--skip-build", action="store_true", help="reuse existing device/out artifacts")
     up_parser.add_argument("--skip-ui-build", action="store_true", help="fail instead of building the device UI export when missing")
+    up_parser.add_argument(
+        "--skip-compose-build",
+        action="store_true",
+        help="skip `docker compose` image builds and only (re)start containers",
+    )
+    up_parser.add_argument(
+        "--compose-build-services",
+        default="",
+        help=(
+            "comma-separated docker compose services to build before `up` "
+            "(for example: device-emulator,fake-camera). "
+            "If omitted, `up --build` builds all services."
+        ),
+    )
     up_parser.add_argument("--compose-project-name", default=DEFAULT_PROJECT_NAME)
     up_parser.add_argument("--start-mode", default="all", choices=["core", "all"])
     up_parser.add_argument(
@@ -171,7 +188,15 @@ def cmd_up(args: argparse.Namespace) -> int:
     )
 
     env = compose_env(args.compose_project_name, args.platform)
-    run_compose(["up", "--build", "-d", "--wait"], env=env)
+    compose_build_services = parse_compose_services_arg(args.compose_build_services)
+    if args.skip_compose_build:
+        run_compose(["up", "-d", "--wait"], env=env)
+    else:
+        if compose_build_services:
+            run_compose(["build", *compose_build_services], env=env)
+            run_compose(["up", "-d", "--wait"], env=env)
+        else:
+            run_compose(["up", "--build", "-d", "--wait"], env=env)
     verify_local_stack(env=env)
 
     print("")
@@ -294,13 +319,16 @@ def write_compose_env(
     webrtc_udp_port_min: int,
     webrtc_udp_port_max: int,
 ) -> None:
+    stage_path = compose_bind_path(stage_dir)
+    shared_path = compose_bind_path(shared_dir)
+    video_file_path = compose_bind_path(video_path)
     COMPOSE_ENV_FILE.write_text(
         "\n".join(
             [
                 f"COMPOSE_PROJECT_NAME={compose_project_name}",
-                f"TRAKRAI_LOCAL_STAGE_DIR={stage_dir}",
-                f"TRAKRAI_LOCAL_SHARED_DIR={shared_dir}",
-                f"TRAKRAI_LOCAL_VIDEO_FILE={video_path}",
+                f"TRAKRAI_LOCAL_STAGE_DIR={stage_path}",
+                f"TRAKRAI_LOCAL_SHARED_DIR={shared_path}",
+                f"TRAKRAI_LOCAL_VIDEO_FILE={video_file_path}",
                 f"TRAKRAI_LOCAL_HTTP_PORT={http_port}",
                 f"TRAKRAI_LOCAL_RTSP_PORT={rtsp_port}",
                 f"TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE={webrtc_udp_port_min}-{webrtc_udp_port_max}",
@@ -316,6 +344,25 @@ def compose_env(project_name: str, platform: str) -> dict[str, str]:
     env["COMPOSE_PROJECT_NAME"] = project_name
     env["DOCKER_DEFAULT_PLATFORM"] = platform
     return env
+
+
+def compose_bind_path(path: Path) -> str:
+    # Docker compose accepts forward-slash paths on Windows (for example C:/Users/...).
+    # Normalizing here avoids shell-specific backslash and drive-letter parsing issues.
+    return path.resolve().as_posix()
+
+
+def parse_compose_services_arg(raw_value: str) -> list[str]:
+    items = [item.strip() for item in raw_value.split(",") if item.strip()]
+    unknown = [item for item in items if item not in COMPOSE_SERVICES]
+    if unknown:
+        raise SystemExit(
+            "Unknown compose service(s): "
+            + ", ".join(unknown)
+            + ". Expected one of: "
+            + ", ".join(sorted(COMPOSE_SERVICES))
+        )
+    return items
 
 
 def run_compose(command: list[str], *, env: dict[str, str], check: bool = True) -> None:
@@ -388,16 +435,7 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
         env=env,
     )
     wait_for_redis_frame(env=env)
-    run_local(
-        [
-            "curl",
-            "--fail",
-            "--silent",
-            "--show-error",
-            f"http://127.0.0.1:{read_compose_value('TRAKRAI_LOCAL_HTTP_PORT')}/api/runtime-config",
-        ],
-        env=env,
-    )
+    wait_for_runtime_config()
 
 
 def read_compose_value(name: str) -> str:
@@ -434,6 +472,20 @@ def wait_for_redis_frame(*, env: dict[str, str]) -> None:
             return
         time.sleep(1)
     raise SystemExit("Timed out waiting for rtsp-feeder to publish a frame into Redis")
+
+
+def wait_for_runtime_config(timeout_sec: int = 30) -> None:
+    runtime_config_url = f"http://127.0.0.1:{read_compose_value('TRAKRAI_LOCAL_HTTP_PORT')}/api/runtime-config"
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        try:
+            with urlopen(runtime_config_url, timeout=5) as response:
+                if 200 <= getattr(response, "status", 0) < 300:
+                    return
+        except URLError:
+            pass
+        time.sleep(1)
+    raise SystemExit(f"Timed out waiting for runtime-config endpoint: {runtime_config_url}")
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ COPY --from=mediamtx /mediamtx /usr/local/bin/mediamtx
 COPY mediamtx.yml /mediamtx.yml
 COPY entrypoint.sh /usr/local/bin/trakrai-fake-camera-entrypoint.sh
 
-RUN chmod +x /usr/local/bin/mediamtx /usr/local/bin/trakrai-fake-camera-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/trakrai-fake-camera-entrypoint.sh \
+    && chmod +x /usr/local/bin/mediamtx /usr/local/bin/trakrai-fake-camera-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/trakrai-fake-camera-entrypoint.sh"]
