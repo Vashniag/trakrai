@@ -102,7 +102,7 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.WebRTC.UDPPortRange.Min != 0 || cfg.WebRTC.UDPPortRange.Max != 0 {
 		if cfg.WebRTC.UDPPortRange.Min <= 0 || cfg.WebRTC.UDPPortRange.Max <= 0 {
-			return nil, fmt.Errorf("webrtc.udp_port_range min/max must both be greater than 0")
+			return nil, fmt.Errorf("webrtc.udp_port_range min/max must both be greater than 0.")
 		}
 		if cfg.WebRTC.UDPPortRange.Min > cfg.WebRTC.UDPPortRange.Max {
 			return nil, fmt.Errorf("webrtc.udp_port_range min must be less than or equal to max")
