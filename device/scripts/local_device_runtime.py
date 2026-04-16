@@ -14,6 +14,7 @@ import urllib.request
 from collections import deque
 from pathlib import Path
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import device_runtime_common as common
@@ -183,6 +184,7 @@ def cmd_up(args: argparse.Namespace) -> int:
         enable_host_audio_playback=enable_host_audio_playback,
         host_audio_port=args.host_audio_port,
     )
+    compose_services = required_compose_services(config_map, cloud_api_base_url=args.cloud_api_base_url)
 
     artifact_paths = common.ensure_local_artifacts(
         skip_build=args.skip_build,
@@ -234,22 +236,28 @@ def cmd_up(args: argparse.Namespace) -> int:
     )
 
     env = compose_env(args.compose_project_name, args.platform)
+    prune_compose_services(env=env, desired_services=compose_services)
     compose_build_services = parse_compose_services_arg(args.compose_build_services)
     if args.skip_compose_build:
-        run_compose(["up", "-d", "--wait"], env=env)
+        run_compose(["up", "-d", "--wait", "--remove-orphans", *compose_services], env=env)
     else:
         if compose_build_services:
             run_compose(["build", *compose_build_services], env=env)
-            run_compose(["up", "-d", "--wait"], env=env)
+            run_compose(["up", "-d", "--wait", "--remove-orphans", *compose_services], env=env)
         else:
-            exit_code = run_compose(["up", "-d", "--wait"], env=env, check=False)
+            exit_code = run_compose(["up", "-d", "--wait", "--remove-orphans", *compose_services], env=env, check=False)
             if exit_code != 0:
                 print("`docker compose up` failed without a rebuild; retrying with `--build` once.")
-                run_compose(["up", "--build", "-d", "--wait"], env=env)
+                run_compose(["up", "--build", "-d", "--wait", "--remove-orphans", *compose_services], env=env)
     # The staged runtime is only applied when device-emulator bootstraps, so recreate it
     # on every `up` to ensure updated UI/config payloads are installed into the runtime volume.
-    run_compose(["up", "-d", "--wait", "--force-recreate", "device-emulator"], env=env)
-    verify_local_stack(env=env, host_audio_port=args.host_audio_port if enable_host_audio_playback else None)
+    run_compose(["up", "-d", "--wait", "--force-recreate", "--remove-orphans", "device-emulator"], env=env)
+    verify_local_stack(
+        env=env,
+        config_map=config_map,
+        start_mode=args.start_mode,
+        host_audio_port=args.host_audio_port if enable_host_audio_playback else None,
+    )
 
     print("")
     print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
@@ -311,6 +319,7 @@ def patch_local_configs(
     cloud_comm = patched["cloud-comm.json"]
     mqtt = cloud_comm.setdefault("mqtt", {})
     mqtt["broker_url"] = f"tcp://{mqtt_host}:{mqtt_port}"
+    mqtt["client_id"] = device_id
     cloud_comm["device_id"] = device_id
 
     cloud_transfer = patched.get("cloud-transfer.json")
@@ -609,6 +618,37 @@ def parse_compose_services_arg(raw_value: str) -> list[str]:
     return items
 
 
+def prune_compose_services(*, env: dict[str, str], desired_services: list[str]) -> None:
+    extra_services = sorted(COMPOSE_SERVICES - set(desired_services))
+    if not extra_services:
+        return
+    run_compose(["stop", *extra_services], env=env, check=False)
+    run_compose(["rm", "-f", *extra_services], env=env, check=False)
+
+
+def required_compose_services(
+    config_map: dict[str, dict[str, object]],
+    *,
+    cloud_api_base_url: str,
+) -> list[str]:
+    services = {"device-emulator", "fake-camera", "redis"}
+    if "audio-manager.json" in config_map:
+        services.add("mock-speaker")
+    if "cloud-transfer.json" in config_map and should_use_local_minio(cloud_api_base_url):
+        services.add("minio")
+    return sorted(services)
+
+
+def should_use_local_minio(cloud_api_base_url: str) -> bool:
+    raw_value = cloud_api_base_url.strip()
+    if not raw_value:
+        return False
+    candidate = raw_value if "://" in raw_value else f"https://{raw_value}"
+    parsed = urlparse(candidate)
+    host = (parsed.hostname or "").strip().lower()
+    return host in {"127.0.0.1", "localhost", "host.docker.internal"}
+
+
 def run_compose(command: list[str], *, env: dict[str, str], check: bool = True) -> int:
     full_command = [
         "docker",
@@ -643,10 +683,25 @@ def run_local(command: list[str], *, env: dict[str, str], capture_output: bool =
     return result.stdout if capture_output else ""
 
 
-def verify_local_stack(*, env: dict[str, str], host_audio_port: int | None) -> None:
+def verify_local_stack(
+    *,
+    env: dict[str, str],
+    config_map: dict[str, dict[str, object]],
+    start_mode: str,
+    host_audio_port: int | None,
+) -> None:
     run_compose(["ps"], env=env)
     if host_audio_port is not None and not host_audio_healthy(host_audio_port):
         raise SystemExit(f"host-audio-player is not healthy on port {host_audio_port}")
+    verification_checks = [
+        "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm",
+        "test -x /home/hacklab/trakrai-device-runtime/bin/runtime-manager",
+    ]
+    for service_name in dynamic_binary_services(config_map):
+        verification_checks.append(f"test -x /home/hacklab/trakrai-device-runtime/bin/{service_name}")
+    if "audio-manager.json" in config_map:
+        verification_checks.append("test -f /home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv")
+    verification_checks.append("python3.8 --version")
     run_local(
         [
             "docker",
@@ -660,36 +715,45 @@ def verify_local_stack(*, env: dict[str, str], host_audio_port: int | None) -> N
             "device-emulator",
             "bash",
             "-lc",
-            (
-                "set -euo pipefail; "
-                "test -f /home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-transfer; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/live-feed; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/ptz-control; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/roi-config; "
-                "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
-                "python3.8 --version"
-            ),
+            "set -euo pipefail; " + "; ".join(verification_checks),
         ],
         env=env,
     )
     wait_for_active_units(
         env=env,
-        units=[
-            "trakrai-runtime-manager.service",
-            "trakrai-audio-manager.service",
-            "trakrai-cloud-comm.service",
-            "trakrai-cloud-transfer.service",
-            "trakrai-workflow-engine.service",
-            "trakrai-live-feed.service",
-            "trakrai-ptz-control.service",
-            "trakrai-roi-config.service",
-            "trakrai-rtsp-feeder.service",
-        ],
+        units=expected_active_units(config_map, start_mode=start_mode),
     )
-    wait_for_redis_frame(env=env)
+    if start_mode != "core" and "rtsp-feeder.json" in config_map:
+        wait_for_redis_frame(env=env)
     wait_for_runtime_config()
+
+
+def dynamic_binary_services(config_map: dict[str, dict[str, object]]) -> list[str]:
+    services: list[str] = []
+    for service_name in ["cloud-transfer", "live-feed", "ptz-control", "roi-config", "rtsp-feeder"]:
+        if f"{service_name}.json" in config_map:
+            services.append(service_name)
+    return services
+
+
+def expected_active_units(
+    config_map: dict[str, dict[str, object]],
+    *,
+    start_mode: str,
+) -> list[str]:
+    core_units = [
+        "trakrai-runtime-manager.service",
+        "trakrai-cloud-comm.service",
+    ]
+    if start_mode == "core":
+        return core_units
+
+    units = [*core_units]
+    units.extend(f"trakrai-{service_name}.service" for service_name in dynamic_binary_services(config_map))
+    for target in common.PYTHON_WHEEL_TARGETS:
+        if target.config_name in config_map:
+            units.append(common.wheel_systemd_unit(target))
+    return units
 
 
 def read_compose_value(name: str) -> str:
