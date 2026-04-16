@@ -230,17 +230,28 @@ NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL=http://127.0.0.1:28080/api/runtime-config
 pnpm --filter trakrai-device dev
 ```
 
-The local emulator also publishes a dedicated UDP range for WebRTC media and advertises
-`127.0.0.1` as the local host candidate by default. If your machine needs a different host IP
-or a different UDP range, override those when starting the stack:
+The local emulator also publishes a dedicated UDP range for WebRTC media. By default it chooses
+one non-loopback host IPv4 for WebRTC host candidates when available, and falls back to
+`127.0.0.1` when no reachable host IPv4 is present. Separately, it auto-detects non-loopback
+IPv4 addresses on the host so the edge UI can be opened from another machine on the LAN without
+editing configs.
+On Docker Desktop, use the host port mapping such as `http://<laptop-ip>:18080`; the container
+bridge IP such as `http://172.19.0.3:8080` is not host-routable from macOS. If your machine
+needs a different host candidate IP or a different UDP range, override those when starting the stack:
 
 ```bash
 python3 trakrai/device/scripts/local_device_runtime.py up \
   --video /absolute/path/to/sample.mp4 \
-  --webrtc-host-candidate-ip 127.0.0.1 \
+  --webrtc-host-candidate-ip 192.168.1.34 \
   --webrtc-udp-port-min 41000 \
   --webrtc-udp-port-max 41049
 ```
+
+If you start the emulator with `trakrai/device/localdev/configs-cloud-emulator`, the staging
+flow keeps LAN edge access origins up to date and also enables the TURN servers declared in that
+config set. The WebRTC host candidate remains a single chosen IP because Pion's NAT 1:1 host
+mapping only supports one external IPv4 per family. That still lets remote edge browsers use the
+chosen LAN IP while cloud browsers can fall back to relay candidates.
 
 The local device staging flow whitelists common Next dev origins by default:
 

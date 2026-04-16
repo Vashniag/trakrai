@@ -91,6 +91,7 @@ class StageOptions:
     start_mode: str
     edge_host: str
     public_http_port: int | None = None
+    edge_origin_hosts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -393,18 +394,27 @@ def patch_cloud_comm_config(config: dict[str, Any], options: StageOptions) -> No
     edge.setdefault("path", "/ws")
 
     public_http_port = options.public_http_port or options.http_port
+    edge_hosts = dedupe([*list(options.edge_origin_hosts), options.edge_host])
     expected_origins = [
-        f"http://{options.edge_host}:{public_http_port}",
-        f"http://127.0.0.1:{public_http_port}",
-        f"http://localhost:{public_http_port}",
-        f"http://{options.edge_host}:8088",
-        "http://127.0.0.1:8088",
-        "http://localhost:8088",
+        origin
+        for host in edge_hosts
+        for origin in (
+            f"http://{host}:{public_http_port}",
+            f"http://{host}:8088",
+        )
     ]
+    expected_origins.extend(
+        [
+            f"http://127.0.0.1:{public_http_port}",
+            f"http://localhost:{public_http_port}",
+            "http://127.0.0.1:8088",
+            "http://localhost:8088",
+        ]
+    )
     if public_http_port != options.http_port:
         expected_origins.extend(
             [
-                f"http://{options.edge_host}:{options.http_port}",
+                *[f"http://{host}:{options.http_port}" for host in edge_hosts],
                 f"http://127.0.0.1:{options.http_port}",
                 f"http://localhost:{options.http_port}",
             ]

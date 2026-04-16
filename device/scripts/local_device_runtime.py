@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import signal
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -34,6 +36,7 @@ DEFAULT_PUBLIC_RTSP_PORT = 18554
 DEFAULT_HOST_AUDIO_PORT = 18920
 DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
+DEFAULT_LOCAL_WEBRTC_HOST_CANDIDATE_IP = "127.0.0.1"
 LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
 LOCALDEV_ROI_TEMPLATE = common.DEVICE_ROOT / "localdev" / "roi" / "roi-config.json"
 COMPOSE_SERVICES = {"device-emulator", "fake-camera", "minio", "mock-speaker", "redis"}
@@ -121,8 +124,12 @@ def main() -> int:
     )
     up_parser.add_argument(
         "--webrtc-host-candidate-ip",
-        default="127.0.0.1",
-        help="host IP advertised by live-feed for local WebRTC candidates",
+        default=None,
+        help=(
+            "single host IP advertised by live-feed for host WebRTC candidates. "
+            "Defaults to the first detected non-loopback IPv4 for local emulation, or 127.0.0.1 when none is available. "
+            "Pass an empty string to suppress host candidates and rely on srflx/relay only."
+        ),
     )
 
     down_parser = subparsers.add_parser("down", help="stop the local device stack")
@@ -170,7 +177,18 @@ def cmd_up(args: argparse.Namespace) -> int:
 
     enable_host_audio_playback = not args.disable_host_audio_playback
 
-    config_map = common.load_local_config_dir(Path(args.config_dir).expanduser().resolve())
+    config_dir = Path(args.config_dir).expanduser().resolve()
+    config_map = common.load_local_config_dir(config_dir)
+    detected_edge_hosts = detect_local_edge_hosts()
+    webrtc_host_candidate_ip = (
+        parse_host_candidate_ip(args.webrtc_host_candidate_ip)
+        if args.webrtc_host_candidate_ip is not None
+        else default_webrtc_host_candidate_ip(config_dir)
+    )
+    edge_origin_hosts = common.dedupe(
+        detected_edge_hosts
+        + ([webrtc_host_candidate_ip] if is_public_edge_host(webrtc_host_candidate_ip) else [])
+    )
     config_map = patch_local_configs(
         config_map,
         mqtt_host=args.mqtt_host,
@@ -178,7 +196,7 @@ def cmd_up(args: argparse.Namespace) -> int:
         cloud_api_access_token=args.cloud_api_access_token,
         cloud_api_base_url=args.cloud_api_base_url,
         device_id=args.device_id,
-        webrtc_host_candidate_ip=args.webrtc_host_candidate_ip,
+        webrtc_host_candidate_ip=webrtc_host_candidate_ip,
         webrtc_udp_port_min=args.webrtc_udp_port_min,
         webrtc_udp_port_max=args.webrtc_udp_port_max,
         enable_host_audio_playback=enable_host_audio_playback,
@@ -210,7 +228,8 @@ def cmd_up(args: argparse.Namespace) -> int:
         http_port=8080,
         public_http_port=args.http_port,
         start_mode=args.start_mode,
-        edge_host="127.0.0.1",
+        edge_host=edge_origin_hosts[0] if edge_origin_hosts else "127.0.0.1",
+        edge_origin_hosts=tuple(edge_origin_hosts),
     )
     common.prepare_stage(STAGE_DIR, artifact_paths, config_map, options)
     shutil.copy2(common.DEVICE_ROOT / "scripts" / "bootstrap_device_runtime.py", STAGE_DIR / "bootstrap_device_runtime.py")
@@ -260,7 +279,8 @@ def cmd_up(args: argparse.Namespace) -> int:
     )
 
     print("")
-    print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
+    for edge_url in edge_ui_urls(args.http_port, edge_origin_hosts):
+        print(f"Device edge UI: {edge_url}")
     print(f"Cloud API (from device): {args.cloud_api_base_url}")
     print(f"Fake RTSP feed: rtsp://127.0.0.1:{args.rtsp_port}/stream")
     print("Mock speaker API: http://127.0.0.1:18910")
@@ -368,6 +388,102 @@ def patch_local_configs(
             "max": webrtc_udp_port_max,
         }
     return patched
+
+
+def default_webrtc_host_candidate_ip(config_dir: Path) -> str:
+    del config_dir
+    detected_edge_hosts = detect_local_edge_hosts()
+    return detected_edge_hosts[0] if detected_edge_hosts else DEFAULT_LOCAL_WEBRTC_HOST_CANDIDATE_IP
+
+
+def detect_local_edge_hosts() -> list[str]:
+    hosts: list[str] = []
+
+    def add(candidate: str) -> None:
+        if is_public_edge_host(candidate) and candidate not in hosts:
+            hosts.append(candidate)
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
+            udp_socket.connect(("8.8.8.8", 80))
+            add(udp_socket.getsockname()[0])
+    except OSError:
+        pass
+
+    hostname = socket.gethostname().strip()
+    if hostname != "":
+        try:
+            for _, _, _, _, sockaddr in socket.getaddrinfo(hostname, None, family=socket.AF_INET):
+                add(sockaddr[0])
+        except socket.gaierror:
+            pass
+
+    for command in (["ip", "-4", "-o", "addr", "show"], ["ifconfig"]):
+        try:
+            result = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            continue
+        if result.returncode != 0:
+            continue
+        for line in result.stdout.splitlines():
+            stripped_line = line.strip()
+            if stripped_line.startswith("inet "):
+                add(stripped_line.split()[1])
+                continue
+            parts = stripped_line.split()
+            if "inet" in parts:
+                inet_index = parts.index("inet")
+                if inet_index + 1 < len(parts):
+                    add(parts[inet_index + 1].split("/", 1)[0])
+
+    return hosts
+
+
+def parse_host_candidate_ip(value: str) -> str:
+    candidate_values = [part.strip() for part in value.split(",") if part.strip() != ""]
+    if len(candidate_values) > 1:
+        raise SystemExit(
+            "--webrtc-host-candidate-ip accepts only one IP. "
+            "Pion NAT 1:1 host candidate mapping supports a single external IPv4 per family."
+        )
+    if len(candidate_values) == 0:
+        return ""
+    host = candidate_values[0]
+    if not is_ipv4_address(host):
+        raise SystemExit(f"Invalid --webrtc-host-candidate-ip entry: {host}")
+    return host
+
+
+def is_public_edge_host(host: str) -> bool:
+    try:
+        candidate = ipaddress.ip_address(host.strip())
+    except ValueError:
+        return False
+    return (
+        candidate.version == 4
+        and not candidate.is_loopback
+        and not candidate.is_link_local
+        and not candidate.is_multicast
+        and not candidate.is_unspecified
+    )
+
+
+def is_ipv4_address(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host.strip()).version == 4
+    except ValueError:
+        return False
+
+
+def edge_ui_urls(http_port: int, edge_origin_hosts: list[str]) -> list[str]:
+    return [
+        *(f"http://{host}:{http_port}" for host in common.dedupe(["127.0.0.1", "localhost", *edge_origin_hosts])),
+    ]
 
 
 def seed_local_workflow_assets(config_map: dict[str, dict[str, object]]) -> None:

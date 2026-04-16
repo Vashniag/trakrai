@@ -11,7 +11,7 @@
     "key_prefix": "camera"
   },
   "webrtc": {
-    "advertise_relay_candidates": false,
+    "advertise_relay_candidates": true,
     "excluded_interface_prefixes": [
       "lo",
       "docker",
@@ -25,8 +25,21 @@
     "host_candidate_ips": [
       "127.0.0.1"
     ],
-    "stun_servers": [],
-    "turn_servers": [],
+    "stun_servers": [
+      "stun:gateway.trakr.live:3478"
+    ],
+    "turn_servers": [
+      {
+        "url": "turn:gateway.trakr.live:3478?transport=udp",
+        "username": "",
+        "credential": ""
+      },
+      {
+        "url": "turn:gateway.trakr.live:3478?transport=tcp",
+        "username": "",
+        "credential": ""
+      }
+    ],
     "framerate_fps": 10,
     "udp_port_range": {
       "min": 40000,
