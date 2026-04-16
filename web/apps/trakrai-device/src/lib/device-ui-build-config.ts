@@ -3,6 +3,7 @@ import type { DeviceTransportMode, DeviceUiBuildConfig } from '@/lib/runtime-con
 
 const DEFAULT_LOCAL_DEVICE_HTTP_PORT = '18080';
 const DEFAULT_CLOUD_API_BASE_URL = 'http://localhost:3000';
+const DEFAULT_MANAGEMENT_SERVICE = 'runtime-manager';
 
 const normalizeOptionalString = (value: string | undefined): string | undefined => {
   const normalized = value?.trim();
@@ -47,7 +48,7 @@ export const deviceUiBuildConfig: DeviceUiBuildConfig = {
     env.NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT,
     DEFAULT_LOCAL_DEVICE_HTTP_PORT,
   ),
-  managementService: normalizeString(env.NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE, 'runtime-manager'),
+  managementService: DEFAULT_MANAGEMENT_SERVICE,
   runtimeConfigUrl: normalizeOptionalString(env.NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL),
   transportMode: normalizeMode(env.NEXT_PUBLIC_TRAKRAI_DEVICE_TRANSPORT_MODE, 'edge'),
 };

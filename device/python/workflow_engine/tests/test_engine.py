@@ -109,15 +109,9 @@ def test_engine_executes_audio_action_node_through_service_bridge() -> None:
         "metadata": {"name": "Audio workflow"},
         "nodes": [
             {
-                "id": "camera",
-                "type": "get-camera-id",
-                "position": {"x": 0, "y": 0},
-                "data": {"label": "Camera", "configuration": {}},
-            },
-            {
                 "id": "audio",
                 "type": "play-audio-message",
-                "position": {"x": 0, "y": 100},
+                "position": {"x": 0, "y": 0},
                 "data": {
                     "label": "Audio",
                     "configuration": {
@@ -129,15 +123,7 @@ def test_engine_executes_audio_action_node_through_service_bridge() -> None:
                 },
             },
         ],
-        "edges": [
-            {
-                "id": "camera-to-audio",
-                "source": "camera",
-                "sourceHandle": "cameraId",
-                "target": "audio",
-                "targetHandle": "cameraId",
-            }
-        ],
+        "edges": [],
     }
     payload = normalize_detection_request(
         {
@@ -157,3 +143,5 @@ def test_engine_executes_audio_action_node_through_service_bridge() -> None:
     assert result.outputs["audio"]["queued"] is True
     assert result.outputs["audio"]["jobId"] == "job-1"
     assert bridge.calls[0]["targetService"] == "audio-manager"
+    assert bridge.calls[0]["payload"]["cameraId"] == "1"
+    assert bridge.calls[0]["payload"]["cameraName"] == "Camera-1"

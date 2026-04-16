@@ -37,10 +37,6 @@ export const env = createEnv({
     // Get this from `device/scripts/local_device_runtime.py` output or `device/.localdev/compose.env`.
     NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT: z.string().optional(),
 
-    // Runtime manager service name expected on the device IPC bus.
-    // Usually remains `runtime-manager`.
-    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: z.string().optional(),
-
     // Optional explicit runtime-config endpoint override for local/dev setups.
     // Usually omit this and let the app derive `/api/runtime-config`.
     NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL: z.string().optional(),
@@ -56,7 +52,6 @@ export const env = createEnv({
     NEXT_PUBLIC_TRAKRAI_ENABLE_DIAGNOSTICS: process.env['NEXT_PUBLIC_TRAKRAI_ENABLE_DIAGNOSTICS'],
     NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT:
       process.env['NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT'],
-    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: process.env['NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE'],
     NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL: process.env['NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL'],
   },
   skipValidation:

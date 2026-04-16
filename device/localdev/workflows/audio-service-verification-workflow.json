@@ -4,22 +4,10 @@
   },
   "nodes": [
     {
-      "id": "camera",
-      "type": "get-camera-id",
-      "position": {
-        "x": 0,
-        "y": 0
-      },
-      "data": {
-        "label": "Camera",
-        "configuration": {}
-      }
-    },
-    {
       "id": "audio",
       "type": "play-audio-message",
       "position": {
-        "x": 220,
+        "x": 0,
         "y": 0
       },
       "data": {
@@ -35,20 +23,5 @@
       }
     }
   ],
-  "edges": [
-    {
-      "id": "camera-to-audio-camera-id",
-      "source": "camera",
-      "sourceHandle": "cameraId",
-      "target": "audio",
-      "targetHandle": "cameraId"
-    },
-    {
-      "id": "camera-to-audio-camera-name",
-      "source": "camera",
-      "sourceHandle": "cameraName",
-      "target": "audio",
-      "targetHandle": "cameraName"
-    }
-  ]
+  "edges": []
 }

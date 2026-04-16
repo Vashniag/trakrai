@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,7 +52,6 @@ type processMetrics struct {
 
 type Service struct {
 	cfg              *Config
-	httpClient       *http.Client
 	ipcClient        *ipc.Client
 	log              *slog.Logger
 	managed          map[string]ManagedServiceConfig
@@ -91,10 +88,7 @@ func NewService(cfg *Config) (*Service, error) {
 	}
 
 	return &Service{
-		cfg: cfg,
-		httpClient: &http.Client{
-			Timeout: time.Duration(cfg.HTTP.DownloadTimeoutSec) * time.Second,
-		},
+		cfg:              cfg,
 		ipcClient:        ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
 		log:              slog.With("component", ServiceName),
 		managed:          managed,
@@ -445,10 +439,10 @@ func (s *Service) handleUpdateService(ctx context.Context, env ipc.MQTTEnvelope)
 		})
 		return
 	}
-	if strings.TrimSpace(request.ArtifactURL) == "" && strings.TrimSpace(request.RemotePath) == "" {
+	if strings.TrimSpace(request.RemotePath) == "" {
 		s.publishError(RuntimeErrorPayload{
 			Action:      "update-service",
-			Error:       "artifactUrl or remotePath is required",
+			Error:       "remotePath is required",
 			RequestID:   request.RequestID,
 			ServiceName: serviceConfig.Name,
 		})
@@ -473,7 +467,7 @@ func (s *Service) handleUpdateService(ctx context.Context, env ipc.MQTTEnvelope)
 	s.opMu.Lock()
 	defer s.opMu.Unlock()
 
-	snapshot, message, err := s.applyUpdate(ctx, serviceConfig, artifactPath, request.ArtifactURL, artifactSHA)
+	snapshot, message, err := s.applyUpdate(ctx, serviceConfig, artifactPath, request.RemotePath, artifactSHA)
 	if err != nil {
 		s.recordAction(fmt.Sprintf("update %s", serviceConfig.Name), err)
 		s.publishError(RuntimeErrorPayload{
@@ -812,7 +806,7 @@ func (s *Service) inspectManagedService(ctx context.Context, serviceConfig Manag
 func (s *Service) resolveVersion(
 	ctx context.Context,
 	serviceConfig ManagedServiceConfig,
-	artifactURL string,
+	remotePath string,
 	artifactSHA string,
 ) (*versionRecord, error) {
 	if serviceConfig.VersionFile != "" {
@@ -820,7 +814,7 @@ func (s *Service) resolveVersion(
 		if err == nil && summary != "" {
 			record := &versionRecord{
 				ArtifactSHA256: artifactSHA,
-				ArtifactURL:    artifactURL,
+				RemotePath:     remotePath,
 				ServiceName:    serviceConfig.Name,
 				Source:         "version-file",
 				Summary:        summary,
@@ -843,7 +837,7 @@ func (s *Service) resolveVersion(
 				if summary != "" {
 					record := &versionRecord{
 						ArtifactSHA256: artifactSHA,
-						ArtifactURL:    artifactURL,
+						RemotePath:     remotePath,
 						ServiceName:    serviceConfig.Name,
 						Source:         "version-command",
 						Summary:        summary,
@@ -859,7 +853,7 @@ func (s *Service) resolveVersion(
 	if artifactSHA != "" {
 		record := &versionRecord{
 			ArtifactSHA256: artifactSHA,
-			ArtifactURL:    artifactURL,
+			RemotePath:     remotePath,
 			ServiceName:    serviceConfig.Name,
 			Source:         "artifact-sha256",
 			Summary:        shortHash(artifactSHA),
@@ -881,7 +875,7 @@ func (s *Service) applyUpdate(
 	ctx context.Context,
 	serviceConfig ManagedServiceConfig,
 	artifactPath string,
-	artifactURL string,
+	remotePath string,
 	artifactSHA string,
 ) (*ManagedServiceSnapshot, string, error) {
 	wasActive := false
@@ -933,7 +927,7 @@ func (s *Service) applyUpdate(
 		}
 	}
 
-	record, err := s.resolveVersion(ctx, serviceConfig, artifactURL, artifactSHA)
+	record, err := s.resolveVersion(ctx, serviceConfig, remotePath, artifactSHA)
 	if err != nil {
 		s.log.Debug("resolve version after update failed", "service", serviceConfig.Name, "error", err)
 	}
@@ -1096,10 +1090,7 @@ func (s *Service) prepareUpdateArtifact(
 	serviceConfig ManagedServiceConfig,
 	request updateServiceRequest,
 ) (string, string, error) {
-	if strings.TrimSpace(request.RemotePath) != "" {
-		return s.downloadArtifactViaTransfer(ctx, serviceConfig, request)
-	}
-	return s.downloadArtifact(ctx, request.ArtifactURL, request.ArtifactSHA256)
+	return s.downloadArtifactViaTransfer(ctx, serviceConfig, request)
 }
 
 func (s *Service) downloadArtifactViaTransfer(
@@ -1257,101 +1248,6 @@ func sha256File(path string) (string, error) {
 		return "", fmt.Errorf("hash file %q: %w", path, err)
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
-}
-
-func (s *Service) downloadArtifact(ctx context.Context, artifactURL string, expectedSHA string) (string, string, error) {
-	trimmedURL := strings.TrimSpace(artifactURL)
-	if trimmedURL == "" {
-		return "", "", fmt.Errorf("artifactUrl is required")
-	}
-
-	parsedURL, err := url.Parse(trimmedURL)
-	if err != nil {
-		return "", "", fmt.Errorf("parse artifact URL: %w", err)
-	}
-
-	if parsedURL.Scheme == "" || parsedURL.Scheme == "file" {
-		sourcePath := trimmedURL
-		if parsedURL.Scheme == "file" {
-			sourcePath = parsedURL.Path
-		}
-		return copyArtifactToDownloads(sourcePath, s.cfg.Runtime.DownloadDir, expectedSHA)
-	}
-
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return "", "", fmt.Errorf("unsupported artifact URL scheme %q", parsedURL.Scheme)
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, trimmedURL, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("create artifact download request: %w", err)
-	}
-	request.Header.Set("User-Agent", s.cfg.HTTP.UserAgent)
-
-	response, err := s.httpClient.Do(request)
-	if err != nil {
-		return "", "", fmt.Errorf("download artifact: %w", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return "", "", fmt.Errorf("download artifact: unexpected HTTP %d", response.StatusCode)
-	}
-
-	tempFile, err := os.CreateTemp(s.cfg.Runtime.DownloadDir, "artifact-*")
-	if err != nil {
-		return "", "", fmt.Errorf("create artifact file: %w", err)
-	}
-	defer func() {
-		_ = tempFile.Close()
-	}()
-
-	hasher := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(tempFile, hasher), response.Body); err != nil {
-		_ = os.Remove(tempFile.Name())
-		return "", "", fmt.Errorf("write artifact: %w", err)
-	}
-
-	actualSHA := hex.EncodeToString(hasher.Sum(nil))
-	if expectedSHA != "" && !strings.EqualFold(strings.TrimSpace(expectedSHA), actualSHA) {
-		_ = os.Remove(tempFile.Name())
-		return "", "", fmt.Errorf("artifact SHA-256 mismatch: expected %s, got %s", expectedSHA, actualSHA)
-	}
-
-	return tempFile.Name(), actualSHA, nil
-}
-
-func copyArtifactToDownloads(sourcePath string, downloadsDir string, expectedSHA string) (string, string, error) {
-	sourceInfo, err := os.Stat(sourcePath)
-	if err != nil {
-		return "", "", fmt.Errorf("read artifact file: %w", err)
-	}
-	if sourceInfo.IsDir() {
-		return "", "", fmt.Errorf("artifact path %q is a directory", sourcePath)
-	}
-
-	tempFile, err := os.CreateTemp(downloadsDir, "artifact-*")
-	if err != nil {
-		return "", "", fmt.Errorf("create artifact file: %w", err)
-	}
-	_ = tempFile.Close()
-
-	if err := copyFile(sourcePath, tempFile.Name(), 0o644); err != nil {
-		_ = os.Remove(tempFile.Name())
-		return "", "", err
-	}
-
-	actualSHA, err := hashFileSHA256(tempFile.Name())
-	if err != nil {
-		_ = os.Remove(tempFile.Name())
-		return "", "", err
-	}
-	if expectedSHA != "" && !strings.EqualFold(strings.TrimSpace(expectedSHA), actualSHA) {
-		_ = os.Remove(tempFile.Name())
-		return "", "", fmt.Errorf("artifact SHA-256 mismatch: expected %s, got %s", expectedSHA, actualSHA)
-	}
-
-	return tempFile.Name(), actualSHA, nil
 }
 
 func (s *Service) ensureRuntimeLayout() error {

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
-
 from ..models import NodeCategory, PortDefinition, t_array, t_boolean, t_number, t_object, t_record, t_string
 from ..registry import register_node
-from ..types import Detection, NodeInputs, NodeOutputs, WorkflowPayload, get_detection_data_from_inputs
+from ..types import Detection, NodeInputs, NodeOutputs, get_detection_data_from_inputs, get_detection_metadata_from_inputs
 
 _DETECTION_BBOX = t_object(
     {
@@ -31,6 +29,7 @@ _DETECTION_BBOX = t_object(
 )
 def detection_input(inputs: NodeInputs) -> NodeOutputs:
     data = get_detection_data_from_inputs(inputs)
+    metadata = get_detection_metadata_from_inputs(inputs)
 
     detections_raw = data.get("bbox", [])
     if not isinstance(detections_raw, list):
@@ -44,8 +43,8 @@ def detection_input(inputs: NodeInputs) -> NodeOutputs:
     return {
         "detections": detections,
         "classCount": class_count_raw,
-        "cameraId": _payload_str(data, "cam_id", "cameraId"),
-        "imageId": _payload_str(data, "imgID", "imageId", "frame_id"),
+        "cameraId": metadata["cameraId"],
+        "imageId": metadata["imageId"],
         "hasDetections": len(detections) > 0,
     }
 
@@ -85,23 +84,9 @@ def get_detections(inputs: NodeInputs) -> NodeOutputs:
     description="Returns camera metadata from the current workflow submission.",
 )
 def get_camera_id(inputs: NodeInputs) -> NodeOutputs:
-    result = detection_input(inputs)
-    detection_data = get_detection_data_from_inputs(inputs)
+    metadata = get_detection_metadata_from_inputs(inputs)
     return {
-        "cameraId": result["cameraId"],
-        "cameraName": _payload_str(detection_data, "cam_name", "cameraName"),
-        "imageId": result["imageId"],
+        "cameraId": metadata["cameraId"],
+        "cameraName": metadata["cameraName"],
+        "imageId": metadata["imageId"],
     }
-
-
-def _payload_str(data: WorkflowPayload | dict[str, Any], *keys: str) -> str:
-    for key in keys:
-        raw = data.get(key)
-        if raw is None:
-            continue
-        if isinstance(raw, bytes):
-            return raw.decode("utf-8", errors="ignore")
-        if isinstance(raw, (str, int, float)):
-            return str(raw)
-        raise TypeError(f"detection-input: '__context__.detection_data.{key}' must be string-like.")
-    return ""

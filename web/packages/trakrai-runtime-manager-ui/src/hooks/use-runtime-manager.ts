@@ -42,7 +42,6 @@ export type RuntimeManagerState = {
 
 export type UpdateServiceInput = Readonly<{
   artifactSha256?: string;
-  artifactUrl?: string;
   remotePath?: string;
 }>;
 
@@ -232,7 +231,6 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
         .request<
           {
             artifactSha256?: string;
-            artifactUrl?: string;
             remotePath?: string;
             serviceName: string;
           },
@@ -241,7 +239,6 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
           'update-service',
           {
             artifactSha256: input.artifactSha256,
-            artifactUrl: input.artifactUrl,
             remotePath: input.remotePath,
             serviceName: targetServiceName,
           },

@@ -627,24 +627,9 @@ export const RuntimeManagerPanel = ({ manager, packageCatalog }: RuntimeManagerP
                             }));
                           }}
                         />
-                        <Input
-                          placeholder="legacy direct URL or local file path"
-                          value={updateInputs[service.name]?.artifactUrl ?? ''}
-                          onChange={(event) => {
-                            setUpdateInputs((currentInputs) => ({
-                              ...currentInputs,
-                              [service.name]: {
-                                ...currentInputs[service.name],
-                                artifactUrl: event.target.value,
-                              },
-                            }));
-                          }}
-                        />
                         <Button
                           disabled={
-                            isBusy ||
-                            ((updateInputs[service.name]?.remotePath ?? '').trim() === '' &&
-                              (updateInputs[service.name]?.artifactUrl ?? '').trim() === '')
+                            isBusy || (updateInputs[service.name]?.remotePath ?? '').trim() === ''
                           }
                           type="button"
                           onClick={() => {

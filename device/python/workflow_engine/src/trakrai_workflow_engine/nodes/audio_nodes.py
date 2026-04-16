@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import NodeCategory, PortDefinition, t_any, t_boolean, t_number, t_string
+from ..models import NodeCategory, PortDefinition, t_boolean, t_number, t_string
 from ..registry import register_node
-from ..types import NodeInputs, NodeOutputs, get_detection_data_from_inputs, get_service_bridge_from_inputs
+from ..types import (
+    NodeInputs,
+    NodeOutputs,
+    get_detection_metadata_from_inputs,
+    get_service_bridge_from_inputs,
+)
 
 
 @register_node(
@@ -20,7 +25,6 @@ from ..types import NodeInputs, NodeOutputs, get_detection_data_from_inputs, get
         PortDefinition(name="speakerMessageId", type_schema=t_string(), default="", required=False, port_type="both"),
         PortDefinition(name="speakerCode", type_schema=t_string(), default="", required=False, port_type="both"),
         PortDefinition(name="cameraId", type_schema=t_string(), default="", required=False, port_type="both"),
-        PortDefinition(name="cameraName", type_schema=t_string(), default="", required=False, port_type="both"),
         PortDefinition(name="dedupeKey", type_schema=t_string(), default="", required=False, port_type="config"),
         PortDefinition(name="waitTimeoutSec", type_schema=t_number(), default=5, required=False, port_type="config"),
     ],
@@ -28,19 +32,18 @@ from ..types import NodeInputs, NodeOutputs, get_detection_data_from_inputs, get
         PortDefinition(name="queued", type_schema=t_boolean()),
         PortDefinition(name="state", type_schema=t_string()),
         PortDefinition(name="jobId", type_schema=t_string()),
-        PortDefinition(name="job", type_schema=t_any()),
     ],
-    description="Queue a text-to-speech/local speaker playback request through the audio-manager service.",
+    description="Queue an audio playback request. Camera metadata is inferred from the workflow context unless cameraId is overridden.",
 )
 def play_audio_message(inputs: NodeInputs) -> NodeOutputs:
     service_bridge = get_service_bridge_from_inputs(inputs)
     if service_bridge is None:
         raise RuntimeError("workflow execution context does not include a service bridge")
 
-    detection_data = get_detection_data_from_inputs(inputs)
+    detection_metadata = get_detection_metadata_from_inputs(inputs)
     request_payload = {
-        "cameraId": _string(inputs.get("cameraId")) or _payload_string(detection_data, "cam_id", "cameraId"),
-        "cameraName": _string(inputs.get("cameraName")) or _payload_string(detection_data, "cam_name", "cameraName"),
+        "cameraId": _string(inputs.get("cameraId")) or detection_metadata["cameraId"],
+        "cameraName": detection_metadata["cameraName"],
         "dedupeKey": _string(inputs.get("dedupeKey")),
         "language": _string(inputs.get("language")) or "en",
         "message": _string(inputs.get("message")),
@@ -72,7 +75,6 @@ def play_audio_message(inputs: NodeInputs) -> NodeOutputs:
         "queued": state in {"queued", "processing", "completed", "deduped"},
         "state": state,
         "jobId": str(job.get("id", "")).strip(),
-        "job": job,
     }
 
 
@@ -110,12 +112,3 @@ def _float(value: Any, *, default: float) -> float:
     if isinstance(value, str) and value.strip():
         return float(value.strip())
     raise TypeError(f"play-audio-message expected a number-like value, got {type(value).__name__}")
-
-
-def _payload_string(data: dict[str, Any], *keys: str) -> str:
-    for key in keys:
-        value = data.get(key)
-        if value is None:
-            continue
-        return _string(value)
-    return ""

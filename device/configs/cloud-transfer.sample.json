@@ -10,7 +10,7 @@
   },
   "cloud_api": {
     "base_url": "https://api.trakrai.example",
-    "auth_token": "",
+    "access_token": "",
     "upload_presign_path": "/api/external/storage/devices/upload-session",
     "download_presign_path": "/api/external/storage/devices/download-session",
     "package_download_presign_path": "/api/external/storage/packages/download-session",

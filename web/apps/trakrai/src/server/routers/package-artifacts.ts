@@ -2,6 +2,7 @@ import {
   deviceArtifactSessionInputSchema,
   listPackageArtifactsInputSchema,
   listPackageArtifactsOutputSchema,
+  packageArtifactDeviceDownloadSessionInputSchema,
   packageArtifactSessionInputSchema,
   storageSignedRequestSchema,
 } from '@trakrai/cloud-api-contract/lib/package-artifacts';
@@ -13,10 +14,10 @@ import {
   createPackageUploadSession,
   listAvailablePackageArtifacts,
 } from '@/server/package-artifacts';
-import { createTRPCRouter, publicProcedure } from '@/server/trpc';
+import { createTRPCRouter, deviceProcedure, publicProcedure } from '@/server/trpc';
 
 export const packageArtifactsRouter = createTRPCRouter({
-  createDeviceDownloadSession: publicProcedure
+  createDeviceDownloadSession: deviceProcedure
     .meta({
       openapi: {
         method: 'POST',
@@ -25,8 +26,8 @@ export const packageArtifactsRouter = createTRPCRouter({
     })
     .input(deviceArtifactSessionInputSchema.pick({ deviceId: true, path: true }))
     .output(storageSignedRequestSchema)
-    .mutation(({ ctx, input }) => createDeviceDownloadSession(input, ctx.headers)),
-  createDeviceUploadSession: publicProcedure
+    .mutation(({ input }) => createDeviceDownloadSession(input)),
+  createDeviceUploadSession: deviceProcedure
     .meta({
       openapi: {
         method: 'POST',
@@ -35,17 +36,17 @@ export const packageArtifactsRouter = createTRPCRouter({
     })
     .input(deviceArtifactSessionInputSchema)
     .output(storageSignedRequestSchema)
-    .mutation(({ ctx, input }) => createDeviceUploadSession(input, ctx.headers)),
-  createPackageDownloadSession: publicProcedure
+    .mutation(({ input }) => createDeviceUploadSession(input)),
+  createPackageDownloadSession: deviceProcedure
     .meta({
       openapi: {
         method: 'POST',
         path: '/storage/packages/download-session',
       },
     })
-    .input(packageArtifactSessionInputSchema.pick({ path: true }))
+    .input(packageArtifactDeviceDownloadSessionInputSchema)
     .output(storageSignedRequestSchema)
-    .mutation(({ ctx, input }) => createPackageDownloadSession(input, ctx.headers)),
+    .mutation(({ input }) => createPackageDownloadSession(input)),
   createPackageUploadSession: publicProcedure
     .meta({
       openapi: {

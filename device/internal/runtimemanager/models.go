@@ -109,7 +109,7 @@ type RuntimeErrorPayload struct {
 
 type versionRecord struct {
 	ArtifactSHA256 string `json:"artifactSha256,omitempty"`
-	ArtifactURL    string `json:"artifactUrl,omitempty"`
+	RemotePath     string `json:"remotePath,omitempty"`
 	ServiceName    string `json:"serviceName"`
 	Source         string `json:"source"`
 	Summary        string `json:"summary"`
@@ -129,7 +129,6 @@ type logRequest struct {
 
 type updateServiceRequest struct {
 	ArtifactSHA256 string `json:"artifactSha256,omitempty"`
-	ArtifactURL    string `json:"artifactUrl,omitempty"`
 	RemotePath     string `json:"remotePath,omitempty"`
 	RequestID      string `json:"requestId,omitempty"`
 	ServiceName    string `json:"serviceName"`

@@ -57,9 +57,9 @@ def main() -> int:
         help="base URL for the real cloud API as seen from inside the device container",
     )
     up_parser.add_argument(
-        "--cloud-api-auth-token",
+        "--cloud-api-access-token",
         default="",
-        help="optional bearer token for cloud storage presign requests",
+        help="optional device access token used for cloud presign requests from the local emulator",
     )
     up_parser.add_argument("--device-id", default="trakrai-device-local", help="device ID to expose from cloud-comm")
     up_parser.add_argument(
@@ -172,7 +172,7 @@ def cmd_up(args: argparse.Namespace) -> int:
         config_map,
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
-        cloud_api_auth_token=args.cloud_api_auth_token,
+        cloud_api_access_token=args.cloud_api_access_token,
         cloud_api_base_url=args.cloud_api_base_url,
         device_id=args.device_id,
         webrtc_host_candidate_ip=args.webrtc_host_candidate_ip,
@@ -290,7 +290,7 @@ def patch_local_configs(
     *,
     mqtt_host: str,
     mqtt_port: int,
-    cloud_api_auth_token: str,
+    cloud_api_access_token: str,
     cloud_api_base_url: str,
     device_id: str,
     webrtc_host_candidate_ip: str,
@@ -309,7 +309,7 @@ def patch_local_configs(
     if isinstance(cloud_transfer, dict):
         cloud_transfer["device_id"] = device_id
         cloud_api = cloud_transfer.setdefault("cloud_api", {})
-        cloud_api["auth_token"] = cloud_api_auth_token
+        cloud_api["access_token"] = cloud_api_access_token
         cloud_api["base_url"] = cloud_api_base_url.rstrip("/")
 
     workflow_engine = patched.get("workflow-engine.json")

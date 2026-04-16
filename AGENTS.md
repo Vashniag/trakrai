@@ -343,8 +343,7 @@ From `D:\trakrbi\trakrai\web`:
 
 ```powershell
 $env:SKIP_ENV_VALIDATION='true'
-$env:NEXT_PUBLIC_LIVE_GATEWAY_WS_URL='ws://localhost:4000/ws'
-$env:NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL='http://localhost:4000'
+$env:NEXT_PUBLIC_TRAKRAI_CLOUD_GATEWAY_BASE_URL='http://localhost:4000'
 pnpm --filter trakrai dev
 ```
 

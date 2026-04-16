@@ -20,8 +20,7 @@
     "version_dir": "/home/hacklab/trakrai-device-runtime/versions"
   },
   "http": {
-    "download_timeout_sec": 300,
-    "user_agent": "trakrai-runtime-manager/1.0"
+    "download_timeout_sec": 300
   },
   "updates": {
     "download_service": "cloud-transfer",

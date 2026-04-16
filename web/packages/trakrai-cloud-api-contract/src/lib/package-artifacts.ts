@@ -47,6 +47,11 @@ export const deviceArtifactSessionInputSchema = z.object({
   path: z.string().min(1),
 });
 
+export const packageArtifactDeviceDownloadSessionInputSchema = z.object({
+  deviceId: z.string().min(1),
+  path: z.string().min(1),
+});
+
 const unreachable = () => {
   throw new Error('Cloud API contract routers are type-only and cannot be executed directly.');
 };
@@ -62,7 +67,7 @@ export const cloudPackageApiRouter = t.router({
       .output(storageSignedRequestSchema)
       .mutation(unreachable),
     createPackageDownloadSession: t.procedure
-      .input(packageArtifactSessionInputSchema.pick({ path: true }))
+      .input(packageArtifactDeviceDownloadSessionInputSchema)
       .output(storageSignedRequestSchema)
       .mutation(unreachable),
     createPackageUploadSession: t.procedure

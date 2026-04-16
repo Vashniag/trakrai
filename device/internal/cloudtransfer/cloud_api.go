@@ -17,7 +17,7 @@ import (
 )
 
 type cloudAPIClient struct {
-	authToken           string
+	accessToken         string
 	baseURL             string
 	deviceID            string
 	downloadPath        string
@@ -42,12 +42,13 @@ type presignResponse struct {
 }
 
 type packagePresignRequest struct {
-	Path string `json:"path"`
+	DeviceID string `json:"deviceId"`
+	Path     string `json:"path"`
 }
 
 func newCloudAPIClient(cfg *Config) *cloudAPIClient {
 	return &cloudAPIClient{
-		authToken:    cfg.CloudAPI.AuthToken,
+		accessToken:  cfg.CloudAPI.AccessToken,
 		baseURL:      cfg.CloudAPI.BaseURL,
 		deviceID:     cfg.DeviceID,
 		downloadPath: cfg.CloudAPI.DownloadPresignPath,
@@ -103,8 +104,8 @@ func (c *cloudAPIClient) presign(ctx context.Context, remotePath string, content
 		return presignResponse{}, fmt.Errorf("create presign request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	if c.authToken != "" {
-		request.Header.Set("Authorization", "Bearer "+c.authToken)
+	if c.accessToken != "" {
+		request.Header.Set("Authorization", "Bearer "+c.accessToken)
 	}
 
 	response, err := c.httpClient.Do(request)
@@ -150,7 +151,8 @@ func (c *cloudAPIClient) presign(ctx context.Context, remotePath string, content
 
 func (c *cloudAPIClient) packagePresign(ctx context.Context, remotePath string) (presignResponse, error) {
 	payload := packagePresignRequest{
-		Path: strings.TrimPrefix(path.Clean(remotePath), "/"),
+		DeviceID: c.deviceID,
+		Path:     strings.TrimPrefix(path.Clean(remotePath), "/"),
 	}
 
 	body, err := json.Marshal(payload)
@@ -168,8 +170,8 @@ func (c *cloudAPIClient) packagePresign(ctx context.Context, remotePath string) 
 		return presignResponse{}, fmt.Errorf("create package presign request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	if c.authToken != "" {
-		request.Header.Set("Authorization", "Bearer "+c.authToken)
+	if c.accessToken != "" {
+		request.Header.Set("Authorization", "Bearer "+c.accessToken)
 	}
 
 	response, err := c.httpClient.Do(request)

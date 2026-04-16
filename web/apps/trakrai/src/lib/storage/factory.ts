@@ -23,6 +23,7 @@ const resolveMinioConfig = () => {
     accessKeyId: accessKey,
     bucketName,
     deviceEndpoint,
+    ensureBucketExists: true,
     forcePathStyle: true,
     providerName: 'MINIO' as const,
     publicEndpoint: endpoint,

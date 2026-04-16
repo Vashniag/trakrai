@@ -66,7 +66,6 @@ const resolveTurnConfig = (): { credential: string; url: string; username: strin
 export const serviceName = 'live-gateway';
 
 export const config = {
-  corsOrigin: env.CORS_ORIGIN,
   defaultDeviceId: env.DEVICE_ID,
   mqttBrokerUrl: env.MQTT_BROKER_URL,
   port: env.PORT,

@@ -3,11 +3,6 @@ import { z } from 'zod';
 
 export const env = createEnv({
   server: {
-    // Browser origin allowed to call the live-gateway HTTP endpoints.
-    // Local source: shell env when running `pnpm --filter @trakrai/live-gateway dev/start`.
-    // Deployment source: the cloud UI origin fronting this service.
-    CORS_ORIGIN: z.string().default('http://localhost:3000'),
-
     // Default device id used only when a client does not explicitly select one.
     // Local source: shell env for convenience during development.
     DEVICE_ID: z.string().default('default'),

@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { auth } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { withRequestContext } from '@/lib/request-context';
+import { getDeviceByCredentials } from '@/server/devices';
 
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import type { OpenApiMeta } from 'trpc-to-openapi';
@@ -67,6 +68,24 @@ export const { createCallerFactory } = t;
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
 const SET_COOKIE_HEADER = 'set-cookie';
+const BEARER_PREFIX = 'Bearer ';
+
+const readBearerToken = (headers: Headers): string | null => {
+  const headerValue = headers.get('Authorization') ?? headers.get('authorization') ?? '';
+  const matchedToken = headerValue.startsWith(BEARER_PREFIX)
+    ? headerValue.slice(BEARER_PREFIX.length).trim()
+    : '';
+  return matchedToken === '' ? null : matchedToken;
+};
+
+const readDeviceIdFromInput = (input: unknown): string | null => {
+  if (typeof input !== 'object' || input === null || !('deviceId' in input)) {
+    return null;
+  }
+
+  const candidate = input.deviceId;
+  return typeof candidate === 'string' && candidate.trim() !== '' ? candidate.trim() : null;
+};
 
 export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
   const { response: session, headers } = await auth.api.getSession({
@@ -89,3 +108,38 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({
     },
   });
 });
+
+export const deviceProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(async ({ ctx, input, next }) => {
+    const deviceId = readDeviceIdFromInput(input);
+    if (deviceId === null) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'deviceId is required for device-authenticated routes.',
+      });
+    }
+
+    const accessToken = readBearerToken(ctx.headers);
+    if (accessToken === null) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'Device access token is missing or invalid.',
+      });
+    }
+
+    const device = await getDeviceByCredentials(deviceId, accessToken);
+    if (device === null) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'Device access token is missing or invalid.',
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        device,
+      },
+    });
+  });

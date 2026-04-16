@@ -73,3 +73,21 @@ export const getDeviceByAccessToken = async (accessToken: string) => {
 
   return matchedDevice ?? null;
 };
+
+export const getDeviceByCredentials = async (deviceId: string, accessToken: string) => {
+  const [matchedDevice] = await db
+    .select()
+    .from(device)
+    .where(eq(device.deviceId, deviceId))
+    .limit(1);
+
+  if (
+    matchedDevice === undefined ||
+    matchedDevice.isActive === false ||
+    matchedDevice.accessToken !== accessToken
+  ) {
+    return null;
+  }
+
+  return matchedDevice;
+};

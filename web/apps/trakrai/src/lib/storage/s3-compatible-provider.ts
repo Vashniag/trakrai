@@ -1,7 +1,9 @@
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -24,6 +26,7 @@ type S3CompatibleConfig = {
   accessKeyId: string;
   bucketName: string;
   deviceEndpoint?: string;
+  ensureBucketExists?: boolean;
   forcePathStyle?: boolean;
   providerName: StorageProviderName;
   publicEndpoint?: string;
@@ -35,16 +38,20 @@ type S3CompatibleConfig = {
 type ClientMode = 'device' | 'public' | 'server';
 
 const DEFAULT_SIGNED_URL_EXPIRY_SECONDS = 3600;
+const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const MILLISECONDS_IN_SECOND = 1000;
 
 export class S3CompatibleStorageProvider implements StorageProvider {
   private readonly bucketName: string;
   private readonly clients: Record<ClientMode, S3Client>;
+  private readonly ensureBucketExistsEnabled: boolean;
+  private ensureBucketExistsPromise: Promise<void> | null = null;
   private readonly providerName: StorageProviderName;
 
   constructor(config: S3CompatibleConfig) {
     this.bucketName = config.bucketName;
+    this.ensureBucketExistsEnabled = config.ensureBucketExists ?? false;
     this.providerName = config.providerName;
     this.clients = {
       device: this.createClient(config, config.deviceEndpoint),
@@ -54,6 +61,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async getSignedUrlForUpload(options: SignedUrlOptions): Promise<StorageSignedRequest> {
+    await this.ensureBucketExists();
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       ContentType: options.contentType,
@@ -76,6 +84,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async getSignedUrlForDownload(options: SignedUrlOptions): Promise<StorageSignedRequest> {
+    await this.ensureBucketExists();
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: options.key,
@@ -97,6 +106,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async upload(options: UploadOptions): Promise<void> {
+    await this.ensureBucketExists();
     await this.clients.server.send(
       new PutObjectCommand({
         Body: options.data,
@@ -109,6 +119,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async download(options: DownloadOptions): Promise<string> {
+    await this.ensureBucketExists();
     try {
       const response = await this.clients.server.send(
         new GetObjectCommand({
@@ -134,6 +145,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async exists(key: string): Promise<boolean> {
+    await this.ensureBucketExists();
     try {
       await this.clients.server.send(
         new HeadObjectCommand({
@@ -154,6 +166,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async delete(key: string): Promise<void> {
+    await this.ensureBucketExists();
     await this.clients.server.send(
       new DeleteObjectCommand({
         Bucket: this.bucketName,
@@ -167,6 +180,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
       return;
     }
 
+    await this.ensureBucketExists();
     await this.clients.server.send(
       new DeleteObjectsCommand({
         Bucket: this.bucketName,
@@ -183,6 +197,7 @@ export class S3CompatibleStorageProvider implements StorageProvider {
   }
 
   async listObjects(prefix?: string, maxKeys: number = 1000): Promise<StorageObjectSummary[]> {
+    await this.ensureBucketExists();
     const response = await this.clients.server.send(
       new ListObjectsV2Command({
         Bucket: this.bucketName,
@@ -214,6 +229,70 @@ export class S3CompatibleStorageProvider implements StorageProvider {
       forcePathStyle: config.forcePathStyle,
       region: config.region,
     });
+  }
+
+  private async ensureBucketExists(): Promise<void> {
+    if (!this.ensureBucketExistsEnabled) {
+      return;
+    }
+
+    this.ensureBucketExistsPromise ??= this.ensureBucketExistsInternal();
+    try {
+      await this.ensureBucketExistsPromise;
+    } catch (error) {
+      this.ensureBucketExistsPromise = null;
+      throw error;
+    }
+  }
+
+  private async ensureBucketExistsInternal(): Promise<void> {
+    try {
+      await this.clients.server.send(
+        new HeadBucketCommand({
+          Bucket: this.bucketName,
+        }),
+      );
+      return;
+    } catch (error: unknown) {
+      if (!this.isMissingBucketError(error)) {
+        throw error;
+      }
+    }
+
+    try {
+      await this.clients.server.send(
+        new CreateBucketCommand({
+          Bucket: this.bucketName,
+        }),
+      );
+    } catch (error: unknown) {
+      if (this.isBucketAlreadyExistsError(error)) {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private isBucketAlreadyExistsError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return error.name === 'BucketAlreadyExists' || error.name === 'BucketAlreadyOwnedByYou';
+  }
+
+  private isMissingBucketError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const nextError = error as Error & Partial<{ $metadata?: { httpStatusCode?: number } }>;
+    return (
+      error.name === 'NoSuchBucket' ||
+      error.name === 'NotFound' ||
+      nextError.$metadata?.httpStatusCode === HTTP_NOT_FOUND ||
+      nextError.$metadata?.httpStatusCode === HTTP_FORBIDDEN
+    );
   }
 
   private resolveClient(accessTarget: StorageAccessTarget | undefined): S3Client {

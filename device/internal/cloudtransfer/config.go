@@ -21,7 +21,7 @@ type StorageConfig struct {
 }
 
 type CloudAPIConfig struct {
-	AuthToken                  string `json:"auth_token"`
+	AccessToken                string `json:"access_token"`
 	BaseURL                    string `json:"base_url"`
 	DownloadPresignPath        string `json:"download_presign_path"`
 	PackageDownloadPresignPath string `json:"package_download_presign_path"`
@@ -80,7 +80,7 @@ func LoadConfig(path string) (*Config, error) {
 	cfg.DeviceID = normalizeDefault(cfg.DeviceID, "default")
 	cfg.IPC.SocketPath = normalizeDefault(cfg.IPC.SocketPath, "/tmp/trakrai-cloud-comm.sock")
 	cfg.CloudAPI.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.CloudAPI.BaseURL), "/")
-	cfg.CloudAPI.AuthToken = strings.TrimSpace(cfg.CloudAPI.AuthToken)
+	cfg.CloudAPI.AccessToken = strings.TrimSpace(cfg.CloudAPI.AccessToken)
 	cfg.CloudAPI.UploadPresignPath = normalizeDefault(
 		cfg.CloudAPI.UploadPresignPath,
 		"/api/external/storage/devices/upload-session",

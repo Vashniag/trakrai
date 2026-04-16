@@ -12,11 +12,10 @@ import type {
   StorageSignedRequest,
 } from '@trakrai/cloud-api-contract/lib/package-artifacts';
 
-const packagePrefix = env.TRAKRAI_PACKAGE_STORAGE_PREFIX.trim();
-const devicePrefix = env.TRAKRAI_DEVICE_STORAGE_PREFIX.trim();
 const ARTIFACT_PATH_SEGMENT_COUNT = 4;
 const DEFAULT_LIST_LIMIT = 500;
-const STORAGE_SERVICE_TOKEN_ERROR = 'Storage service token is missing or invalid.';
+const DEVICE_STORAGE_PREFIX = 'devices';
+const PACKAGE_STORAGE_PREFIX = 'device-packages';
 
 const getStorage = () => getStorageProvider();
 
@@ -77,7 +76,7 @@ const parsePackageArtifact = (
   sizeBytes: number | undefined,
   updatedAt: string | undefined,
 ): AvailablePackageArtifact | null => {
-  const expectedPrefix = `${packagePrefix}/`;
+  const expectedPrefix = `${PACKAGE_STORAGE_PREFIX}/`;
   if (!objectKey.startsWith(expectedPrefix)) {
     return null;
   }
@@ -130,34 +129,29 @@ export const createPackageUploadSession = async (
   return storageProvider.getSignedUrlForUpload({
     accessTarget: 'public',
     contentType: input.contentType ?? 'application/octet-stream',
-    key: joinKey(packagePrefix, normalizeSegments(input.path, 'path')),
+    key: joinKey(PACKAGE_STORAGE_PREFIX, normalizeSegments(input.path, 'path')),
   });
 };
 
-export const createPackageDownloadSession = async (
-  input: Pick<PackageArtifactSessionInput, 'path'>,
-  headers: Headers,
-): Promise<StorageSignedRequest> => {
-  ensureAuthorized(headers, env.TRAKRAI_STORAGE_SERVICE_TOKEN, STORAGE_SERVICE_TOKEN_ERROR);
-
+export const createPackageDownloadSession = async (input: {
+  deviceId: string;
+  path: string;
+}): Promise<StorageSignedRequest> => {
   const storageProvider = getStorage();
   return storageProvider.getSignedUrlForDownload({
     accessTarget: 'device',
-    key: joinKey(packagePrefix, normalizeSegments(input.path, 'path')),
+    key: joinKey(PACKAGE_STORAGE_PREFIX, normalizeSegments(input.path, 'path')),
   });
 };
 
 export const createDeviceUploadSession = async (
   input: DeviceArtifactSessionInput,
-  headers: Headers,
 ): Promise<StorageSignedRequest> => {
-  ensureAuthorized(headers, env.TRAKRAI_STORAGE_SERVICE_TOKEN, STORAGE_SERVICE_TOKEN_ERROR);
-
   const storageProvider = getStorage();
   return storageProvider.getSignedUrlForUpload({
     accessTarget: 'device',
     contentType: input.contentType ?? 'application/octet-stream',
-    key: joinKey(devicePrefix, [
+    key: joinKey(DEVICE_STORAGE_PREFIX, [
       ...normalizeSegments(input.deviceId, 'deviceId'),
       ...normalizeSegments(input.path, 'path'),
     ]),
@@ -166,14 +160,11 @@ export const createDeviceUploadSession = async (
 
 export const createDeviceDownloadSession = async (
   input: Pick<DeviceArtifactSessionInput, 'deviceId' | 'path'>,
-  headers: Headers,
 ): Promise<StorageSignedRequest> => {
-  ensureAuthorized(headers, env.TRAKRAI_STORAGE_SERVICE_TOKEN, STORAGE_SERVICE_TOKEN_ERROR);
-
   const storageProvider = getStorage();
   return storageProvider.getSignedUrlForDownload({
     accessTarget: 'device',
-    key: joinKey(devicePrefix, [
+    key: joinKey(DEVICE_STORAGE_PREFIX, [
       ...normalizeSegments(input.deviceId, 'deviceId'),
       ...normalizeSegments(input.path, 'path'),
     ]),
@@ -183,8 +174,8 @@ export const createDeviceDownloadSession = async (
 export const listAvailablePackageArtifacts = async (
   serviceName?: string,
 ): Promise<AvailablePackageArtifact[]> => {
-  const prefixSegments = [packagePrefix];
-  let prefix = `${packagePrefix}/`;
+  let prefix = `${PACKAGE_STORAGE_PREFIX}/`;
+  const prefixSegments = [PACKAGE_STORAGE_PREFIX];
   if (serviceName !== undefined && serviceName.trim() !== '') {
     prefixSegments.push(...normalizeSegments(serviceName, 'serviceName'));
     prefix = `${path.posix.join(...prefixSegments)}/`;

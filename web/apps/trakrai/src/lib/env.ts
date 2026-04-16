@@ -38,28 +38,10 @@ export const env = createEnv({
     MINIO_REGION: z.string().optional(),
     MINIO_SECRET_KEY: z.string().optional(),
 
-    // Local source: `web/apps/trakrai/.env`.
-    // Deployment source: cloud app runtime environment.
-    // Comma-separated browser origins allowed to call `/api/external/*` from edge/cloud UIs.
-    TRAKRAI_CLOUD_API_ALLOWED_ORIGINS: z.string().optional(),
-
-    // Cloud object-store prefix for device upload/download objects.
-    // Usually stable; only change if the bucket layout changes.
-    TRAKRAI_DEVICE_STORAGE_PREFIX: z.string().default('devices'),
-
     // Used by package publishing flows.
     // Local source: shell env when running `device/scripts/manage_device_packages.py release`.
     // CI source: GitHub Actions secret used in `.github/workflows/publish-device-binaries.yml`.
     TRAKRAI_PACKAGE_RELEASE_TOKEN: z.string().optional(),
-
-    // Cloud object-store prefix for released device packages.
-    // Usually stable; only change if the bucket layout changes.
-    TRAKRAI_PACKAGE_STORAGE_PREFIX: z.string().default('device-packages'),
-
-    // Shared service token used by device-side `cloud-transfer` / runtime update flows
-    // when calling the cloud package and storage APIs.
-    // Must match the token configured on the device side.
-    TRAKRAI_STORAGE_SERVICE_TOKEN: z.string().optional(),
 
     // Local source: `web/apps/trakrai/.env`.
     // Deployment source: auth provider secret configured for the cloud app.
@@ -101,22 +83,11 @@ export const env = createEnv({
     // Use when the deployed public URL is known and should not be inferred at runtime.
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
 
-    // Public live-gateway HTTP/WS endpoints.
-    // Local source: `web/apps/trakrai/.env` when the gateway is not on the default localhost ports.
-    // Deployment source: the public or internal URLs exposed by the live-gateway service.
-    // `*_FEEDER_*` and `*_MEDIATOR_*` are legacy aliases still honored by `build-config.ts`.
-    NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL: z.string().optional(),
-    NEXT_PUBLIC_LIVE_FEEDER_WS_URL: z.string().optional(),
-    NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL: z.string().optional(),
-    NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY: z.enum(['all', 'relay']).optional(),
-    NEXT_PUBLIC_LIVE_GATEWAY_WS_URL: z.string().optional(),
-    NEXT_PUBLIC_MEDIATOR_HTTP_URL: z.string().optional(),
-    NEXT_PUBLIC_MEDIATOR_WS_URL: z.string().optional(),
-    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: z.string().optional(),
+    // Public base URL for the live-gateway service that fronts MQTT/WebSocket traffic.
+    // Local source: `web/apps/trakrai/.env`, usually `http://localhost:4000`.
+    // Deployment source: the public or internal URL where `live-gateway` is reachable.
+    NEXT_PUBLIC_TRAKRAI_CLOUD_GATEWAY_BASE_URL: z.string().optional(),
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
-
-    // Runtime manager service name used by the cloud runtime page.
-    // Usually keep `runtime-manager` unless the device-side service name changes.
   },
 
   // Public production hostname, typically injected by deployment/platform config.
@@ -138,11 +109,7 @@ export const env = createEnv({
     MINIO_ENDPOINT: process.env['MINIO_ENDPOINT'],
     MINIO_REGION: process.env['MINIO_REGION'],
     MINIO_SECRET_KEY: process.env['MINIO_SECRET_KEY'],
-    TRAKRAI_CLOUD_API_ALLOWED_ORIGINS: process.env['TRAKRAI_CLOUD_API_ALLOWED_ORIGINS'],
-    TRAKRAI_DEVICE_STORAGE_PREFIX: process.env['TRAKRAI_DEVICE_STORAGE_PREFIX'],
     TRAKRAI_PACKAGE_RELEASE_TOKEN: process.env['TRAKRAI_PACKAGE_RELEASE_TOKEN'],
-    TRAKRAI_PACKAGE_STORAGE_PREFIX: process.env['TRAKRAI_PACKAGE_STORAGE_PREFIX'],
-    TRAKRAI_STORAGE_SERVICE_TOKEN: process.env['TRAKRAI_STORAGE_SERVICE_TOKEN'],
     BETTER_AUTH_SECRET: process.env['BETTER_AUTH_SECRET'],
     BETTER_AUTH_URL: process.env['BETTER_AUTH_URL'],
     MICROSOFT_CLIENT_ID: process.env['MICROSOFT_CLIENT_ID'],
@@ -154,15 +121,8 @@ export const env = createEnv({
     EMAIL_SENDER_ADDRESS: process.env['EMAIL_SENDER_ADDRESS'],
     PORT: process.env['PORT'],
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
-    NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL: process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'],
-    NEXT_PUBLIC_LIVE_FEEDER_WS_URL: process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'],
-    NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL: process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'],
-    NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY:
-      process.env['NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY'],
-    NEXT_PUBLIC_LIVE_GATEWAY_WS_URL: process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'],
-    NEXT_PUBLIC_MEDIATOR_HTTP_URL: process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'],
-    NEXT_PUBLIC_MEDIATOR_WS_URL: process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'],
-    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: process.env['NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE'],
+    NEXT_PUBLIC_TRAKRAI_CLOUD_GATEWAY_BASE_URL:
+      process.env['NEXT_PUBLIC_TRAKRAI_CLOUD_GATEWAY_BASE_URL'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],
     VERCEL_URL: process.env['VERCEL_URL'],

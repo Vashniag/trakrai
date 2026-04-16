@@ -23,8 +23,7 @@ type SystemdConfig struct {
 }
 
 type HTTPConfig struct {
-	DownloadTimeoutSec int    `json:"download_timeout_sec"`
-	UserAgent          string `json:"user_agent"`
+	DownloadTimeoutSec int `json:"download_timeout_sec"`
 }
 
 type RuntimePathsConfig struct {
@@ -88,7 +87,6 @@ func LoadConfig(path string) (*Config, error) {
 		LogLevel: "info",
 		HTTP: HTTPConfig{
 			DownloadTimeoutSec: 300,
-			UserAgent:          "trakrai-runtime-manager/1.0",
 		},
 		IPC: IPCConfig{
 			SocketPath: "/tmp/trakrai-cloud-comm.sock",
@@ -120,9 +118,6 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.HTTP.DownloadTimeoutSec <= 0 {
 		cfg.HTTP.DownloadTimeoutSec = 300
-	}
-	if cfg.HTTP.UserAgent == "" {
-		cfg.HTTP.UserAgent = "trakrai-runtime-manager/1.0"
 	}
 	if cfg.Systemd.Bin == "" {
 		cfg.Systemd.Bin = "systemctl"
