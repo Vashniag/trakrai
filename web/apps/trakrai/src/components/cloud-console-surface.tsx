@@ -18,6 +18,11 @@ export const DEFAULT_CLOUD_DEVICE_ID = 'hacklab@10.8.0.50';
 
 const CLOUD_ROUTE_ITEMS = [
   {
+    description: 'Registered devices and their fixed access tokens.',
+    href: '/devices',
+    label: 'Devices',
+  },
+  {
     description: 'WebRTC live monitoring and PTZ controls.',
     href: '/live',
     label: 'Live',

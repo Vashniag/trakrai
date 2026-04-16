@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
-import { DEFAULT_PORT } from '@/lib/constants';
+import { DEFAULT_PORT } from './constants';
 
 export const env = createEnv({
   server: {
@@ -89,7 +89,7 @@ export const env = createEnv({
   shared: {
     // Used by both server and build-time code.
     // Local source: `web/apps/trakrai/.env` or the shell that starts Next.js.
-    NODE_ENV: z.enum(['development', 'test', 'production']),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
     // Next.js listen port for the cloud app.
     // Local source: `web/apps/trakrai/.env` or `pnpm dev` shell env.
