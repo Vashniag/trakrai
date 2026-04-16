@@ -19,9 +19,10 @@ import { Copy, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useInvalidateQuery, useTRPCMutation, useTRPCQuery } from '@/server/react';
-import type { RouterOutput } from '@/server/routers';
 
-type ManagedDevice = RouterOutput['devices']['list']['devices'][number];
+import type { TrakraiCloudRouterOutput } from '@trakrai/cloud-backend/router';
+
+type ManagedDevice = TrakraiCloudRouterOutput['devices']['list']['devices'][number];
 type DeviceDraft = Readonly<{
   description: string;
   isActive: boolean;

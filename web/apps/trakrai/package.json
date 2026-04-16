@@ -22,7 +22,7 @@
     "@react-email/components": "^1.0.10",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tanstack/react-query": "^5.99.0",
-    "@trakrai/cloud-api-contract": "workspace:*",
+    "@trakrai/cloud-backend": "workspace:*",
     "@trakrai/cloud-transfer-ui": "workspace:*",
     "@trakrai/design-system": "workspace:*",
     "@trakrai/live-transport": "workspace:*",

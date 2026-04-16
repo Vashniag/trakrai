@@ -74,9 +74,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.96.0
         version: 5.99.0(react@19.2.5)
-      '@trakrai/cloud-api-contract':
+      '@trakrai/cloud-backend':
         specifier: workspace:*
-        version: link:../../packages/trakrai-cloud-api-contract
+        version: link:../../packages/trakrai-cloud-backend
       '@trakrai/cloud-transfer-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-cloud-transfer-ui
@@ -207,9 +207,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.96.0
         version: 5.99.0(react@19.2.5)
-      '@trakrai/cloud-api-contract':
+      '@trakrai/cloud-backend':
         specifier: workspace:*
-        version: link:../../packages/trakrai-cloud-api-contract
+        version: link:../../packages/trakrai-cloud-backend
       '@trakrai/cloud-transfer-ui':
         specifier: workspace:*
         version: link:../../packages/trakrai-cloud-transfer-ui
@@ -353,11 +353,29 @@ importers:
         specifier: ^8.58.1
         version: 8.58.1(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
 
-  packages/trakrai-cloud-api-contract:
+  packages/trakrai-cloud-backend:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.913.0
+        version: 3.1030.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.913.0
+        version: 3.1030.0
+      '@azure/storage-blob':
+        specifier: ^12.29.1
+        version: 12.31.0
       '@trpc/server':
         specifier: ^11.16.0
         version: 11.16.0(typescript@6.0.2)
+      drizzle-orm:
+        specifier: 1.0.0-beta.15-859cf75
+        version: 1.0.0-beta.15-859cf75(@opentelemetry/api@1.9.1)(@types/mssql@9.1.11(@azure/core-client@1.10.1))(@types/pg@8.20.0)(mssql@11.0.1(@azure/core-client@1.10.1))(pg@8.20.0)(zod@4.3.6)
+      superjson:
+        specifier: ^2.2.6
+        version: 2.2.6
+      trpc-to-openapi:
+        specifier: ^3.2.0
+        version: 3.2.0(@trpc/server@11.16.0(typescript@6.0.2))(zod-openapi@5.4.6(zod@4.3.6))(zod@4.3.6)
       zod:
         specifier: 4.3.6
         version: 4.3.6
