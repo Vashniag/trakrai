@@ -29,9 +29,14 @@ Path("src/trakrai_audio_manager/_version.py").write_text(
 PY
 
 RUN python -m build --wheel --outdir /out
+RUN mkdir -p /wheelhouse \
+    && if grep -Eq '^[^#[:space:]]' requirements.txt; then \
+        python -m pip wheel --wheel-dir /wheelhouse -r requirements.txt; \
+    fi
 
 FROM scratch AS export
 
 COPY --from=builder /out/. /
+COPY --from=builder /wheelhouse /wheelhouse
 COPY --from=builder /src/requirements.txt /requirements.txt
 COPY --from=builder /src/README.md /README.md

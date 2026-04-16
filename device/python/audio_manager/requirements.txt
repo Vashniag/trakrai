@@ -1,1 +1,1 @@
-# No third-party runtime dependencies.
+gTTS>=2.5.0

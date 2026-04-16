@@ -238,7 +238,7 @@ class AudioService:
                 if job.play_local:
                     generation = self._tts.generate(job.text, job.language)
                     audio_path = generation.audio_path
-                    playback = self._playback.play(audio_path)
+                    playback = self._playback.play(audio_path, content_type=generation.content_type)
                     local_state = playback.state
                     local_detail = {
                         "audioPath": generation.audio_path,
@@ -337,7 +337,7 @@ class AudioService:
             "speakerTransport": self._config.speaker.transport,
             "stateDbPath": self._config.storage.state_db_path,
             "stats": self._store.stats(),
-            "ttsBackend": self._config.tts.backend,
+            "ttsBackend": "gtts-primary/espeak-fallback",
         }
 
     def _publish_job(self, target_service: str, job: AudioJob) -> None:

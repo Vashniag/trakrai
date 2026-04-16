@@ -15,7 +15,6 @@
     "event_log_path": "/home/hacklab/trakrai-device-runtime/shared/audio/audio-events.jsonl"
   },
   "tts": {
-    "backend": "espeak",
     "default_language": "en",
     "timeout_sec": 20,
     "voice_map": {
@@ -36,7 +35,7 @@
       "--data-binary",
       "@{audio_path}",
       "-H",
-      "Content-Type: audio/wav",
+      "Content-Type: {audio_content_type}",
       "http://host.docker.internal:18920/play"
     ]
   },

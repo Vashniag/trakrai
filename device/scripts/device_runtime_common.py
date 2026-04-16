@@ -266,6 +266,7 @@ def prepare_stage(
         shutil.copy2(artifact_paths[service_name], binaries_dir / service_name)
 
     wheel_names: dict[str, str] = {}
+    wheel_dependency_names: dict[str, list[str]] = {}
     for target in PYTHON_WHEEL_TARGETS:
         if target.config_name not in config_map:
             continue
@@ -276,6 +277,13 @@ def prepare_stage(
             )
         shutil.copy2(wheel_path, wheels_dir / wheel_path.name)
         wheel_names[target.config_name] = wheel_path.name
+        dependency_names: list[str] = []
+        wheelhouse_dir = wheel_path.parent / "wheelhouse"
+        if wheelhouse_dir.exists():
+            for dependency_wheel in sorted(wheelhouse_dir.glob("*.whl")):
+                shutil.copy2(dependency_wheel, wheels_dir / dependency_wheel.name)
+                dependency_names.append(dependency_wheel.name)
+        wheel_dependency_names[target.config_name] = dependency_names
 
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
     create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
@@ -289,7 +297,7 @@ def prepare_stage(
     for name, payload in config_map.items():
         (configs_dir / name).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    manifest = build_manifest(options, set(config_map), wheel_names)
+    manifest = build_manifest(options, set(config_map), wheel_names, wheel_dependency_names)
     manifest_path = stage_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
@@ -487,7 +495,12 @@ def build_binary_service(
     return payload
 
 
-def build_manifest(options: StageOptions, available_configs: set[str], wheel_names: dict[str, str]) -> dict[str, Any]:
+def build_manifest(
+    options: StageOptions,
+    available_configs: set[str],
+    wheel_names: dict[str, str],
+    wheel_dependency_names: dict[str, list[str]],
+) -> dict[str, Any]:
     runtime_root = options.runtime_root
     directories = ["bin", "configs", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
     stop_units = [
@@ -524,6 +537,9 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         wheels.append(
             {
                 "source": f"wheels/{wheel_name}",
+                "dependency_sources": [
+                    f"wheels/{dependency_name}" for dependency_name in wheel_dependency_names.get(target.config_name, [])
+                ],
                 "download_target": f"downloads/{wheel_name}",
                 "install_command": [
                     "python3",

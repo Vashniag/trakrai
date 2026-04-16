@@ -17,6 +17,9 @@ classifiers = [
   "Programming Language :: Python :: 3.8",
   "Operating System :: POSIX :: Linux",
 ]
+dependencies = [
+  "gTTS>=2.5.0",
+]
 
 [project.scripts]
 trakrai-audio-manager = "trakrai_audio_manager.main:main"

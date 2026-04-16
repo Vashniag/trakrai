@@ -15,7 +15,6 @@
     "event_log_path": "/home/hacklab/trakrai-device-runtime/shared/audio/audio-events.jsonl"
   },
   "tts": {
-    "backend": "auto",
     "default_language": "en",
     "timeout_sec": 30,
     "voice_map": {

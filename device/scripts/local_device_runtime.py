@@ -309,7 +309,7 @@ def patch_local_configs(
                     "--data-binary",
                     "@{audio_path}",
                     "-H",
-                    "Content-Type: audio/wav",
+                    "Content-Type: {audio_content_type}",
                     f"http://host.docker.internal:{host_audio_port}/play",
                 ]
             else:

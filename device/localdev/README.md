@@ -129,7 +129,7 @@ That script:
 
 The local stack includes `audio-manager` as a wheel-installed managed service. In local dev it:
 
-- synthesizes WAV files with `espeak`
+- tries `gTTS` first and falls back to `espeak` when Google TTS is unavailable
 - sends local playback to the host audio relay, which plays it on the laptop speakers
 - delivers network speaker announcements to the `mock-speaker` HTTP service
 
@@ -144,12 +144,12 @@ That script:
 - queues a direct `play-audio` request over the local IPC bus
 - waits for the queued job to complete
 - verifies the generated audio file exists in the shared runtime volume
-- verifies the host audio relay accepted and played the WAV file
+- verifies the host audio relay accepted and played the generated audio file
 - verifies `mock-speaker` received the short-code payload
 - temporarily swaps in an audio test workflow
 - submits a detection frame to `workflow-engine`
 - waits for the workflow-triggered audio job to complete
-- verifies the workflow-triggered WAV was also played through the host audio relay
+- verifies the workflow-triggered audio file was also played through the host audio relay
 - restores the original workflow file afterward
 
 ## Using The Workflow Engine

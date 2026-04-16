@@ -41,7 +41,7 @@ class HostAudioPlayer:
 
     def play(self, audio_bytes: bytes, headers: dict[str, str], request_path: str) -> dict[str, Any]:
         request_id = uuid.uuid4().hex
-        audio_path = self._cache_dir / f"{request_id}.wav"
+        audio_path = self._cache_dir / f"{request_id}{self._resolve_extension(headers)}"
         audio_path.write_bytes(audio_bytes)
 
         with self._lock:
@@ -75,6 +75,14 @@ class HostAudioPlayer:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or f"{self._backend} exited with code {result.returncode}")
 
         return metadata
+
+    def _resolve_extension(self, headers: dict[str, str]) -> str:
+        content_type = headers.get("Content-Type", headers.get("content-type", "")).split(";", 1)[0].strip().lower()
+        if content_type in {"audio/mpeg", "audio/mp3"}:
+            return ".mp3"
+        if content_type in {"audio/wav", "audio/x-wav"}:
+            return ".wav"
+        return ".bin"
 
     def _resolve_command(self) -> tuple[str, tuple[str, ...]]:
         if self._command_template:
@@ -150,7 +158,7 @@ class AudioRequestHandler(BaseHTTPRequestHandler):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Play device-generated WAV files on the local host speakers.")
+    parser = argparse.ArgumentParser(description="Play device-generated audio files on the local host speakers.")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--state-dir", required=True)
     parser.add_argument(

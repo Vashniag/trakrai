@@ -27,7 +27,6 @@ class StorageConfig:
 
 @dataclass(frozen=True)
 class TTSConfig:
-    backend: str = "auto"
     default_language: str = "en"
     timeout_sec: int = 30
     voice_map: dict[str, str] = field(default_factory=dict)
@@ -91,7 +90,6 @@ def load_config(path: str | Path) -> ServiceConfig:
             event_log_path=_string(storage_raw.get("event_log_path")),
         ),
         tts=TTSConfig(
-            backend=_string(tts_raw.get("backend"), default="auto"),
             default_language=_string(tts_raw.get("default_language"), default="en"),
             timeout_sec=max(1, _int(tts_raw.get("timeout_sec"), default=30)),
             voice_map={str(key): str(value) for key, value in _optional_mapping(tts_raw.get("voice_map")).items()},
