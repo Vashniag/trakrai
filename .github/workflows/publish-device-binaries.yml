@@ -35,6 +35,8 @@ jobs:
   release:
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
+    environment:
+      name: Production
 
     steps:
       - name: Check out repository
@@ -72,6 +74,8 @@ jobs:
           TRAKRAI_CLOUD_API_BASE_URL: ${{ secrets.TRAKRAI_CLOUD_API_BASE_URL }}
           TRAKRAI_PACKAGE_RELEASE_TOKEN: ${{ secrets.TRAKRAI_PACKAGE_RELEASE_TOKEN }}
         run: |
+          test -n "${TRAKRAI_CLOUD_API_BASE_URL}" || { echo "Missing TRAKRAI_CLOUD_API_BASE_URL for the Production environment"; exit 1; }
+          test -n "${TRAKRAI_PACKAGE_RELEASE_TOKEN}" || { echo "Missing TRAKRAI_PACKAGE_RELEASE_TOKEN for the Production environment"; exit 1; }
           mkdir -p .github/state
           python3 device/scripts/manage_device_packages.py release \
             --metadata device/package-versions.json \

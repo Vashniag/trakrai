@@ -428,6 +428,8 @@ def publish_via_cloud_api(
     *,
     auth_token: str,
 ) -> None:
+    if base_url.strip() == "":
+        raise SystemExit("cloud API base URL is required for publish-target cloud-api")
     content_type = guess_content_type(artifact_path)
     presigned = cloud_api_request_json(
         base_url,
