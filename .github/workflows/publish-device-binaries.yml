@@ -49,15 +49,18 @@ jobs:
         with:
           go-version-file: device/go.mod
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          package_json_file: web/package.json
+          run_install: false
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
           node-version: 20
-
-      - name: Enable corepack
-        run: corepack enable
 
       - name: Install web dependencies
         working-directory: web
