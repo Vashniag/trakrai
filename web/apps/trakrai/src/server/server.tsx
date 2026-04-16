@@ -18,8 +18,7 @@ import {
   type TRPCQueryOptions,
 } from '@trpc/tanstack-react-query';
 
-import { appRouter } from '@/server/routers';
-import { createTRPCContext } from '@/server/trpc';
+import { appRouter, createTRPCContext } from '@/server/backend';
 import { createQueryClient } from '@/server/utils';
 
 const createContext = cache(async () => {

@@ -1,0 +1,67 @@
+{
+  "name": "@trakrai/cloud-backend",
+  "version": "0.0.1",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && pnpm run build:types",
+    "build:types": "tsc -p tsconfig.build.json",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings=0 .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.913.0",
+    "@aws-sdk/s3-request-presigner": "^3.913.0",
+    "@azure/storage-blob": "^12.29.1",
+    "@trpc/server": "^11.16.0",
+    "drizzle-orm": "1.0.0-beta.15-859cf75",
+    "superjson": "^2.2.6",
+    "trpc-to-openapi": "^3.2.0",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^10.2.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^6"
+  },
+  "exports": {
+    "./router": "./src/router.ts",
+    "./devices": "./src/devices.ts",
+    "./package-artifacts": "./src/package-artifacts.ts",
+    "./db/*": "./src/db/*.ts",
+    "./storage/*": "./src/storage/*.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      "./router": {
+        "import": "./dist/router.js",
+        "types": "./dist/router.d.ts"
+      },
+      "./devices": {
+        "import": "./dist/devices.js",
+        "types": "./dist/devices.d.ts"
+      },
+      "./package-artifacts": {
+        "import": "./dist/package-artifacts.js",
+        "types": "./dist/package-artifacts.d.ts"
+      },
+      "./db/*": {
+        "import": "./dist/db/*.js",
+        "types": "./dist/db/*.d.ts"
+      },
+      "./storage/*": {
+        "import": "./dist/storage/*.js",
+        "types": "./dist/storage/*.d.ts"
+      }
+    }
+  }
+}

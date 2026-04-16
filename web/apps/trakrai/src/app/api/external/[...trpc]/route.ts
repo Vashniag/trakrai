@@ -2,8 +2,7 @@ import { createOpenApiFetchHandler } from 'trpc-to-openapi';
 
 import { applyCorsHeaders, createCorsPreflightResponse } from '@/lib/cors';
 import { setCookieHeader } from '@/lib/set-cookie-header';
-import { appRouter } from '@/server/routers';
-import { createTRPCContextNext } from '@/server/trpc';
+import { appRouter, createTRPCContextNext } from '@/server/backend';
 
 const handler = async (req: Request) =>
   applyCorsHeaders(
@@ -12,7 +11,9 @@ const handler = async (req: Request) =>
       endpoint: '/api/external',
       router: appRouter,
       createContext: (opts) =>
-        createTRPCContextNext(opts, (key, value) => setCookieHeader(key, value, opts.resHeaders)),
+        createTRPCContextNext(opts.req, (key, value) =>
+          setCookieHeader(key, value, opts.resHeaders),
+        ),
       req,
     }),
   );

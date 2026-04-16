@@ -6,4 +6,4 @@ export type {
   StorageProvider,
   StorageProviderName,
   StorageSignedRequest,
-} from './interface';
+} from '@trakrai/cloud-backend/storage/interface';

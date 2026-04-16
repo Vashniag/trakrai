@@ -4,22 +4,23 @@ import { useState } from 'react';
 
 import {
   QueryClientProvider,
-  type QueryKey,
-  useQueryClient,
   type QueryClient,
+  type QueryKey,
   useMutation,
-  type UseMutationOptions,
   useQuery,
-  type UseQueryOptions,
   type DefaultError,
+  useQueryClient,
+  type UseMutationOptions,
+  type UseQueryOptions,
 } from '@tanstack/react-query';
 import { createTRPCReact, type CreateTRPCReact } from '@trpc/react-query';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 
-import { type AppRouter } from '@/server/routers';
 import { createQueryClient, links } from '@/server/utils';
 
-const { useTRPC, TRPCProvider } = createTRPCContext<AppRouter>();
+import type { TrakraiCloudAppRouter } from '@trakrai/cloud-backend/router';
+
+const { useTRPC, TRPCProvider } = createTRPCContext<TrakraiCloudAppRouter>();
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = (): QueryClient => {
@@ -30,7 +31,8 @@ const getQueryClient = (): QueryClient => {
   return clientQueryClientSingleton;
 };
 
-export const api: CreateTRPCReact<AppRouter, unknown> = createTRPCReact<AppRouter>();
+export const api: CreateTRPCReact<TrakraiCloudAppRouter, unknown> =
+  createTRPCReact<TrakraiCloudAppRouter>();
 
 export const TRPCReactProvider = (props: { readonly children: React.ReactNode }) => {
   const queryClient = getQueryClient();

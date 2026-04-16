@@ -4,8 +4,7 @@ import { applyCorsHeaders, createCorsPreflightResponse } from '@/lib/cors';
 import logger from '@/lib/logger';
 import { withRequestContext } from '@/lib/request-context';
 import { setCookieHeader } from '@/lib/set-cookie-header';
-import { appRouter } from '@/server/routers';
-import { createTRPCContext } from '@/server/trpc';
+import { appRouter, createTRPCContext } from '@/server/backend';
 
 const createContext = (req: Request, opts: FetchCreateContextFnOptions) => {
   return createTRPCContext({
