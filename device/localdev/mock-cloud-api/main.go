@@ -17,13 +17,14 @@ import (
 )
 
 type config struct {
-	Bucket     string
-	Endpoint   string
-	ListenAddr string
-	Prefix     string
-	SecretKey  string
-	UseSSL     bool
-	User       string
+	Bucket        string
+	Endpoint      string
+	ListenAddr    string
+	PackagePrefix string
+	Prefix        string
+	SecretKey     string
+	UseSSL        bool
+	User          string
 }
 
 type presignRequest struct {
@@ -38,6 +39,10 @@ type presignResponse struct {
 	Method    string            `json:"method"`
 	ObjectKey string            `json:"objectKey"`
 	URL       string            `json:"url"`
+}
+
+type packagePresignRequest struct {
+	Path string `json:"path"`
 }
 
 type objectDebugResponse struct {
@@ -74,6 +79,15 @@ func main() {
 	mux.HandleFunc("/api/v1/device-storage/debug/object", func(w http.ResponseWriter, r *http.Request) {
 		handleDebugObject(w, r, client, cfg)
 	})
+	mux.HandleFunc("/api/v1/package-storage/object", func(w http.ResponseWriter, r *http.Request) {
+		handlePackageObjectUpload(w, r, client, cfg)
+	})
+	mux.HandleFunc("/api/v1/package-storage/presign-download", func(w http.ResponseWriter, r *http.Request) {
+		handlePackagePresignDownload(w, r, client, cfg)
+	})
+	mux.HandleFunc("/api/v1/package-storage/debug/object", func(w http.ResponseWriter, r *http.Request) {
+		handlePackageDebugObject(w, r, client, cfg)
+	})
 
 	server := &http.Server{
 		Addr:              cfg.ListenAddr,
@@ -89,13 +103,14 @@ func main() {
 
 func loadConfig() config {
 	return config{
-		Bucket:     normalizeDefault(os.Getenv("MOCK_CLOUD_API_BUCKET"), "trakrai-local"),
-		Endpoint:   normalizeDefault(os.Getenv("MOCK_CLOUD_API_MINIO_ENDPOINT"), "minio:9000"),
-		ListenAddr: normalizeDefault(os.Getenv("MOCK_CLOUD_API_LISTEN_ADDR"), ":8080"),
-		Prefix:     normalizeDefault(os.Getenv("MOCK_CLOUD_API_PREFIX"), "devices"),
-		SecretKey:  normalizeDefault(os.Getenv("MOCK_CLOUD_API_MINIO_SECRET_KEY"), "minioadmin"),
-		UseSSL:     strings.EqualFold(os.Getenv("MOCK_CLOUD_API_MINIO_USE_SSL"), "true"),
-		User:       normalizeDefault(os.Getenv("MOCK_CLOUD_API_MINIO_ACCESS_KEY"), "minioadmin"),
+		Bucket:        normalizeDefault(os.Getenv("MOCK_CLOUD_API_BUCKET"), "trakrai-local"),
+		Endpoint:      normalizeDefault(os.Getenv("MOCK_CLOUD_API_MINIO_ENDPOINT"), "minio:9000"),
+		ListenAddr:    normalizeDefault(os.Getenv("MOCK_CLOUD_API_LISTEN_ADDR"), ":8080"),
+		PackagePrefix: normalizeDefault(os.Getenv("MOCK_CLOUD_API_PACKAGE_PREFIX"), "device-packages"),
+		Prefix:        normalizeDefault(os.Getenv("MOCK_CLOUD_API_PREFIX"), "devices"),
+		SecretKey:     normalizeDefault(os.Getenv("MOCK_CLOUD_API_MINIO_SECRET_KEY"), "minioadmin"),
+		UseSSL:        strings.EqualFold(os.Getenv("MOCK_CLOUD_API_MINIO_USE_SSL"), "true"),
+		User:          normalizeDefault(os.Getenv("MOCK_CLOUD_API_MINIO_ACCESS_KEY"), "minioadmin"),
 	}
 }
 
@@ -210,6 +225,104 @@ func handleDebugObject(w http.ResponseWriter, r *http.Request, client *minio.Cli
 	})
 }
 
+func handlePackageObjectUpload(w http.ResponseWriter, r *http.Request, client *minio.Client, cfg config) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	objectKey, err := scopedPackageObjectKey(cfg.PackagePrefix, r.URL.Query().Get("path"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	info, err := client.PutObject(
+		r.Context(),
+		cfg.Bucket,
+		objectKey,
+		r.Body,
+		-1,
+		minio.PutObjectOptions{
+			ContentType: normalizeDefault(r.Header.Get("Content-Type"), "application/octet-stream"),
+		},
+	)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, objectDebugResponse{
+		Bucket:    cfg.Bucket,
+		Exists:    true,
+		ObjectKey: objectKey,
+		Size:      info.Size,
+	})
+}
+
+func handlePackagePresignDownload(w http.ResponseWriter, r *http.Request, client *minio.Client, cfg config) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request packagePresignRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("invalid request: %v", err)})
+		return
+	}
+
+	objectKey, err := scopedPackageObjectKey(cfg.PackagePrefix, request.Path)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	url, err := client.PresignedGetObject(context.Background(), cfg.Bucket, objectKey, 15*time.Minute, nil)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, presignResponse{
+		Bucket:    cfg.Bucket,
+		Headers:   map[string]string{},
+		Method:    http.MethodGet,
+		ObjectKey: objectKey,
+		URL:       url.String(),
+	})
+}
+
+func handlePackageDebugObject(w http.ResponseWriter, r *http.Request, client *minio.Client, cfg config) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	objectKey, err := scopedPackageObjectKey(cfg.PackagePrefix, r.URL.Query().Get("path"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	info, err := client.StatObject(r.Context(), cfg.Bucket, objectKey, minio.StatObjectOptions{})
+	if err != nil {
+		writeJSON(w, http.StatusOK, objectDebugResponse{
+			Bucket:    cfg.Bucket,
+			Exists:    false,
+			ObjectKey: objectKey,
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, objectDebugResponse{
+		Bucket:    cfg.Bucket,
+		Exists:    true,
+		ObjectKey: objectKey,
+		Size:      info.Size,
+	})
+}
+
 func scopedObjectKey(prefix string, deviceID string, rawPath string) (string, error) {
 	normalizedDeviceID := strings.TrimSpace(deviceID)
 	if normalizedDeviceID == "" {
@@ -227,6 +340,21 @@ func scopedObjectKey(prefix string, deviceID string, rawPath string) (string, er
 	}
 
 	return path.Join(prefix, normalizedDeviceID, cleaned), nil
+}
+
+func scopedPackageObjectKey(prefix string, rawPath string) (string, error) {
+	normalizedPath := strings.TrimSpace(rawPath)
+	if normalizedPath == "" {
+		return "", fmt.Errorf("path is required")
+	}
+
+	cleaned := path.Clean("/" + strings.ReplaceAll(normalizedPath, "\\", "/"))
+	cleaned = strings.TrimPrefix(cleaned, "/")
+	if cleaned == "" || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return "", fmt.Errorf("path is invalid")
+	}
+
+	return path.Join(prefix, cleaned), nil
 }
 
 func normalizeDefault(value string, fallback string) string {

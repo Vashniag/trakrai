@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/trakrai/device-services/internal/cloudtransfer"
 	"github.com/trakrai/device-services/internal/ipc"
 )
 
@@ -71,6 +72,8 @@ type Service struct {
 	statusSnapshotAt      time.Time
 	statusSnapshotValid   bool
 	statusSnapshotBuildCh chan struct{}
+	transferWaitersMu     sync.Mutex
+	transferWaiters       map[string]chan ipc.ServiceMessageNotification
 
 	execCommand func(context.Context, string, ...string) ([]byte, error)
 	now         func() time.Time
@@ -96,6 +99,7 @@ func NewService(cfg *Config) (*Service, error) {
 		log:              slog.With("component", ServiceName),
 		managed:          managed,
 		seededFromConfig: seededFromConfig,
+		transferWaiters:  make(map[string]chan ipc.ServiceMessageNotification),
 		execCommand: func(ctx context.Context, command string, args ...string) ([]byte, error) {
 			cmd := exec.CommandContext(ctx, command, args...)
 			return cmd.CombinedOutput()
@@ -156,20 +160,42 @@ func (s *Service) handleNotifications(ctx context.Context) {
 			if !ok {
 				return
 			}
-			if notification.Method != "mqtt-message" {
-				continue
-			}
+			switch notification.Method {
+			case "mqtt-message":
+				var message ipc.MqttMessageNotification
+				if err := json.Unmarshal(notification.Params, &message); err != nil {
+					s.log.Warn("invalid runtime-manager MQTT notification", "error", err)
+					continue
+				}
+				if message.Subtopic != "command" {
+					continue
+				}
+				go s.handleCommand(ctx, message.Envelope)
 
-			var message ipc.MqttMessageNotification
-			if err := json.Unmarshal(notification.Params, &message); err != nil {
-				s.log.Warn("invalid runtime-manager MQTT notification", "error", err)
-				continue
+			case "service-message":
+				var message ipc.ServiceMessageNotification
+				if err := json.Unmarshal(notification.Params, &message); err != nil {
+					s.log.Warn("invalid runtime-manager service notification", "error", err)
+					continue
+				}
+				if strings.TrimSpace(message.Subtopic) != "response" {
+					continue
+				}
+				requestID := readRequestID(message.Envelope.Payload)
+				if requestID == "" {
+					continue
+				}
+				s.transferWaitersMu.Lock()
+				waiter := s.transferWaiters[requestID]
+				s.transferWaitersMu.Unlock()
+				if waiter == nil {
+					continue
+				}
+				select {
+				case waiter <- message:
+				default:
+				}
 			}
-			if message.Subtopic != "command" {
-				continue
-			}
-
-			go s.handleCommand(ctx, message.Envelope)
 		}
 	}
 }
@@ -419,17 +445,17 @@ func (s *Service) handleUpdateService(ctx context.Context, env ipc.MQTTEnvelope)
 		})
 		return
 	}
-	if strings.TrimSpace(request.ArtifactURL) == "" {
+	if strings.TrimSpace(request.ArtifactURL) == "" && strings.TrimSpace(request.RemotePath) == "" {
 		s.publishError(RuntimeErrorPayload{
 			Action:      "update-service",
-			Error:       "artifactUrl is required",
+			Error:       "artifactUrl or remotePath is required",
 			RequestID:   request.RequestID,
 			ServiceName: serviceConfig.Name,
 		})
 		return
 	}
 
-	artifactPath, artifactSHA, err := s.downloadArtifact(ctx, request.ArtifactURL, request.ArtifactSHA256)
+	artifactPath, artifactSHA, err := s.prepareUpdateArtifact(ctx, serviceConfig, request)
 	if err != nil {
 		s.recordAction(fmt.Sprintf("update %s", serviceConfig.Name), err)
 		s.publishError(RuntimeErrorPayload{
@@ -712,6 +738,7 @@ func (s *Service) buildFreshStatusPayload(ctx context.Context) (RuntimeStatusPay
 		LogDir:       s.cfg.Runtime.LogDir,
 		ManagedCount: len(services),
 		ScriptDir:    s.cfg.Runtime.ScriptDir,
+		SharedDir:    s.cfg.Runtime.SharedDir,
 		Services:     services,
 		StateFile:    s.cfg.Runtime.StateFile,
 		VersionDir:   s.cfg.Runtime.VersionDir,
@@ -1064,6 +1091,174 @@ func (s *Service) runSetupCommand(ctx context.Context, serviceConfig ManagedServ
 	return nil
 }
 
+func (s *Service) prepareUpdateArtifact(
+	ctx context.Context,
+	serviceConfig ManagedServiceConfig,
+	request updateServiceRequest,
+) (string, string, error) {
+	if strings.TrimSpace(request.RemotePath) != "" {
+		return s.downloadArtifactViaTransfer(ctx, serviceConfig, request)
+	}
+	return s.downloadArtifact(ctx, request.ArtifactURL, request.ArtifactSHA256)
+}
+
+func (s *Service) downloadArtifactViaTransfer(
+	ctx context.Context,
+	serviceConfig ManagedServiceConfig,
+	request updateServiceRequest,
+) (string, string, error) {
+	updateCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.Updates.WaitTimeoutSec)*time.Second)
+	defer cancel()
+
+	remotePath := strings.TrimSpace(request.RemotePath)
+	artifactName := filepath.Base(strings.ReplaceAll(remotePath, "\\", "/"))
+	if artifactName == "." || artifactName == "" {
+		return "", "", fmt.Errorf("remotePath %q is invalid", request.RemotePath)
+	}
+	localPath := filepath.Join(s.cfg.Runtime.SharedDir, "package-downloads", serviceConfig.Name, artifactName)
+	timeoutWindow := fmt.Sprintf("%ds", s.cfg.Updates.WaitTimeoutSec)
+
+	initial, err := s.requestTransfer(updateCtx, "enqueue-download", cloudtransfer.EnqueueDownloadRequest{
+		LocalPath:  localPath,
+		RemotePath: remotePath,
+		RequestID:  fmt.Sprintf("runtime-update-%d", s.now().UnixNano()),
+		Scope:      cloudtransfer.ScopePackage,
+		Timeout:    timeoutWindow,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	transfer, err := decodeTransferReply(initial)
+	if err != nil {
+		return "", "", err
+	}
+
+	ticker := time.NewTicker(time.Duration(s.cfg.Updates.PollIntervalMs) * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		switch transfer.State {
+		case cloudtransfer.StateCompleted:
+			if request.ArtifactSHA256 != "" {
+				actualSHA, err := sha256File(localPath)
+				if err != nil {
+					return "", "", err
+				}
+				if !strings.EqualFold(strings.TrimSpace(request.ArtifactSHA256), actualSHA) {
+					return "", "", fmt.Errorf(
+						"artifact SHA-256 mismatch: expected %s, got %s",
+						request.ArtifactSHA256,
+						actualSHA,
+					)
+				}
+				return localPath, actualSHA, nil
+			}
+			actualSHA, err := sha256File(localPath)
+			if err != nil {
+				return localPath, "", nil
+			}
+			return localPath, actualSHA, nil
+		case cloudtransfer.StateFailed:
+			message := strings.TrimSpace(transfer.LastError)
+			if message == "" {
+				message = "download manager marked the package transfer as failed"
+			}
+			return "", "", fmt.Errorf("%s", message)
+		}
+
+		select {
+		case <-updateCtx.Done():
+			return "", "", fmt.Errorf("timed out waiting for package download: %w", updateCtx.Err())
+		case <-ticker.C:
+		}
+
+		nextReply, err := s.requestTransfer(updateCtx, "get-transfer", cloudtransfer.GetTransferRequest{
+			RequestID:  fmt.Sprintf("runtime-update-poll-%d", s.now().UnixNano()),
+			TransferID: transfer.ID,
+		})
+		if err != nil {
+			return "", "", err
+		}
+		transfer, err = decodeTransferReply(nextReply)
+		if err != nil {
+			return "", "", err
+		}
+	}
+}
+
+func (s *Service) requestTransfer(ctx context.Context, requestType string, payload interface{}) (ipc.ServiceMessageNotification, error) {
+	requestID := readRequestIDFromValue(payload)
+	if requestID == "" {
+		return ipc.ServiceMessageNotification{}, fmt.Errorf("%s request is missing requestId", requestType)
+	}
+
+	waiter := make(chan ipc.ServiceMessageNotification, 1)
+	s.transferWaitersMu.Lock()
+	s.transferWaiters[requestID] = waiter
+	s.transferWaitersMu.Unlock()
+	defer func() {
+		s.transferWaitersMu.Lock()
+		delete(s.transferWaiters, requestID)
+		s.transferWaitersMu.Unlock()
+	}()
+
+	if err := s.ipcClient.SendServiceMessage(s.cfg.Updates.DownloadService, "command", requestType, payload); err != nil {
+		return ipc.ServiceMessageNotification{}, fmt.Errorf("send %s to %s: %w", requestType, s.cfg.Updates.DownloadService, err)
+	}
+
+	select {
+	case <-ctx.Done():
+		return ipc.ServiceMessageNotification{}, ctx.Err()
+	case message := <-waiter:
+		if strings.TrimSpace(message.SourceService) != s.cfg.Updates.DownloadService {
+			return ipc.ServiceMessageNotification{}, fmt.Errorf("unexpected response source %q", message.SourceService)
+		}
+		return message, nil
+	}
+}
+
+func decodeTransferReply(message ipc.ServiceMessageNotification) (cloudtransfer.Transfer, error) {
+	switch strings.TrimSpace(message.Envelope.Type) {
+	case "cloud-transfer-transfer":
+		var payload cloudtransfer.TransferPayload
+		if err := json.Unmarshal(message.Envelope.Payload, &payload); err != nil {
+			return cloudtransfer.Transfer{}, fmt.Errorf("decode transfer payload: %w", err)
+		}
+		return payload.Transfer, nil
+	case "cloud-transfer-error":
+		var payload cloudtransfer.TransferErrorPayload
+		if err := json.Unmarshal(message.Envelope.Payload, &payload); err != nil {
+			return cloudtransfer.Transfer{}, fmt.Errorf("decode transfer error payload: %w", err)
+		}
+		return cloudtransfer.Transfer{}, fmt.Errorf("%s", payload.Error)
+	default:
+		return cloudtransfer.Transfer{}, fmt.Errorf("unexpected transfer response type %q", message.Envelope.Type)
+	}
+}
+
+func readRequestIDFromValue(value interface{}) string {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return readRequestID(data)
+}
+
+func sha256File(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open file for SHA-256 %q: %w", path, err)
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", fmt.Errorf("hash file %q: %w", path, err)
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
 func (s *Service) downloadArtifact(ctx context.Context, artifactURL string, expectedSHA string) (string, string, error) {
 	trimmedURL := strings.TrimSpace(artifactURL)
 	if trimmedURL == "" {
@@ -1166,6 +1361,7 @@ func (s *Service) ensureRuntimeLayout() error {
 		s.cfg.Runtime.DownloadDir,
 		s.cfg.Runtime.LogDir,
 		s.cfg.Runtime.ScriptDir,
+		s.cfg.Runtime.SharedDir,
 		s.cfg.Runtime.VersionDir,
 		filepath.Dir(s.cfg.Runtime.StateFile),
 		s.cfg.Systemd.UnitDirectory,
@@ -1713,6 +1909,7 @@ func (s *Service) reportStatus(status string) error {
 		"lastError":       "",
 		"managedServices": len(s.listManagedServices()),
 		"runtimeRoot":     s.cfg.Runtime.RootDir,
+		"sharedDir":       s.cfg.Runtime.SharedDir,
 		"stateFile":       s.cfg.Runtime.StateFile,
 		"versionDir":      s.cfg.Runtime.VersionDir,
 	}
@@ -1953,6 +2150,10 @@ func copyFile(sourcePath string, destinationPath string, fileMode os.FileMode) e
 
 	if _, err := io.Copy(destinationFile, sourceFile); err != nil {
 		return fmt.Errorf("copy %q to %q: %w", sourcePath, destinationPath, err)
+	}
+
+	if err := destinationFile.Chmod(fileMode); err != nil {
+		return fmt.Errorf("chmod destination file %q: %w", destinationPath, err)
 	}
 
 	return nil

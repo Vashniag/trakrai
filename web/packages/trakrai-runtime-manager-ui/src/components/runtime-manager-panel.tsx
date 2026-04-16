@@ -14,7 +14,7 @@ import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
 import { Separator } from '@trakrai/design-system/components/separator';
 
-import type { RuntimeManagerState } from '../hooks/use-runtime-manager';
+import type { RuntimeManagerState, UpdateServiceInput } from '../hooks/use-runtime-manager';
 import type { ManagedRuntimeServiceDefinition } from '@trakrai/live-transport/lib/runtime-manager-types';
 
 type RuntimeManagerPanelProps = Readonly<{
@@ -144,7 +144,7 @@ export const RuntimeManagerPanel = ({ manager }: RuntimeManagerPanelProps) => {
     updateService: onUpdateService,
     upsertServiceDefinition: onUpsertServiceDefinition,
   } = manager;
-  const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
+  const [updateInputs, setUpdateInputs] = useState<Record<string, UpdateServiceInput>>({});
   const [definitionDraft, setDefinitionDraft] = useState<{
     sourceKey: string;
     text: string;
@@ -532,25 +532,58 @@ export const RuntimeManagerPanel = ({ manager }: RuntimeManagerPanelProps) => {
                 {service.allowUpdate ? (
                   <>
                     <Separator />
-                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                    <div className="grid gap-3">
                       <Input
-                        placeholder="https://... or /path/to/artifact"
-                        value={artifactUrls[service.name] ?? ''}
+                        placeholder="package remote path, for example cloud-comm/0.1.2/linux-arm64/cloud-comm-linux-arm64-v0.1.2"
+                        value={updateInputs[service.name]?.remotePath ?? ''}
                         onChange={(event) => {
-                          setArtifactUrls((currentUrls) => ({
-                            ...currentUrls,
-                            [service.name]: event.target.value,
+                          setUpdateInputs((currentInputs) => ({
+                            ...currentInputs,
+                            [service.name]: {
+                              ...currentInputs[service.name],
+                              remotePath: event.target.value,
+                            },
+                          }));
+                        }}
+                      />
+                      <Input
+                        placeholder="optional artifact sha256"
+                        value={updateInputs[service.name]?.artifactSha256 ?? ''}
+                        onChange={(event) => {
+                          setUpdateInputs((currentInputs) => ({
+                            ...currentInputs,
+                            [service.name]: {
+                              ...currentInputs[service.name],
+                              artifactSha256: event.target.value,
+                            },
+                          }));
+                        }}
+                      />
+                      <Input
+                        placeholder="legacy direct URL or local file path"
+                        value={updateInputs[service.name]?.artifactUrl ?? ''}
+                        onChange={(event) => {
+                          setUpdateInputs((currentInputs) => ({
+                            ...currentInputs,
+                            [service.name]: {
+                              ...currentInputs[service.name],
+                              artifactUrl: event.target.value,
+                            },
                           }));
                         }}
                       />
                       <Button
-                        disabled={isBusy || (artifactUrls[service.name] ?? '').trim() === ''}
+                        disabled={
+                          isBusy ||
+                          ((updateInputs[service.name]?.remotePath ?? '').trim() === '' &&
+                            (updateInputs[service.name]?.artifactUrl ?? '').trim() === '')
+                        }
                         type="button"
                         onClick={() => {
-                          onUpdateService(service.name, artifactUrls[service.name] ?? '');
+                          onUpdateService(service.name, updateInputs[service.name] ?? {});
                         }}
                       >
-                        Update artifact
+                        Update package
                       </Button>
                     </div>
                   </>

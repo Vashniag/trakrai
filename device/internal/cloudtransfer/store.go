@@ -56,6 +56,7 @@ func (s *Store) init() error {
 			direction TEXT NOT NULL,
 			device_id TEXT NOT NULL,
 			remote_path TEXT NOT NULL,
+			storage_scope TEXT NOT NULL DEFAULT 'device',
 			object_key TEXT NOT NULL DEFAULT '',
 			local_path TEXT NOT NULL,
 			content_type TEXT NOT NULL DEFAULT '',
@@ -78,6 +79,40 @@ func (s *Store) init() error {
 			return fmt.Errorf("init sqlite store: %w", err)
 		}
 	}
+	if err := s.ensureColumn("transfers", "storage_scope", "TEXT NOT NULL DEFAULT 'device'"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) ensureColumn(table string, column string, definition string) error {
+	rows, err := s.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return fmt.Errorf("inspect sqlite table %s: %w", table, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var valueType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &valueType, &notNull, &defaultValue, &pk); err != nil {
+			return fmt.Errorf("scan sqlite table info for %s: %w", table, err)
+		}
+		if strings.EqualFold(strings.TrimSpace(name), column) {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate sqlite table info for %s: %w", table, err)
+	}
+
+	if _, err := s.db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)); err != nil {
+		return fmt.Errorf("add sqlite column %s.%s: %w", table, column, err)
+	}
 	return nil
 }
 
@@ -86,20 +121,24 @@ func (s *Store) Enqueue(ctx context.Context, transfer Transfer) (Transfer, error
 	if transfer.UpdatedAt.IsZero() {
 		transfer.UpdatedAt = now
 	}
+	if transfer.Scope == "" {
+		transfer.Scope = ScopeDevice
+	}
 	if transfer.NextAttemptAt == nil {
 		transfer.NextAttemptAt = &now
 	}
 	_, err := s.db.ExecContext(
 		ctx,
 		`INSERT INTO transfers (
-			id, direction, device_id, remote_path, object_key, local_path, content_type,
+			id, direction, device_id, remote_path, storage_scope, object_key, local_path, content_type,
 			metadata_json, state, attempts, last_error, created_at, updated_at, next_attempt_at,
 			started_at, completed_at, deadline_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		transfer.ID,
 		string(transfer.Direction),
 		transfer.DeviceID,
 		transfer.RemotePath,
+		string(transfer.Scope),
 		transfer.ObjectKey,
 		transfer.LocalPath,
 		transfer.ContentType,
@@ -401,6 +440,7 @@ const selectTransferSQL = `SELECT
 	direction,
 	device_id,
 	remote_path,
+	storage_scope,
 	object_key,
 	local_path,
 	content_type,
@@ -423,6 +463,7 @@ type rowScanner interface {
 func scanStoredTransfer(scanner rowScanner) (storedTransfer, error) {
 	var record storedTransfer
 	var direction string
+	var scope string
 	var state string
 	var createdAt string
 	var updatedAt string
@@ -436,6 +477,7 @@ func scanStoredTransfer(scanner rowScanner) (storedTransfer, error) {
 		&direction,
 		&record.DeviceID,
 		&record.RemotePath,
+		&scope,
 		&record.ObjectKey,
 		&record.LocalPath,
 		&record.ContentType,
@@ -464,6 +506,7 @@ func scanStoredTransfer(scanner rowScanner) (storedTransfer, error) {
 	}
 
 	record.Direction = Direction(direction)
+	record.Scope = StorageScope(scope)
 	record.State = TransferState(state)
 	record.CreatedAt = parsedCreatedAt
 	record.UpdatedAt = parsedUpdatedAt

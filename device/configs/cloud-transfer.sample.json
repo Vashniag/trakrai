@@ -13,6 +13,7 @@
     "auth_token": "",
     "upload_presign_path": "/api/v1/device-storage/presign-upload",
     "download_presign_path": "/api/v1/device-storage/presign-download",
+    "package_download_presign_path": "/api/v1/package-storage/presign-download",
     "request_timeout_sec": 30
   },
   "queue": {

@@ -17,12 +17,13 @@ import (
 )
 
 type cloudAPIClient struct {
-	authToken    string
-	baseURL      string
-	deviceID     string
-	downloadPath string
-	httpClient   *http.Client
-	uploadPath   string
+	authToken           string
+	baseURL             string
+	deviceID            string
+	downloadPath        string
+	httpClient          *http.Client
+	packageDownloadPath string
+	uploadPath          string
 }
 
 type presignRequest struct {
@@ -40,6 +41,10 @@ type presignResponse struct {
 	URL       string            `json:"url"`
 }
 
+type packagePresignRequest struct {
+	Path string `json:"path"`
+}
+
 func newCloudAPIClient(cfg *Config) *cloudAPIClient {
 	return &cloudAPIClient{
 		authToken:    cfg.CloudAPI.AuthToken,
@@ -49,7 +54,8 @@ func newCloudAPIClient(cfg *Config) *cloudAPIClient {
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.CloudAPI.RequestTimeoutSec) * time.Second,
 		},
-		uploadPath: cfg.CloudAPI.UploadPresignPath,
+		packageDownloadPath: cfg.CloudAPI.PackageDownloadPresignPath,
+		uploadPath:          cfg.CloudAPI.UploadPresignPath,
 	}
 }
 
@@ -59,6 +65,10 @@ func (c *cloudAPIClient) PresignUpload(ctx context.Context, remotePath string, c
 
 func (c *cloudAPIClient) PresignDownload(ctx context.Context, remotePath string) (presignResponse, error) {
 	return c.presign(ctx, "/"+strings.TrimPrefix(remotePath, "/"), "", "download")
+}
+
+func (c *cloudAPIClient) PresignPackageDownload(ctx context.Context, remotePath string) (presignResponse, error) {
+	return c.packagePresign(ctx, "/"+strings.TrimPrefix(remotePath, "/"))
 }
 
 func (c *cloudAPIClient) presign(ctx context.Context, remotePath string, contentType string, direction string) (presignResponse, error) {
@@ -131,6 +141,67 @@ func (c *cloudAPIClient) presign(ctx context.Context, remotePath string, content
 	}
 	if strings.TrimSpace(parsed.URL) == "" {
 		return presignResponse{}, fmt.Errorf("cloud API presign response did not include a url")
+	}
+	if parsed.Headers == nil {
+		parsed.Headers = map[string]string{}
+	}
+	return parsed, nil
+}
+
+func (c *cloudAPIClient) packagePresign(ctx context.Context, remotePath string) (presignResponse, error) {
+	payload := packagePresignRequest{
+		Path: strings.TrimPrefix(path.Clean(remotePath), "/"),
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return presignResponse{}, fmt.Errorf("marshal package presign request: %w", err)
+	}
+
+	requestURL, err := url.JoinPath(c.baseURL, c.packageDownloadPath)
+	if err != nil {
+		return presignResponse{}, fmt.Errorf("resolve package presign url: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(body))
+	if err != nil {
+		return presignResponse{}, fmt.Errorf("create package presign request: %w", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	if c.authToken != "" {
+		request.Header.Set("Authorization", "Bearer "+c.authToken)
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return presignResponse{}, &temporaryError{message: fmt.Sprintf("cloud API package request failed: %v", err)}
+	}
+	defer response.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 64*1024))
+	if err != nil {
+		return presignResponse{}, &temporaryError{message: fmt.Sprintf("read package presign response: %v", err)}
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		message := strings.TrimSpace(string(responseBody))
+		if message == "" {
+			message = fmt.Sprintf("cloud API package presign returned HTTP %d", response.StatusCode)
+		}
+		if isRetryableHTTPStatus(response.StatusCode) {
+			return presignResponse{}, &temporaryError{message: message}
+		}
+		return presignResponse{}, fmt.Errorf("%s", message)
+	}
+
+	var parsed presignResponse
+	if err := json.Unmarshal(responseBody, &parsed); err != nil {
+		return presignResponse{}, fmt.Errorf("decode package presign response: %w", err)
+	}
+	if strings.TrimSpace(parsed.Method) == "" {
+		parsed.Method = http.MethodGet
+	}
+	if strings.TrimSpace(parsed.URL) == "" {
+		return presignResponse{}, fmt.Errorf("cloud API package presign response did not include a url")
 	}
 	if parsed.Headers == nil {
 		parsed.Headers = map[string]string{}

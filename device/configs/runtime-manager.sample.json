@@ -14,6 +14,7 @@
     "config_dir": "/home/hacklab/trakrai-device-runtime/configs",
     "download_dir": "/home/hacklab/trakrai-device-runtime/downloads",
     "log_dir": "/home/hacklab/trakrai-device-runtime/logs",
+    "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
     "script_dir": "/home/hacklab/trakrai-device-runtime/scripts",
     "state_file": "/home/hacklab/trakrai-device-runtime/state/managed-services.json",
     "version_dir": "/home/hacklab/trakrai-device-runtime/versions"
@@ -21,6 +22,11 @@
   "http": {
     "download_timeout_sec": 300,
     "user_agent": "trakrai-runtime-manager/1.0"
+  },
+  "updates": {
+    "download_service": "cloud-transfer",
+    "poll_interval_ms": 1000,
+    "wait_timeout_sec": 900
   },
   "services": [
     {

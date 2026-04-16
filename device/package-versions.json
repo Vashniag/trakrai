@@ -1,0 +1,38 @@
+{
+  "packages": {
+    "roi-config": {
+      "artifacts": {
+        "linux/amd64": {
+          "fileName": "roi-config-linux-amd64-v0.1.0",
+          "remotePath": "roi-config/0.1.0/linux-amd64/roi-config-linux-amd64-v0.1.0",
+          "sha256": "1dbbd538a076c05edb143487baeed20e5cb8ba0a05e2ba08290d34e4ee0c407b",
+          "updatedAt": "2026-04-16T04:25:06Z"
+        }
+      },
+      "buildTarget": "go-binary",
+      "kind": "binary",
+      "serviceName": "roi-config",
+      "sourceHash": "sha256:df1529e533e1bbac447ded7e0aa8dd982f5010040c919dfb6f42a27c8db89ea8",
+      "sourceInputs": [
+        "device/Dockerfile",
+        "device/cmd/roi-config/main.go",
+        "device/go.mod",
+        "device/go.sum",
+        "device/internal/buildinfo/buildinfo.go",
+        "device/internal/ipc/client.go",
+        "device/internal/ipc/server.go",
+        "device/internal/ipc/types.go",
+        "device/internal/roiconfig/config.go",
+        "device/internal/roiconfig/models.go",
+        "device/internal/roiconfig/service.go",
+        "device/internal/roiconfig/store.go",
+        "device/internal/shared/configjson/configjson.go",
+        "device/internal/shared/logging/logging.go"
+      ],
+      "targetType": "go-binary",
+      "version": "0.1.0"
+    }
+  },
+  "schemaVersion": 1,
+  "updatedAt": "2026-04-16T04:19:25Z"
+}

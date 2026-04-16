@@ -32,9 +32,16 @@ type RuntimePathsConfig struct {
 	DownloadDir string `json:"download_dir"`
 	LogDir      string `json:"log_dir"`
 	RootDir     string `json:"root_dir"`
+	SharedDir   string `json:"shared_dir"`
 	ScriptDir   string `json:"script_dir"`
 	StateFile   string `json:"state_file"`
 	VersionDir  string `json:"version_dir"`
+}
+
+type UpdateConfig struct {
+	DownloadService string `json:"download_service"`
+	PollIntervalMs  int    `json:"poll_interval_ms"`
+	WaitTimeoutSec  int    `json:"wait_timeout_sec"`
 }
 
 type ManagedServiceConfig struct {
@@ -73,6 +80,7 @@ type Config struct {
 	Runtime  RuntimePathsConfig     `json:"runtime"`
 	Services []ManagedServiceConfig `json:"services"`
 	Systemd  SystemdConfig          `json:"systemd"`
+	Updates  UpdateConfig           `json:"updates"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -92,6 +100,11 @@ func LoadConfig(path string) (*Config, error) {
 			Bin:           "systemctl",
 			Shell:         "/bin/bash",
 			UnitDirectory: "/etc/systemd/system",
+		},
+		Updates: UpdateConfig{
+			DownloadService: "cloud-transfer",
+			PollIntervalMs:  1000,
+			WaitTimeoutSec:  900,
 		},
 	}
 
@@ -131,6 +144,9 @@ func LoadConfig(path string) (*Config, error) {
 	if cfg.Runtime.LogDir == "" {
 		cfg.Runtime.LogDir = filepath.Join(cfg.Runtime.RootDir, "logs")
 	}
+	if cfg.Runtime.SharedDir == "" {
+		cfg.Runtime.SharedDir = filepath.Join(cfg.Runtime.RootDir, "shared")
+	}
 	if cfg.Runtime.ScriptDir == "" {
 		cfg.Runtime.ScriptDir = filepath.Join(cfg.Runtime.RootDir, "scripts")
 	}
@@ -145,9 +161,19 @@ func LoadConfig(path string) (*Config, error) {
 	cfg.Runtime.DownloadDir = filepath.Clean(cfg.Runtime.DownloadDir)
 	cfg.Runtime.LogDir = filepath.Clean(cfg.Runtime.LogDir)
 	cfg.Runtime.ScriptDir = filepath.Clean(cfg.Runtime.ScriptDir)
+	cfg.Runtime.SharedDir = filepath.Clean(cfg.Runtime.SharedDir)
 	cfg.Runtime.StateFile = filepath.Clean(cfg.Runtime.StateFile)
 	cfg.Runtime.VersionDir = filepath.Clean(cfg.Runtime.VersionDir)
 	cfg.Systemd.UnitDirectory = filepath.Clean(cfg.Systemd.UnitDirectory)
+	if cfg.Updates.DownloadService == "" {
+		cfg.Updates.DownloadService = "cloud-transfer"
+	}
+	if cfg.Updates.PollIntervalMs <= 0 {
+		cfg.Updates.PollIntervalMs = 1000
+	}
+	if cfg.Updates.WaitTimeoutSec <= 0 {
+		cfg.Updates.WaitTimeoutSec = 900
+	}
 
 	normalizedServices, err := normalizeManagedServices(cfg, cfg.Services)
 	if err != nil {

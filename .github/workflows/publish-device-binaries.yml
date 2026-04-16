@@ -1,4 +1,4 @@
-name: Publish Device Binaries
+name: Publish Device Packages
 
 on:
   push:
@@ -7,11 +7,20 @@ on:
     paths:
       - device/cmd/**
       - device/internal/**
-      - device/go.mod
-      - device/go.sum
+      - device/python/**
+      - device/configs/**
+      - device/scripts/**
       - device/Dockerfile
       - device/Dockerfile.gstreamer
-      - .github/scripts/device_binary_release.py
+      - device/go.mod
+      - device/go.sum
+      - web/apps/trakrai-device/**
+      - web/packages/**
+      - web/package.json
+      - web/pnpm-lock.yaml
+      - web/pnpm-workspace.yaml
+      - web/turbo.json
+      - web/Dockerfile.trakrai-device-bundle
       - .github/workflows/publish-device-binaries.yml
   workflow_dispatch:
 
@@ -19,159 +28,82 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-device-binaries-${{ github.ref }}
+  group: publish-device-packages-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  RELEASE_TAG: device-binaries-latest
-  MANIFEST_ASSET_NAME: device-binary-manifest.json
-
 jobs:
-  plan:
+  release:
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
-    outputs:
-      changed_count: ${{ steps.plan.outputs.changed_count }}
-      has_changes: ${{ steps.plan.outputs.has_changes }}
-      matrix: ${{ steps.plan.outputs.matrix }}
-      release_tag: ${{ steps.plan.outputs.release_tag }}
-      manifest_asset_name: ${{ steps.plan.outputs.manifest_asset_name }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: device/go.mod
 
-      - name: Download previous release manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p .github/state
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release download "${RELEASE_TAG}" --pattern "${MANIFEST_ASSET_NAME}" --dir .github/state || true
-          fi
-
-          if [ ! -f ".github/state/${MANIFEST_ASSET_NAME}" ]; then
-            cat > ".github/state/${MANIFEST_ASSET_NAME}" <<EOF
-          {
-            "schemaVersion": 1,
-            "releaseTag": "${RELEASE_TAG}",
-            "binaries": {}
-          }
-          EOF
-          fi
-
-      - name: Plan binary release
-        id: plan
-        run: |
-          python3 .github/scripts/device_binary_release.py plan \
-            --repo-root . \
-            --manifest ".github/state/${MANIFEST_ASSET_NAME}" \
-            --plan-out ".github/state/device-binary-release-plan.json" \
-            --commit "${GITHUB_SHA}" \
-            --github-output "${GITHUB_OUTPUT}"
-
-      - name: Upload release plan artifact
-        uses: actions/upload-artifact@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          name: device-binary-release-plan
-          path: .github/state/device-binary-release-plan.json
-          if-no-files-found: error
+          node-version: 20
 
-  build:
-    needs: plan
-    if: needs.plan.outputs.has_changes == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        binary: ${{ fromJson(needs.plan.outputs.matrix) }}
+      - name: Enable corepack
+        run: corepack enable
 
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Compute build timestamp
-        id: meta
-        run: |
-          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${GITHUB_OUTPUT}"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Build binary
-        working-directory: device
+      - name: Install Python release dependencies
+        run: python3 -m pip install --upgrade pip boto3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Release device packages
         env:
-          BINARY_NAME: ${{ matrix.binary.name }}
-          CMD_PATH: ${{ matrix.binary.cmdPath }}
-          DOCKERFILE: ${{ matrix.binary.dockerfile }}
-          VERSION: ${{ matrix.binary.version }}
-          SOURCE_HASH: ${{ matrix.binary.sourceHash }}
-          BUILT_AT: ${{ steps.meta.outputs.built_at }}
+          TRAKRAI_PACKAGE_S3_BUCKET: ${{ secrets.TRAKRAI_PACKAGE_S3_BUCKET }}
         run: |
-          GO_LDFLAGS="-X github.com/trakrai/device-services/internal/buildinfo.Version=${VERSION} -X github.com/trakrai/device-services/internal/buildinfo.Commit=${GITHUB_SHA} -X github.com/trakrai/device-services/internal/buildinfo.SourceHash=${SOURCE_HASH} -X github.com/trakrai/device-services/internal/buildinfo.BuiltAt=${BUILT_AT}"
+          mkdir -p .github/state
+          python3 device/scripts/manage_device_packages.py release \
+            --metadata device/package-versions.json \
+            --platform linux/arm64 \
+            --publish-target s3 \
+            --s3-bucket "${TRAKRAI_PACKAGE_S3_BUCKET}" \
+            --s3-region "${{ secrets.AWS_REGION }}" \
+            --manifest-out .github/state/device-package-release.json
 
-          docker buildx build \
-            --output "type=local,dest=./dist/${BINARY_NAME}" \
-            -f "${DOCKERFILE}" \
-            --build-arg CMD_PATH="${CMD_PATH}" \
-            --build-arg BINARY_NAME="${BINARY_NAME}" \
-            --build-arg GO_LDFLAGS="${GO_LDFLAGS}" \
-            .
-
-      - name: Upload built binary artifact
+      - name: Upload release manifest
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.binary.artifactName }}
-          path: device/dist/${{ matrix.binary.name }}/${{ matrix.binary.name }}
+          name: device-package-release
+          path: .github/state/device-package-release.json
           if-no-files-found: error
 
-  publish:
-    needs:
-      - plan
-      - build
-    if: needs.plan.outputs.has_changes == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Download release plan
-        uses: actions/download-artifact@v4
-        with:
-          name: device-binary-release-plan
-          path: .github/state
-
-      - name: Download built binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: device-binary-build-*
-          path: .github/artifacts
-          merge-multiple: false
-
-      - name: Stage release assets
+      - name: Commit updated package metadata
         run: |
-          python3 .github/scripts/device_binary_release.py stage \
-            --plan ".github/state/device-binary-release-plan.json" \
-            --artifacts-dir ".github/artifacts" \
-            --staging-dir ".github/release-staging"
-
-      - name: Create rolling release if missing
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release create "${RELEASE_TAG}" \
-              --title "Device Binaries (latest)" \
-              --notes "Rolling release of Linux arm64 device binaries published from the main branch."
+          if git diff --quiet -- device/package-versions.json; then
+            exit 0
           fi
-
-      - name: Upload release assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${RELEASE_TAG}" .github/release-staging/* --clobber
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add device/package-versions.json
+          git commit -m "chore(device): update package versions [skip ci]"
+          git push

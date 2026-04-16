@@ -70,6 +70,7 @@ type RuntimeStatusPayload struct {
 	ManagedCount int                      `json:"managedCount"`
 	RequestID    string                   `json:"requestId,omitempty"`
 	ScriptDir    string                   `json:"scriptDir"`
+	SharedDir    string                   `json:"sharedDir"`
 	Services     []ManagedServiceSnapshot `json:"services"`
 	StateFile    string                   `json:"stateFile"`
 	VersionDir   string                   `json:"versionDir"`
@@ -128,7 +129,8 @@ type logRequest struct {
 
 type updateServiceRequest struct {
 	ArtifactSHA256 string `json:"artifactSha256,omitempty"`
-	ArtifactURL    string `json:"artifactUrl"`
+	ArtifactURL    string `json:"artifactUrl,omitempty"`
+	RemotePath     string `json:"remotePath,omitempty"`
 	RequestID      string `json:"requestId,omitempty"`
 	ServiceName    string `json:"serviceName"`
 }

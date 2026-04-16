@@ -417,6 +417,7 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
             "config_dir": runtime_configs_dir(runtime_root),
             "download_dir": f"{runtime_root}/downloads",
             "log_dir": f"{runtime_root}/logs",
+            "shared_dir": f"{runtime_root}/shared",
             "script_dir": f"{runtime_root}/scripts",
             "state_file": runtime_state_path(runtime_root, "managed-services.json"),
             "version_dir": f"{runtime_root}/versions",
@@ -424,6 +425,11 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
         "http": {
             "download_timeout_sec": 300,
             "user_agent": "trakrai-runtime-manager/1.0",
+        },
+        "updates": {
+            "download_service": "cloud-transfer",
+            "poll_interval_ms": 1000,
+            "wait_timeout_sec": 900,
         },
         "services": services,
     }

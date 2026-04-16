@@ -36,12 +36,22 @@ export type RuntimeManagerState = {
   serviceRegistered: boolean;
   services: ManagedRuntimeService[];
   statusLabel: string;
-  updateService: (serviceName: string, artifactUrl: string) => void;
+  updateService: (serviceName: string, input: UpdateServiceInput) => void;
   upsertServiceDefinition: (definition: ManagedRuntimeServiceDefinition) => void;
 };
 
+export type UpdateServiceInput = Readonly<{
+  artifactSha256?: string;
+  artifactUrl?: string;
+  remotePath?: string;
+}>;
+
 const RESPONSE_SUBTOPIC = 'response';
 const ACTION_RESPONSE_TYPES = ['runtime-manager-service-action', 'runtime-manager-update'] as const;
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE = 60;
+const DEFAULT_TIMEOUT_MINUTES = 15;
+const DEFAULT_TIMEOUT_MS = DEFAULT_TIMEOUT_MINUTES * SECONDS_PER_MINUTE * MS_PER_SECOND;
 
 const mergeUpdatedService = (
   currentServices: ManagedRuntimeService[],
@@ -73,6 +83,7 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
       downloadDir: payload.downloadDir,
       logDir: payload.logDir,
       scriptDir: payload.scriptDir,
+      sharedDir: payload.sharedDir,
       stateFile: payload.stateFile,
       versionDir: payload.versionDir,
     });
@@ -210,7 +221,7 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
   );
 
   const updateService = useCallback(
-    (targetServiceName: string, artifactUrl: string) => {
+    (targetServiceName: string, input: UpdateServiceInput) => {
       if (normalizedServiceName === '') {
         return;
       }
@@ -218,15 +229,26 @@ export const useRuntimeManager = (serviceName: string): RuntimeManagerState => {
       setError(null);
       setIsBusy(true);
       void runtimeManagerService
-        .request<{ artifactUrl: string; serviceName: string }, RuntimeManagerActionPayload>(
+        .request<
+          {
+            artifactSha256?: string;
+            artifactUrl?: string;
+            remotePath?: string;
+            serviceName: string;
+          },
+          RuntimeManagerActionPayload
+        >(
           'update-service',
           {
-            artifactUrl,
+            artifactSha256: input.artifactSha256,
+            artifactUrl: input.artifactUrl,
+            remotePath: input.remotePath,
             serviceName: targetServiceName,
           },
           {
             responseSubtopics: [RESPONSE_SUBTOPIC],
             responseTypes: ACTION_RESPONSE_TYPES,
+            timeoutMs: DEFAULT_TIMEOUT_MS,
           },
         )
         .then((response) => {

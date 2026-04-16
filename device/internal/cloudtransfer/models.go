@@ -12,6 +12,13 @@ const (
 	DirectionUpload   Direction = "upload"
 )
 
+type StorageScope string
+
+const (
+	ScopeDevice  StorageScope = "device"
+	ScopePackage StorageScope = "package"
+)
+
 type TransferState string
 
 const (
@@ -28,6 +35,7 @@ type EnqueueUploadRequest struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 	RequestID   string            `json:"requestId,omitempty"`
 	RemotePath  string            `json:"remotePath"`
+	Scope       StorageScope      `json:"scope,omitempty"`
 	Timeout     string            `json:"timeout,omitempty"`
 }
 
@@ -36,6 +44,7 @@ type EnqueueDownloadRequest struct {
 	Metadata   map[string]string `json:"metadata,omitempty"`
 	RequestID  string            `json:"requestId,omitempty"`
 	RemotePath string            `json:"remotePath"`
+	Scope      StorageScope      `json:"scope,omitempty"`
 	Timeout    string            `json:"timeout,omitempty"`
 }
 
@@ -114,6 +123,7 @@ type Transfer struct {
 	NextAttemptAt *time.Time        `json:"nextAttemptAt,omitempty"`
 	ObjectKey     string            `json:"objectKey,omitempty"`
 	RemotePath    string            `json:"remotePath"`
+	Scope         StorageScope      `json:"scope,omitempty"`
 	StartedAt     *time.Time        `json:"startedAt,omitempty"`
 	State         TransferState     `json:"state"`
 	UpdatedAt     time.Time         `json:"updatedAt"`
@@ -134,6 +144,7 @@ type storedTransfer struct {
 	NextAttemptAt *time.Time
 	ObjectKey     string
 	RemotePath    string
+	Scope         StorageScope
 	StartedAt     *time.Time
 	State         TransferState
 	UpdatedAt     time.Time
@@ -155,6 +166,7 @@ func (t storedTransfer) public() Transfer {
 		NextAttemptAt: t.NextAttemptAt,
 		ObjectKey:     t.ObjectKey,
 		RemotePath:    t.RemotePath,
+		Scope:         t.Scope,
 		StartedAt:     t.StartedAt,
 		State:         t.State,
 		UpdatedAt:     t.UpdatedAt,

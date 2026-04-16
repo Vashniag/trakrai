@@ -26,6 +26,7 @@ services:
       MOCK_CLOUD_API_MINIO_ENDPOINT: minio:9000
       MOCK_CLOUD_API_MINIO_SECRET_KEY: minioadmin
       MOCK_CLOUD_API_MINIO_USE_SSL: 'false'
+      MOCK_CLOUD_API_PACKAGE_PREFIX: device-packages
       MOCK_CLOUD_API_PREFIX: devices
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O - http://127.0.0.1:8080/api/health >/dev/null 2>&1']

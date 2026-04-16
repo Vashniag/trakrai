@@ -70,6 +70,7 @@ export type RuntimeManagerStatusPayload = {
   managedCount: number;
   requestId?: string;
   scriptDir: string;
+  sharedDir: string;
   services: ManagedRuntimeService[];
   stateFile: string;
   versionDir: string;
@@ -108,5 +109,5 @@ export type RuntimeManagerErrorPayload = {
 
 export type RuntimeManagerPaths = Pick<
   RuntimeManagerStatusPayload,
-  'binaryDir' | 'downloadDir' | 'logDir' | 'scriptDir' | 'stateFile' | 'versionDir'
+  'binaryDir' | 'downloadDir' | 'logDir' | 'scriptDir' | 'sharedDir' | 'stateFile' | 'versionDir'
 >;

@@ -215,6 +215,14 @@ func (s *Service) handleUpload(ctx context.Context, transfer Transfer) (string, 
 }
 
 func (s *Service) handleDownload(ctx context.Context, transfer Transfer) (string, error) {
+	if transfer.Scope == ScopePackage {
+		presigned, err := s.cloudAPI.PresignPackageDownload(ctx, transfer.RemotePath)
+		if err != nil {
+			return transfer.ObjectKey, err
+		}
+		return performPresignedDownload(ctx, s.httpClient, presigned, transfer.LocalPath)
+	}
+
 	presigned, err := s.cloudAPI.PresignDownload(ctx, transfer.RemotePath)
 	if err != nil {
 		return transfer.ObjectKey, err
@@ -518,6 +526,7 @@ func (s *Service) enqueueUpload(ctx context.Context, request EnqueueUploadReques
 		Metadata:      request.Metadata,
 		NextAttemptAt: &now,
 		RemotePath:    remotePath,
+		Scope:         normalizeScope(request.Scope, ScopeDevice),
 		State:         StateQueued,
 		UpdatedAt:     now,
 	}
@@ -556,6 +565,7 @@ func (s *Service) enqueueDownload(ctx context.Context, request EnqueueDownloadRe
 		Metadata:      request.Metadata,
 		NextAttemptAt: &now,
 		RemotePath:    remotePath,
+		Scope:         normalizeScope(request.Scope, ScopeDevice),
 		State:         StateQueued,
 		UpdatedAt:     now,
 	}
@@ -572,6 +582,17 @@ func (s *Service) signalWork() {
 	select {
 	case s.workSignal <- struct{}{}:
 	default:
+	}
+}
+
+func normalizeScope(raw StorageScope, fallback StorageScope) StorageScope {
+	switch StorageScope(strings.TrimSpace(string(raw))) {
+	case ScopeDevice:
+		return ScopeDevice
+	case ScopePackage:
+		return ScopePackage
+	default:
+		return fallback
 	}
 }
 
@@ -599,9 +620,4 @@ func (e badRequestError) Error() string {
 
 func (e badRequestError) Unwrap() error {
 	return e.err
-}
-
-func isBadRequest(err error) bool {
-	var target badRequestError
-	return errors.As(err, &target)
 }
