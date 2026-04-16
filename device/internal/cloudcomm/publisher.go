@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/trakrai/device-services/internal/ipc"
@@ -54,16 +55,42 @@ func (p *TransportPublisher) Publish(req ipc.PublishMessageRequest) error {
 		return fmt.Errorf("subtopic and type are required")
 	}
 
+	mode, err := normalizePublishMode(req.Mode)
+	if err != nil {
+		return err
+	}
+
 	env := buildEnvelope(req.Type, req.Payload)
 
 	websocketDeliveries := 0
-	if p.edge != nil {
+	if mode.allowsEdge() && p.edge != nil {
 		websocketDeliveries = p.edge.Broadcast(req.Service, req.Subtopic, env)
 	}
 
 	var mqttErr error
 	mqttDelivered := false
-	if p.mqtt != nil {
+	if mode.allowsMQTT() {
+		if p.mqtt == nil {
+			mqttErr = fmt.Errorf("mqtt publisher is unavailable")
+		} else if err := p.mqtt.PublishEnvelope(req.Service, req.Subtopic, env); err != nil {
+			mqttErr = err
+		} else {
+			mqttDelivered = true
+		}
+	}
+
+	if mode == publishModeMQTTOnly {
+		if mqttErr != nil {
+			return mqttErr
+		}
+		return nil
+	}
+
+	if mode == publishModeEdgeOnly {
+		return nil
+	}
+
+	if false && p.mqtt != nil {
 		if err := p.mqtt.PublishEnvelope(req.Service, req.Subtopic, env); err != nil {
 			mqttErr = err
 		} else {
@@ -88,4 +115,33 @@ func (p *TransportPublisher) Publish(req ipc.PublishMessageRequest) error {
 	}
 
 	return nil
+}
+
+type publishMode string
+
+const (
+	publishModeAll      publishMode = "all"
+	publishModeEdgeOnly publishMode = "edge"
+	publishModeMQTTOnly publishMode = "mqtt"
+)
+
+func normalizePublishMode(raw string) (publishMode, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "all":
+		return publishModeAll, nil
+	case "edge":
+		return publishModeEdgeOnly, nil
+	case "mqtt":
+		return publishModeMQTTOnly, nil
+	default:
+		return "", fmt.Errorf("unsupported publish mode %q", raw)
+	}
+}
+
+func (m publishMode) allowsEdge() bool {
+	return m == publishModeAll || m == publishModeEdgeOnly
+}
+
+func (m publishMode) allowsMQTT() bool {
+	return m == publishModeAll || m == publishModeMQTTOnly
 }

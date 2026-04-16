@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 import zipfile
@@ -22,23 +23,27 @@ DEFAULT_LOCAL_PLATFORM = {
     "arm64": "linux/arm64",
     "x86_64": "linux/amd64",
     "amd64": "linux/amd64",
-}.get(os.uname().machine.lower(), "linux/amd64")
+}.get(platform.machine().lower(), "linux/amd64")
 
 SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
+    ("audio-alert", "Dockerfile", "./cmd/audio-alert"),
     ("cloud-comm", "Dockerfile", "./cmd/cloud-comm"),
     ("live-feed", "Dockerfile.gstreamer", "./cmd/live-feed"),
     ("ptz-control", "Dockerfile", "./cmd/ptz-control"),
     ("rtsp-feeder", "Dockerfile.gstreamer", "./cmd/rtsp-feeder"),
     ("runtime-manager", "Dockerfile", "./cmd/runtime-manager"),
-    ("workflow-comm", "Dockerfile", "./cmd/workflow-comm"),
+    ("transfer-manager", "Dockerfile", "./cmd/transfer-manager"),
+    ("workflow-engine", "Dockerfile", "./cmd/workflow-engine"),
 )
 
 CONFIG_NAMES: tuple[str, ...] = (
+    "audio-alert.json",
     "cloud-comm.json",
     "live-feed.json",
     "ptz-control.json",
     "rtsp-feeder.json",
-    "workflow-comm.json",
+    "transfer-manager.json",
+    "workflow-engine.json",
     "ai-inference.json",
 )
 
@@ -199,7 +204,9 @@ def prepare_stage(
     patch_cloud_comm_config(config_map["cloud-comm.json"], options)
 
     for service_name in [service_name for service_name, _dockerfile, _cmd_path in SERVICE_BUILD_TARGETS]:
-        if service_name == "workflow-comm" and "workflow-comm.json" not in config_map:
+        if service_name == "audio-alert" and "audio-alert.json" not in config_map:
+            continue
+        if service_name == "workflow-engine" and "workflow-engine.json" not in config_map:
             continue
         if service_name in {"live-feed", "ptz-control", "rtsp-feeder"} and f"{service_name}.json" not in config_map:
             continue
@@ -309,10 +316,12 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
     ]
 
     for service_name, display_name, description in [
+        ("audio-alert", "Audio alert", "Speaker alert and future talkback service."),
         ("live-feed", "Live feed", "On-device WebRTC streaming service."),
         ("ptz-control", "PTZ control", "PTZ command service."),
         ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
-        ("workflow-comm", "Workflow comm", "Workflow upload queue processor and cloud sync worker."),
+        ("transfer-manager", "Transfer manager", "Durable signed URL and HTTP transfer worker."),
+        ("workflow-engine", "Workflow engine", "Redis-queue-driven edge workflow worker."),
     ]:
         if f"{service_name}.json" not in available_configs:
             continue
@@ -458,7 +467,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
     wheels: list[dict[str, Any]] = []
     dynamic_units: list[str] = []
 
-    for service_name in ["live-feed", "ptz-control", "rtsp-feeder", "workflow-comm"]:
+    for service_name in ["audio-alert", "live-feed", "ptz-control", "rtsp-feeder", "transfer-manager", "workflow-engine"]:
         if f"{service_name}.json" not in available_configs:
             continue
         configs.append({"source": f"configs/{service_name}.json", "target": f"{service_name}.json"})
@@ -524,9 +533,12 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         },
         "legacy_backup_names": [
             "cloud-comm",
+            "audio-alert",
             "live-feed",
             "ptz-control",
             "rtsp-feeder",
+            "transfer-manager",
+            "workflow-engine",
             "workflow-comm",
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
@@ -537,9 +549,12 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         ],
         "manual_process_patterns": [
             f"{runtime_root}/cloud-comm",
+            f"{runtime_root}/audio-alert",
             f"{runtime_root}/live-feed",
             f"{runtime_root}/ptz-control",
             f"{runtime_root}/rtsp-feeder",
+            f"{runtime_root}/transfer-manager",
+            f"{runtime_root}/workflow-engine",
             f"{runtime_root}/workflow-comm",
             f"{runtime_root}/serve-device-ui.sh",
             f"{runtime_root}/ai-inference.json",

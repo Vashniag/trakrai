@@ -52,10 +52,26 @@ type PublishMessageRequest struct {
 	Subtopic string          `json:"subtopic"`
 	Type     string          `json:"type"`
 	Payload  json.RawMessage `json:"payload"`
+	Mode     string          `json:"mode,omitempty"`
+}
+
+type SendServiceMessageRequest struct {
+	SourceService string          `json:"source_service,omitempty"`
+	TargetService string          `json:"target_service"`
+	Subtopic      string          `json:"subtopic"`
+	Type          string          `json:"type"`
+	Payload       json.RawMessage `json:"payload"`
 }
 
 type MqttMessageNotification struct {
 	Service  string       `json:"service"`
 	Subtopic string       `json:"subtopic"`
 	Envelope MQTTEnvelope `json:"envelope"`
+}
+
+type ServiceMessageNotification struct {
+	SourceService string       `json:"source_service"`
+	TargetService string       `json:"target_service"`
+	Subtopic      string       `json:"subtopic"`
+	Envelope      MQTTEnvelope `json:"envelope"`
 }

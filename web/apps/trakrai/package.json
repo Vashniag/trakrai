@@ -10,7 +10,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "auth:generate": "pnpm dlx @better-auth/cli generate --output src/db/auth-schema.ts -y"
+    "auth:generate": "pnpm dlx @better-auth/cli generate --output src/db/auth-schema.ts -y",
+    "admin:bootstrap": "node ./scripts/bootstrap-admin.mjs",
+    "smoke:external": "node ./scripts/smoke-external-pipeline.mjs"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.5.6",

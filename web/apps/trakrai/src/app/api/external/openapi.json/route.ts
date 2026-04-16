@@ -7,7 +7,7 @@ export const GET = async () => {
   const openApiDocument = generateOpenApiDocument(appRouter, {
     title: 'TrakrAI API',
     version: '1.0.0',
-    baseUrl: `${getBaseUrl()}/api/external`,
+    baseUrl: `${getBaseUrl()}/trpc/external`,
   });
   return Response.json(openApiDocument);
 };

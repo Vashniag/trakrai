@@ -76,6 +76,26 @@
       "install_path": "/home/hacklab/trakrai-device-runtime/ui"
     },
     {
+      "name": "audio-alert",
+      "display_name": "Audio alert",
+      "description": "Speaker alert and future talkback service.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/audio-alert",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/audio-alert.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-audio-alert.service"
+    },
+    {
       "name": "live-feed",
       "display_name": "Live feed",
       "description": "On-device WebRTC live streaming service.",
@@ -136,24 +156,44 @@
       "systemd_unit": "trakrai-rtsp-feeder.service"
     },
     {
-      "name": "workflow-comm",
-      "display_name": "Workflow comm",
-      "description": "Workflow upload queue processor and cloud sync worker.",
+      "name": "workflow-engine",
+      "display_name": "Workflow engine",
+      "description": "Redis-queue-driven edge workflow worker.",
       "kind": "binary",
       "allow_control": true,
       "allow_update": true,
       "enabled": true,
-      "install_path": "/home/hacklab/trakrai-device-runtime/bin/workflow-comm",
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/workflow-engine",
       "exec_start": [
         "{{install_path}}",
         "-config",
-        "/home/hacklab/trakrai-device-runtime/workflow-comm.json"
+        "/home/hacklab/trakrai-device-runtime/workflow-engine.json"
       ],
       "version_command": [
         "{{install_path}}",
         "--version"
       ],
-      "systemd_unit": "trakrai-workflow-comm.service"
+      "systemd_unit": "trakrai-workflow-engine.service"
+    },
+    {
+      "name": "transfer-manager",
+      "display_name": "Transfer manager",
+      "description": "Durable signed URL and HTTP transfer worker.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/transfer-manager",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/transfer-manager.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-transfer-manager.service"
     },
     {
       "name": "trakrai-ai-inference",

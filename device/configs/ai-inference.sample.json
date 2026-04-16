@@ -25,6 +25,11 @@
       }
     ]
   },
+  "workflow_queue": {
+    "enabled": true,
+    "key": "workflow:frames",
+    "max_length": 2000
+  },
   "cameras": [
     {
       "id": 1,

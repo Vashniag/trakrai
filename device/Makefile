@@ -1,9 +1,13 @@
-.PHONY: build build-ai-inference-wheel build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-runtime-manager build-workflow-comm clean
+.PHONY: build build-ai-inference-wheel build-audio-alert build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-runtime-manager build-transfer-manager build-workflow-engine clean
 
 GO_LDFLAGS ?=
 AI_INFERENCE_VERSION ?= 0.1.0
 
-build: build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-runtime-manager build-workflow-comm build-ai-inference-wheel
+build: build-audio-alert build-cloud-comm build-live-feed build-ptz-control build-rtsp-feeder build-runtime-manager build-transfer-manager build-workflow-engine build-ai-inference-wheel
+
+build-audio-alert:
+	docker buildx build --output type=local,dest=./out/audio-alert -f Dockerfile --build-arg CMD_PATH=./cmd/audio-alert --build-arg BINARY_NAME=audio-alert --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
+	@echo "Binary: out/audio-alert/audio-alert"
 
 build-cloud-comm:
 	docker buildx build --output type=local,dest=./out/cloud-comm -f Dockerfile --build-arg CMD_PATH=./cmd/cloud-comm --build-arg BINARY_NAME=cloud-comm --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
@@ -25,9 +29,13 @@ build-runtime-manager:
 	docker buildx build --output type=local,dest=./out/runtime-manager -f Dockerfile --build-arg CMD_PATH=./cmd/runtime-manager --build-arg BINARY_NAME=runtime-manager --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
 	@echo "Binary: out/runtime-manager/runtime-manager"
 
-build-workflow-comm:
-	docker buildx build --output type=local,dest=./out/workflow-comm -f Dockerfile --build-arg CMD_PATH=./cmd/workflow-comm --build-arg BINARY_NAME=workflow-comm --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
-	@echo "Binary: out/workflow-comm/workflow-comm"
+build-transfer-manager:
+	docker buildx build --output type=local,dest=./out/transfer-manager -f Dockerfile --build-arg CMD_PATH=./cmd/transfer-manager --build-arg BINARY_NAME=transfer-manager --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
+	@echo "Binary: out/transfer-manager/transfer-manager"
+
+build-workflow-engine:
+	docker buildx build --output type=local,dest=./out/workflow-engine -f Dockerfile --build-arg CMD_PATH=./cmd/workflow-engine --build-arg BINARY_NAME=workflow-engine --build-arg GO_LDFLAGS="$(GO_LDFLAGS)" .
+	@echo "Binary: out/workflow-engine/workflow-engine"
 
 build-ai-inference-wheel:
 	docker buildx build --output type=local,dest=./out/ai-inference-wheel -f python/ai_inference/Dockerfile.wheel --build-arg PACKAGE_VERSION="$(AI_INFERENCE_VERSION)" ./python/ai_inference

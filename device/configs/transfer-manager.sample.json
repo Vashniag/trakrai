@@ -1,0 +1,16 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "http": {
+    "base_url": "https://cloud.trakrai.local",
+    "request_timeout_sec": 30,
+    "user_agent": "trakrai-transfer-manager/1.0"
+  },
+  "queue": {
+    "database_path": "/var/lib/trakrai/transfer-manager/queue.db",
+    "max_in_flight": 4,
+    "poll_interval_sec": 2
+  }
+}

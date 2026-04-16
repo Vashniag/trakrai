@@ -44,10 +44,18 @@ class CameraConfig:
 
 
 @dataclass(frozen=True)
+class WorkflowQueueConfig:
+    enabled: bool
+    key: str
+    max_length: int
+
+
+@dataclass(frozen=True)
 class ServiceConfig:
     log_level: str
     redis: RedisConfig
     inference: InferenceConfig
+    workflow_queue: WorkflowQueueConfig
     cameras: tuple[CameraConfig, ...]
 
 
@@ -146,6 +154,20 @@ def load_config(path: str | Path) -> ServiceConfig:
         models=tuple(models),
     )
 
+    workflow_queue_raw = raw.get("workflow_queue", {})
+    if workflow_queue_raw is None:
+        workflow_queue_raw = {}
+    workflow_queue_dict = _as_dict(workflow_queue_raw, "workflow_queue")
+    workflow_queue_cfg = WorkflowQueueConfig(
+        enabled=bool(workflow_queue_dict.get("enabled", False)),
+        key=str(workflow_queue_dict.get("key", "workflow:frames")).strip() or "workflow:frames",
+        max_length=_as_int(
+            workflow_queue_dict.get("max_length", 2000),
+            "workflow_queue.max_length",
+            minimum=1,
+        ),
+    )
+
     cameras_raw = raw.get("cameras")
     if not isinstance(cameras_raw, list) or not cameras_raw:
         raise ValueError("cameras must contain at least one configured camera")
@@ -178,6 +200,7 @@ def load_config(path: str | Path) -> ServiceConfig:
         log_level=log_level,
         redis=redis_cfg,
         inference=inference_cfg,
+        workflow_queue=workflow_queue_cfg,
         cameras=tuple(cameras),
     )
 

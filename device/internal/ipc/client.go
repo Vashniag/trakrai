@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -104,6 +105,14 @@ func (c *Client) Notifications() <-chan Notification {
 }
 
 func (c *Client) Publish(subtopic string, msgType string, payload interface{}) error {
+	return c.PublishWithMode("", subtopic, msgType, payload)
+}
+
+func (c *Client) PublishMQTT(subtopic string, msgType string, payload interface{}) error {
+	return c.PublishWithMode("mqtt", subtopic, msgType, payload)
+}
+
+func (c *Client) PublishWithMode(mode string, subtopic string, msgType string, payload interface{}) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal publish payload: %w", err)
@@ -114,6 +123,23 @@ func (c *Client) Publish(subtopic string, msgType string, payload interface{}) e
 		Subtopic: subtopic,
 		Type:     msgType,
 		Payload:  data,
+		Mode:     strings.TrimSpace(mode),
+	}, 2)
+	return err
+}
+
+func (c *Client) SendServiceMessage(targetService string, subtopic string, msgType string, payload interface{}) error {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal service payload: %w", err)
+	}
+
+	_, err = c.request("send-service-message", SendServiceMessageRequest{
+		SourceService: c.service,
+		TargetService: targetService,
+		Subtopic:      subtopic,
+		Type:          msgType,
+		Payload:       data,
 	}, 2)
 	return err
 }

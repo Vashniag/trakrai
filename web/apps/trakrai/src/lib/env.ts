@@ -14,6 +14,7 @@ export const env = createEnv({
     SMTP_USER: z.string(),
     SMTP_PASSWORD: z.string(),
     EMAIL_SENDER_ADDRESS: z.string(),
+    PLATFORM_ADMIN_EMAILS: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
@@ -31,6 +32,7 @@ export const env = createEnv({
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     EMAIL_SENDER_ADDRESS: process.env['EMAIL_SENDER_ADDRESS'],
+    PLATFORM_ADMIN_EMAILS: process.env['PLATFORM_ADMIN_EMAILS'],
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],

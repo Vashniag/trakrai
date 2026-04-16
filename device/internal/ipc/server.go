@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 )
 
 type serviceClient struct {
@@ -178,6 +179,33 @@ func (s *Server) handleRequest(client *serviceClient, req Request) Response {
 		}
 		return okResponse(req.ID)
 
+	case "send-service-message":
+		var serviceReq SendServiceMessageRequest
+		if err := json.Unmarshal(req.Params, &serviceReq); err != nil {
+			return Response{ID: req.ID, Error: &Error{Code: -1, Message: err.Error()}}
+		}
+		if serviceReq.TargetService == "" || serviceReq.Subtopic == "" || serviceReq.Type == "" {
+			return Response{ID: req.ID, Error: &Error{Code: -7, Message: "target_service, subtopic, and type are required"}}
+		}
+		if serviceReq.SourceService == "" {
+			serviceReq.SourceService = client.serviceName()
+		}
+
+		if err := s.NotifyDirectService(serviceReq.TargetService, ServiceMessageNotification{
+			SourceService: serviceReq.SourceService,
+			TargetService: serviceReq.TargetService,
+			Subtopic:      serviceReq.Subtopic,
+			Envelope: MQTTEnvelope{
+				MsgID:     fmt.Sprintf("%d", time.Now().UnixNano()),
+				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+				Type:      serviceReq.Type,
+				Payload:   serviceReq.Payload,
+			},
+		}); err != nil {
+			return Response{ID: req.ID, Error: &Error{Code: -8, Message: err.Error()}}
+		}
+		return okResponse(req.ID)
+
 	case "report-status":
 		var report StatusReport
 		if err := json.Unmarshal(req.Params, &report); err != nil {
@@ -234,21 +262,35 @@ func (s *Server) unregister(client *serviceClient) {
 }
 
 func (s *Server) NotifyService(service string, message MqttMessageNotification) error {
-	s.mu.RLock()
-	client := s.services[service]
-	s.mu.RUnlock()
-	if client == nil {
-		return fmt.Errorf("service %q is not registered", service)
-	}
-
 	params, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
 
-	notification := Notification{
+	return s.notify(service, Notification{
 		Method: "mqtt-message",
 		Params: params,
+	})
+}
+
+func (s *Server) NotifyDirectService(service string, message ServiceMessageNotification) error {
+	params, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	return s.notify(service, Notification{
+		Method: "service-message",
+		Params: params,
+	})
+}
+
+func (s *Server) notify(service string, notification Notification) error {
+	s.mu.RLock()
+	client := s.services[service]
+	s.mu.RUnlock()
+	if client == nil {
+		return fmt.Errorf("service %q is not registered", service)
 	}
 	return client.writeJSON(notification)
 }

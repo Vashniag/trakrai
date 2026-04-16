@@ -217,6 +217,22 @@ class InferenceRedisService:
         pipe.ltrim(self._camera_key(frame.camera_name, PROCESSED_IMAGES_SUFFIX), 0, self._config.inference.processed_images_maxlen - 1)
         pipe.set(self._camera_key(frame.camera_name, DETECTIONS_SUFFIX), json.dumps(payload, separators=(",", ":")))
         pipe.set(self._camera_key(frame.camera_name, DETECTIONS_TIME_SUFFIX), frame.img_id)
+        if self._config.workflow_queue.enabled:
+            workflow_envelope = {
+                "camera_id": frame.camera_id,
+                "camera_name": frame.camera_name,
+                "frame_id": frame.img_id,
+                "source_cam_id": frame.source_cam_id,
+                "raw_frame_key": self._camera_key(frame.camera_name, RAW_INPUT_SUFFIX),
+                "processed_frame_key": self._camera_key(frame.camera_name, PROCESSED_SUFFIX),
+                "detections_key": self._camera_key(frame.camera_name, DETECTIONS_SUFFIX),
+                "enqueued_at": time.time(),
+            }
+            pipe.lpush(
+                self._config.workflow_queue.key,
+                json.dumps(workflow_envelope, separators=(",", ":")),
+            )
+            pipe.ltrim(self._config.workflow_queue.key, 0, self._config.workflow_queue.max_length - 1)
         pipe.execute()
 
     def _make_empty_result(self, frame: FrameEnvelope) -> dict[str, Any]:

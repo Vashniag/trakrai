@@ -1,0 +1,25 @@
+{
+  "log_level": "info",
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "queue": {
+    "frame_queue_key": "workflow:frames",
+    "block_timeout_sec": 5,
+    "stale_after_sec": 30
+  },
+  "status": {
+    "report_interval_sec": 10
+  },
+  "workflow": {
+    "definition_path": "/home/hacklab/trakrai-device-runtime/workflows/device-workflow.json",
+    "reload_interval_sec": 5
+  }
+}

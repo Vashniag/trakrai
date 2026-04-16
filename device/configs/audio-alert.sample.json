@@ -1,0 +1,26 @@
+{
+  "log_level": "info",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "playback": {
+    "enabled": true,
+    "speaker_device": "default",
+    "default_volume": 70
+  },
+  "queue": {
+    "max_pending_alerts": 8,
+    "simulated_playback_ms": 1500,
+    "tick_interval_ms": 250
+  },
+  "talkback": {
+    "enabled": true,
+    "max_sessions": 2,
+    "transport": "webrtc",
+    "webrtc": {
+      "enabled": true,
+      "max_peer_connections": 4,
+      "signalling_mode": "ipc-bridge"
+    }
+  }
+}

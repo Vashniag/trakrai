@@ -4,6 +4,7 @@ import { treeifyError, ZodError } from 'zod';
 
 import { db } from '@/db';
 import { auth } from '@/lib/auth';
+import { isSystemAdminRole } from '@/lib/access-control';
 import logger from '@/lib/logger';
 import { withRequestContext } from '@/lib/request-context';
 
@@ -87,5 +88,15 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({
       ...ctx,
       user: session.user,
     },
+  });
+});
+
+export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  if (!isSystemAdminRole(ctx.user.role)) {
+    throw new TRPCError({ code: 'FORBIDDEN' });
+  }
+
+  return next({
+    ctx,
   });
 });

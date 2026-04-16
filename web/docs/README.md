@@ -4,6 +4,28 @@ This document is the current source of truth for the `web/` workspace and its de
 
 It replaces the earlier `communication-layer-plan.md`, which described a partially future-looking target state that no longer matches the code exactly.
 
+## Rebuild documents
+
+For the cloud rebuild itself, start here before making schema, admin, workflow, or external-ingestion changes:
+
+- [Cloud Rebuild Architecture](./cloud-rebuild-architecture.md)
+
+That document covers:
+
+- domain model direction for headquarters, factories, departments, devices, users, apps, and access
+- Better Auth plus custom domain authorization strategy
+- generic external event and file-transfer patterns
+- workflow migration direction from `fluxery` and `trakrboard-frontend`
+- phased implementation roadmap and required test coverage
+
+Current local verification helpers for that rebuild:
+
+- `pnpm --filter trakrai typecheck`
+- `pnpm --filter trakrai admin:bootstrap -- --email <email>`
+- `pnpm --filter trakrai smoke:external`
+
+`smoke:external` exercises the device-facing cloud path end to end: device credentials, signed upload ticket issuance, direct HTTP upload, direct HTTP download, and external violation plus tilt ingestion.
+
 ## Workspace shape
 
 The web side is a pnpm workspace with three top-level buckets:

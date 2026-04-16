@@ -1,6 +1,7 @@
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { admin } from 'better-auth/plugins';
 
 import { db } from '@/db';
 import * as schema from '@/db/auth-schema';
@@ -15,6 +16,9 @@ const SECONDS_PER_MINUTE = 60;
 export const auth = betterAuth({
   appName: 'trakrai',
   plugins: [
+    admin({
+      defaultRole: 'user',
+    }),
     passkey({
       rpID: env.NODE_ENV === 'development' ? 'localhost' : undefined,
     }),
@@ -50,6 +54,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
+      ...coreFields,
+      role: 'user',
+      banned: false,
+      banReason: null,
+      banExpires: null,
+      ...additionalFields,
+      id,
+    }),
     sendResetPassword: async ({ user, url }) => {
       await sendEmail(
         [user.email],
