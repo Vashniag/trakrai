@@ -47,7 +47,10 @@ services:
     ports:
       - '${TRAKRAI_LOCAL_RTSP_PORT:-18554}:8554'
     volumes:
-      - '${TRAKRAI_LOCAL_VIDEO_FILE}:/video/input.mp4:ro'
+      - type: bind
+        source: ${TRAKRAI_LOCAL_VIDEO_FILE}
+        target: /video/input.mp4
+        read_only: true
     environment:
       TRAKRAI_RTSP_PATH: stream
       TRAKRAI_VIDEO_FILE: /video/input.mp4
@@ -79,9 +82,16 @@ services:
       - '${TRAKRAI_LOCAL_HTTP_PORT:-18080}:8080'
       - '${TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE:-40000-40049}:${TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE:-40000-40049}/udp'
     volumes:
-      - '${TRAKRAI_LOCAL_STAGE_DIR}:/stage:ro'
-      - trakrai_local_runtime:/home/hacklab/trakrai-device-runtime
-      - '${TRAKRAI_LOCAL_SHARED_DIR}:/home/hacklab/trakrai-device-runtime/shared'
+      - type: bind
+        source: ${TRAKRAI_LOCAL_STAGE_DIR}
+        target: /stage
+        read_only: true
+      - type: volume
+        source: trakrai_local_runtime
+        target: /home/hacklab/trakrai-device-runtime
+      - type: bind
+        source: ${TRAKRAI_LOCAL_SHARED_DIR}
+        target: /home/hacklab/trakrai-device-runtime/shared
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/api/runtime-config >/dev/null']
       interval: 10s

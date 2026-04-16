@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 import zipfile
@@ -19,12 +20,18 @@ DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
 GO_LDFLAGS = os.environ.get("GO_LDFLAGS", "")
 DEFAULT_ARM64_PLATFORM = "linux/arm64"
-DEFAULT_LOCAL_PLATFORM = {
-    "aarch64": "linux/arm64",
-    "arm64": "linux/arm64",
-    "x86_64": "linux/amd64",
-    "amd64": "linux/amd64",
-}.get(os.uname().machine.lower(), "linux/amd64")
+def _detect_local_platform() -> str:
+    machine = (platform.machine() or "").lower()
+    return {
+        "aarch64": "linux/arm64",
+        "arm64": "linux/arm64",
+        "x86_64": "linux/amd64",
+        "amd64": "linux/amd64",
+        "x64": "linux/amd64",
+    }.get(machine, "linux/amd64")
+
+
+DEFAULT_LOCAL_PLATFORM = _detect_local_platform()
 
 SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("cloud-comm", "Dockerfile", "./cmd/cloud-comm"),

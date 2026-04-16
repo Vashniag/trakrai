@@ -41,6 +41,7 @@ RUN groupadd --system hacklab \
 COPY fake_systemctl.py /usr/local/bin/systemctl
 COPY entrypoint.sh /usr/local/bin/trakrai-local-device-entrypoint.sh
 
-RUN chmod +x /usr/local/bin/systemctl /usr/local/bin/trakrai-local-device-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/trakrai-local-device-entrypoint.sh \
+    && chmod +x /usr/local/bin/systemctl /usr/local/bin/trakrai-local-device-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/trakrai-local-device-entrypoint.sh"]
