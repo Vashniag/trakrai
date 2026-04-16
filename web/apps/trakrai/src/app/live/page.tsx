@@ -4,16 +4,17 @@ import { useLiveTransport } from '@trakrai/live-transport/providers/live-transpo
 import { DeviceLivePage } from '@trakrai/live-ui/components/device-live-page';
 import { WebRtcProvider } from '@trakrai/webrtc/providers/webrtc-provider';
 
-import {
-  CloudConsoleSurface,
-  cloudGatewayIceTransportPolicy,
-} from '@/components/cloud-console-surface';
+import { CloudConsoleSurface } from '@/components/cloud-console-surface';
+import { cloudAppBuildConfig } from '@/lib/build-config';
 
 const CloudLiveRoute = () => {
   const { httpBaseUrl } = useLiveTransport();
 
   return (
-    <WebRtcProvider httpBaseUrl={httpBaseUrl} iceTransportPolicy={cloudGatewayIceTransportPolicy}>
+    <WebRtcProvider
+      httpBaseUrl={httpBaseUrl}
+      iceTransportPolicy={cloudAppBuildConfig.iceTransportPolicy}
+    >
       <DeviceLivePage />
     </WebRtcProvider>
   );

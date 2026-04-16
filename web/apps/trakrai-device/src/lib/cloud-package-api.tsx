@@ -9,18 +9,7 @@ import { createTRPCReact } from '@trpc/react-query';
 import type { CloudPackageApiRouter } from '@trakrai/cloud-api-contract/lib/package-artifacts';
 import type { RuntimeManagerPackageCatalogState } from '@trakrai/runtime-manager-ui/components/runtime-manager-panel';
 
-const DEFAULT_CLOUD_API_URL = 'http://localhost:3000';
-
 const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '');
-
-const resolveCloudApiBaseUrl = (): string => {
-  const configuredBaseUrl = process.env.NEXT_PUBLIC_TRAKRAI_CLOUD_API_URL?.trim();
-  if (configuredBaseUrl !== undefined && configuredBaseUrl !== '') {
-    return trimTrailingSlash(configuredBaseUrl);
-  }
-
-  return DEFAULT_CLOUD_API_URL;
-};
 
 const createQueryClient = (): QueryClient =>
   new QueryClient({
@@ -41,20 +30,23 @@ const getQueryClient = (): QueryClient => {
 };
 
 type CloudPackageApiProviderProps = Readonly<{
-  baseUrl?: string;
+  baseUrl: string;
   children: React.ReactNode;
+  enableLogger?: boolean;
 }>;
 
-export const CloudPackageApiProvider = ({ baseUrl, children }: CloudPackageApiProviderProps) => {
+export const CloudPackageApiProvider = ({
+  baseUrl,
+  children,
+  enableLogger = false,
+}: CloudPackageApiProviderProps) => {
   const queryClient = getQueryClient();
-  const resolvedBaseUrl = trimTrailingSlash(baseUrl ?? resolveCloudApiBaseUrl());
+  const resolvedBaseUrl = trimTrailingSlash(baseUrl);
   const [trpcClient] = useState(() =>
     cloudPackageApi.createClient({
       links: [
         loggerLink({
-          enabled: (op) =>
-            process.env.NODE_ENV === 'development' ||
-            (op.direction === 'down' && op.result instanceof Error),
+          enabled: (op) => enableLogger || (op.direction === 'down' && op.result instanceof Error),
         }),
         httpBatchLink({
           headers: () => {

@@ -1,43 +1,126 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
+import { DEFAULT_PORT } from '@/lib/constants';
+
 export const env = createEnv({
   server: {
+    // Local source: `web/apps/trakrai/.env`.
+    // Deployment source: the cloud app runtime environment.
+    // Get this from the Postgres instance backing the `trakrai` cloud app.
     DATABASE_URL: z.url(),
-    NODE_ENV: z.enum(['development', 'test', 'production']),
+
+    // Local source: `web/apps/trakrai/.env`.
+    // Deployment source: the cloud app runtime environment.
+    // Set this to the storage backend the cloud API should use for device objects and package artifacts.
     STORAGE_PROVIDER: z.enum(['AZURE', 'MINIO', 'S3']).default('MINIO'),
+
+    // Local/deploy source: cloud storage credentials for the selected `STORAGE_PROVIDER=S3`.
+    // Get these from the AWS IAM principal and bucket provisioned for package/device storage.
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_REGION: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
     S3_BUCKET_NAME: z.string().optional(),
+
+    // Local/deploy source: cloud storage credentials for the selected `STORAGE_PROVIDER=AZURE`.
+    // Get these from the Azure Blob Storage account/container used for package/device storage.
     AZURE_STORAGE_ACCOUNT_NAME: z.string().optional(),
     AZURE_STORAGE_ACCOUNT_KEY: z.string().optional(),
     AZURE_STORAGE_CONTAINER_NAME: z.string().optional(),
+
+    // Local source: `web/apps/trakrai/.env` when using the local MinIO stack.
+    // Deployment source: leave unset unless a deployed environment is intentionally using MinIO.
+    // Get these from `device/localdev/docker-compose.yml` or your MinIO deployment.
     MINIO_ACCESS_KEY: z.string().optional(),
     MINIO_BUCKET_NAME: z.string().optional(),
     MINIO_DEVICE_ENDPOINT: z.string().url().optional(),
     MINIO_ENDPOINT: z.string().url().optional(),
     MINIO_REGION: z.string().optional(),
     MINIO_SECRET_KEY: z.string().optional(),
+
+    // Local source: `web/apps/trakrai/.env`.
+    // Deployment source: cloud app runtime environment.
+    // Comma-separated browser origins allowed to call `/api/external/*` from edge/cloud UIs.
     TRAKRAI_CLOUD_API_ALLOWED_ORIGINS: z.string().optional(),
+
+    // Cloud object-store prefix for device upload/download objects.
+    // Usually stable; only change if the bucket layout changes.
     TRAKRAI_DEVICE_STORAGE_PREFIX: z.string().default('devices'),
+
+    // Used by package publishing flows.
+    // Local source: shell env when running `device/scripts/manage_device_packages.py release`.
+    // CI source: GitHub Actions secret used in `.github/workflows/publish-device-binaries.yml`.
     TRAKRAI_PACKAGE_RELEASE_TOKEN: z.string().optional(),
+
+    // Cloud object-store prefix for released device packages.
+    // Usually stable; only change if the bucket layout changes.
     TRAKRAI_PACKAGE_STORAGE_PREFIX: z.string().default('device-packages'),
+
+    // Shared service token used by device-side `cloud-transfer` / runtime update flows
+    // when calling the cloud package and storage APIs.
+    // Must match the token configured on the device side.
     TRAKRAI_STORAGE_SERVICE_TOKEN: z.string().optional(),
+
+    // Local source: `web/apps/trakrai/.env`.
+    // Deployment source: auth provider secret configured for the cloud app.
+    // Get these from your Better Auth app registration / deployment secret store.
     BETTER_AUTH_SECRET: z.string(),
     BETTER_AUTH_URL: z.string(),
+
+    // Local source: `web/apps/trakrai/.env`.
+    // Deployment source: cloud app runtime environment.
+    // Get these from the Microsoft Entra / Azure AD application used for login.
     MICROSOFT_CLIENT_ID: z.string(),
     MICROSOFT_CLIENT_SECRET: z.string(),
     MICROSOFT_TENANT_ID: z.string().default('common'),
+
+    // Local source: `web/apps/trakrai/.env`.
+    // Deployment source: cloud app runtime environment.
+    // Get these from the SMTP provider used for auth emails.
     SMTP_SERVER: z.string(),
     SMTP_USER: z.string(),
     SMTP_PASSWORD: z.string(),
     EMAIL_SENDER_ADDRESS: z.string(),
+
+    // Deployment-only host injected by Vercel.
+    // Do not set this locally unless you are emulating Vercel routing behavior.
+    VERCEL_URL: z.string().optional(),
+  },
+  shared: {
+    // Used by both server and build-time code.
+    // Local source: `web/apps/trakrai/.env` or the shell that starts Next.js.
+    NODE_ENV: z.enum(['development', 'test', 'production']),
+
+    // Next.js listen port for the cloud app.
+    // Local source: `web/apps/trakrai/.env` or `pnpm dev` shell env.
+    // Deployment source: platform runtime env if the host overrides the default.
+    PORT: z.coerce.number().int().positive().default(DEFAULT_PORT),
   },
   client: {
+    // Public browser base URL for the cloud app.
+    // Use when the deployed public URL is known and should not be inferred at runtime.
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
+
+    // Public live-gateway HTTP/WS endpoints.
+    // Local source: `web/apps/trakrai/.env` when the gateway is not on the default localhost ports.
+    // Deployment source: the public or internal URLs exposed by the live-gateway service.
+    // `*_FEEDER_*` and `*_MEDIATOR_*` are legacy aliases still honored by `build-config.ts`.
+    NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_FEEDER_WS_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY: z.enum(['all', 'relay']).optional(),
+    NEXT_PUBLIC_LIVE_GATEWAY_WS_URL: z.string().optional(),
+    NEXT_PUBLIC_MEDIATOR_HTTP_URL: z.string().optional(),
+    NEXT_PUBLIC_MEDIATOR_WS_URL: z.string().optional(),
+    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: z.string().optional(),
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
+
+    // Runtime manager service name used by the cloud runtime page.
+    // Usually keep `runtime-manager` unless the device-side service name changes.
   },
+
+  // Public production hostname, typically injected by deployment/platform config.
+  // Used for absolute URL generation in browser-safe code paths.
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env['NODE_ENV'],
@@ -69,12 +152,25 @@ export const env = createEnv({
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     EMAIL_SENDER_ADDRESS: process.env['EMAIL_SENDER_ADDRESS'],
+    PORT: process.env['PORT'],
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
+    NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL: process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'],
+    NEXT_PUBLIC_LIVE_FEEDER_WS_URL: process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'],
+    NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL: process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'],
+    NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY:
+      process.env['NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY'],
+    NEXT_PUBLIC_LIVE_GATEWAY_WS_URL: process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'],
+    NEXT_PUBLIC_MEDIATOR_HTTP_URL: process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'],
+    NEXT_PUBLIC_MEDIATOR_WS_URL: process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'],
+    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: process.env['NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],
+    VERCEL_URL: process.env['VERCEL_URL'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&
     process.env['SKIP_ENV_VALIDATION'] === 'true',
   emptyStringAsUndefined: true,
+  // Escape hatch for CI or partial local setups where not all secrets are available.
+  // Prefer fixing missing env over relying on this.
 });

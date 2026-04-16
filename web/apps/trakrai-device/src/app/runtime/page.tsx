@@ -4,6 +4,7 @@ import { DeviceRuntimePage } from '@trakrai/live-ui/components/device-runtime-pa
 
 import { EdgeConsoleSurface } from '@/components/edge-console-surface';
 import { CloudPackageApiProvider, useCloudPackageCatalog } from '@/lib/cloud-package-api';
+import { deviceUiBuildConfig } from '@/lib/device-ui-build-config';
 
 const RuntimePageBody = ({
   managementServiceName,
@@ -26,7 +27,10 @@ const RuntimePage = () => (
     title="Runtime control"
   >
     {(runtimeConfig) => (
-      <CloudPackageApiProvider>
+      <CloudPackageApiProvider
+        baseUrl={deviceUiBuildConfig.cloudApiBaseUrl}
+        enableLogger={deviceUiBuildConfig.enableTrpcLogger}
+      >
         <RuntimePageBody managementServiceName={runtimeConfig.managementService} />
       </CloudPackageApiProvider>
     )}

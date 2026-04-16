@@ -16,7 +16,7 @@ app.use((_req, res, next) => {
 
 // ICE/TURN configuration endpoint for browser WebRTC setup
 app.get('/api/ice-config', (_req, res) => {
-  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }] as Array<
+  const iceServers = [{ urls: config.stunServerUrl }] as Array<
     | { urls: string }
     | {
         credential: string;
@@ -59,9 +59,10 @@ async function main() {
 
   server.listen(config.port, () => {
     console.log(`[${serviceName}] HTTP + WS listening on :${config.port}`);
-    console.log(`[${serviceName}] ICE config: GET http://localhost:${config.port}/api/ice-config`);
-    console.log(`[${serviceName}] WebSocket: ws://localhost:${config.port}/ws`);
+    console.log(`[${serviceName}] ICE config endpoint: /api/ice-config`);
+    console.log(`[${serviceName}] WebSocket endpoint: /ws`);
     console.log(`[${serviceName}] default device: ${config.defaultDeviceId}`);
+    console.log(`[${serviceName}] STUN server: ${config.stunServerUrl}`);
     if (config.turn === null) {
       console.warn(
         `[${serviceName}] TURN relay is disabled; browser ICE config will advertise STUN only.`,

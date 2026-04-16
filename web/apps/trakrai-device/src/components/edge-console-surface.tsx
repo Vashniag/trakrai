@@ -9,6 +9,7 @@ import { Card, CardContent } from '@trakrai/design-system/components/card';
 import { EdgeTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
 import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 
+import { deviceUiBuildConfig } from '@/lib/device-ui-build-config';
 import {
   getDefaultDeviceUiRuntimeConfig,
   loadDeviceUiRuntimeConfig,
@@ -57,7 +58,7 @@ export type EdgeConsoleSurfaceProps = Readonly<{
 export const EdgeConsoleSurface = ({ children, description, title }: EdgeConsoleSurfaceProps) => {
   const pathname = usePathname();
   const [runtimeConfig, setRuntimeConfig] = useState<DeviceUiRuntimeConfig>(
-    getDefaultDeviceUiRuntimeConfig(),
+    getDefaultDeviceUiRuntimeConfig(deviceUiBuildConfig),
   );
   const [hasLoadedRuntimeConfig, setHasLoadedRuntimeConfig] = useState(false);
 
@@ -65,7 +66,10 @@ export const EdgeConsoleSurface = ({ children, description, title }: EdgeConsole
     const abortController = new AbortController();
 
     const hydrateRuntimeConfig = async () => {
-      const loadedConfig = await loadDeviceUiRuntimeConfig(abortController.signal);
+      const loadedConfig = await loadDeviceUiRuntimeConfig(
+        deviceUiBuildConfig,
+        abortController.signal,
+      );
       if (abortController.signal.aborted) {
         return;
       }

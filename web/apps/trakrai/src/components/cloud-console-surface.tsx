@@ -11,23 +11,10 @@ import { Label } from '@trakrai/design-system/components/label';
 import { CloudTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
 import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 
+import { cloudAppBuildConfig } from '@/lib/build-config';
+
 const STORAGE_KEY = 'trakrai-cloud-device-id';
 export const DEFAULT_CLOUD_DEVICE_ID = 'hacklab@10.8.0.50';
-
-const liveGatewayWsUrl =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'] ??
-  'ws://localhost:4000/ws';
-
-const liveGatewayHttpUrl =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'] ??
-  process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'] ??
-  'http://localhost:4000';
-
-export const cloudGatewayIceTransportPolicy =
-  process.env['NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY'] === 'relay' ? 'relay' : 'all';
 
 const CLOUD_ROUTE_ITEMS = [
   {
@@ -114,8 +101,8 @@ export const CloudConsoleSurface = ({ children, description, title }: CloudConso
   return (
     <CloudTransportProvider
       deviceId={deviceId}
-      httpBaseUrl={liveGatewayHttpUrl}
-      signalingUrl={liveGatewayWsUrl}
+      httpBaseUrl={cloudAppBuildConfig.liveGatewayHttpUrl}
+      signalingUrl={cloudAppBuildConfig.liveGatewayWsUrl}
     >
       <LiveConsoleShell
         bridgeDescription="Routes signaling through the cloud-connected gateway while keeping the UI routes narrowly focused on one feature at a time."
@@ -130,10 +117,13 @@ export const CloudConsoleSurface = ({ children, description, title }: CloudConso
         description={description}
         detailItems={[
           { label: 'Active device', value: deviceId },
-          { label: 'HTTP endpoint', value: liveGatewayHttpUrl },
-          { label: 'WebSocket', value: liveGatewayWsUrl },
-          { label: 'ICE config', value: `${liveGatewayHttpUrl}/api/ice-config` },
-          { label: 'ICE transport', value: cloudGatewayIceTransportPolicy },
+          { label: 'HTTP endpoint', value: cloudAppBuildConfig.liveGatewayHttpUrl },
+          { label: 'WebSocket', value: cloudAppBuildConfig.liveGatewayWsUrl },
+          {
+            label: 'ICE config',
+            value: `${cloudAppBuildConfig.liveGatewayHttpUrl}/api/ice-config`,
+          },
+          { label: 'ICE transport', value: cloudAppBuildConfig.iceTransportPolicy },
         ]}
         eyebrow="TrakrAI Cloud Operations"
         navigation={

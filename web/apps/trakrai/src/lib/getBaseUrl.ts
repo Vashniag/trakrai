@@ -1,4 +1,3 @@
-import { DEFAULT_PORT } from '@/lib/constants';
 import { env } from '@/lib/env';
 
 export const getBaseUrl = () => {
@@ -12,5 +11,5 @@ export const getBaseUrl = () => {
     return env.NEXT_PUBLIC_BASE_URL;
   }
 
-  return `http://localhost:${process.env.PORT ?? String(DEFAULT_PORT)}`;
+  return `http://localhost:${env.PORT}`;
 };

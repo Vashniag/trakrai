@@ -201,6 +201,9 @@ importers:
 
   apps/trakrai-device:
     dependencies:
+      '@t3-oss/env-nextjs':
+        specifier: ^0.13.11
+        version: 0.13.11(typescript@6.0.2)(zod@4.3.6)
       '@tanstack/react-query':
         specifier: ^5.96.0
         version: 5.99.0(react@19.2.5)
@@ -249,6 +252,9 @@ importers:
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
+      zod:
+        specifier: 4.3.6
+        version: 4.3.6
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4
@@ -868,6 +874,9 @@ importers:
 
   services/live-gateway:
     dependencies:
+      '@t3-oss/env-core':
+        specifier: ^0.13.11
+        version: 0.13.11(typescript@5.9.3)(zod@4.3.6)
       express:
         specifier: ^5.1.0
         version: 5.2.1
@@ -877,6 +886,9 @@ importers:
       ws:
         specifier: ^8.18.0
         version: 8.20.0
+      zod:
+        specifier: 4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/express':
         specifier: ^5.0.0
@@ -11131,6 +11143,11 @@ snapshots:
   '@swc/helpers@0.5.15':
     dependencies:
       tslib: 2.8.1
+
+  '@t3-oss/env-core@0.13.11(typescript@5.9.3)(zod@4.3.6)':
+    optionalDependencies:
+      typescript: 5.9.3
+      zod: 4.3.6
 
   '@t3-oss/env-core@0.13.11(typescript@6.0.2)(zod@4.3.6)':
     optionalDependencies:

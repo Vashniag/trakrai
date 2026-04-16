@@ -1,12 +1,4 @@
-const normalizeEnvValue = (value: string | undefined, fallback: string): string => {
-  const normalizedValue = value?.trim();
-  return normalizedValue !== undefined && normalizedValue !== '' ? normalizedValue : fallback;
-};
-
-const parseNumber = (value: string | undefined, fallback: number): number => {
-  const parsedValue = Number.parseInt(value ?? '', 10);
-  return Number.isNaN(parsedValue) ? fallback : parsedValue;
-};
+import { env } from './env.js';
 
 const parseOptionalEnvValue = (value: string | undefined): string | null => {
   const normalizedValue = value?.trim();
@@ -51,7 +43,7 @@ const getTurnHostname = (turnUrl: string): string | null => {
 };
 
 const resolveTurnConfig = (): { credential: string; url: string; username: string } | null => {
-  const turnUrl = parseOptionalEnvValue(process.env['TURN_SERVER_URL']);
+  const turnUrl = parseOptionalEnvValue(env.TURN_SERVER_URL);
   if (turnUrl === null) {
     return null;
   }
@@ -65,25 +57,26 @@ const resolveTurnConfig = (): { credential: string; url: string; username: strin
   }
 
   return {
-    credential: normalizeEnvValue(process.env['TURN_CREDENTIAL'], 'trakrai-secret'),
+    credential: env.TURN_CREDENTIAL,
     url: turnUrl,
-    username: normalizeEnvValue(process.env['TURN_USERNAME'], 'trakrai'),
+    username: env.TURN_USERNAME,
   };
 };
 
 export const serviceName = 'live-gateway';
 
 export const config = {
-  corsOrigin: normalizeEnvValue(process.env['CORS_ORIGIN'], 'http://localhost:3000'),
-  defaultDeviceId: normalizeEnvValue(process.env['DEVICE_ID'], 'default'),
-  mqttBrokerUrl: normalizeEnvValue(process.env['MQTT_BROKER_URL'], 'mqtt://localhost:1883'),
-  port: parseNumber(process.env['PORT'], 4000),
+  corsOrigin: env.CORS_ORIGIN,
+  defaultDeviceId: env.DEVICE_ID,
+  mqttBrokerUrl: env.MQTT_BROKER_URL,
+  port: env.PORT,
+  stunServerUrl: env.STUN_SERVER_URL,
   turn: resolveTurnConfig(),
   wsRateLimit: {
-    maxCommandMessages: parseNumber(process.env['WS_RATE_LIMIT_MAX_COMMAND_MESSAGES'], 40),
-    maxMessages: parseNumber(process.env['WS_RATE_LIMIT_MAX_MESSAGES'], 120),
-    maxPayloadBytes: parseNumber(process.env['WS_MAX_PAYLOAD_BYTES'], 1024 * 1024),
-    windowMs: parseNumber(process.env['WS_RATE_LIMIT_WINDOW_MS'], 5000),
+    maxCommandMessages: env.WS_RATE_LIMIT_MAX_COMMAND_MESSAGES,
+    maxMessages: env.WS_RATE_LIMIT_MAX_MESSAGES,
+    maxPayloadBytes: env.WS_MAX_PAYLOAD_BYTES,
+    windowMs: env.WS_RATE_LIMIT_WINDOW_MS,
   },
 } as const;
 
