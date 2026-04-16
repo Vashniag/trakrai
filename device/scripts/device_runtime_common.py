@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEVICE_ROOT = REPO_ROOT / "device"
 WEB_DEVICE_APP_ROOT = REPO_ROOT / "web" / "apps" / "trakrai-device"
 DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
+DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
 GO_LDFLAGS = os.environ.get("GO_LDFLAGS", "")
 DEFAULT_ARM64_PLATFORM = "linux/arm64"
@@ -43,6 +44,7 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
 )
 
 CONFIG_NAMES: tuple[str, ...] = (
+    "audio-manager.json",
     "cloud-comm.json",
     "cloud-transfer.json",
     "live-feed.json",
@@ -87,6 +89,16 @@ class PythonWheelTarget:
 
 
 PYTHON_WHEEL_TARGETS: tuple[PythonWheelTarget, ...] = (
+    PythonWheelTarget(
+        artifact_key="audio-manager-wheel",
+        config_name="audio-manager.json",
+        context_dir=DEVICE_ROOT / "python" / "audio_manager",
+        default_version=DEFAULT_AUDIO_MANAGER_VERSION,
+        description="Queued audio generation, local playback, and network-speaker delivery service.",
+        display_name="Audio manager",
+        module_name="trakrai_audio_manager",
+        service_name="audio-manager",
+    ),
     PythonWheelTarget(
         artifact_key="ai-wheel",
         config_name="ai-inference.json",
@@ -261,6 +273,7 @@ def prepare_stage(
         shutil.copy2(artifact_paths[service_name], binaries_dir / service_name)
 
     wheel_names: dict[str, str] = {}
+    wheel_dependency_names: dict[str, list[str]] = {}
     for target in PYTHON_WHEEL_TARGETS:
         if target.config_name not in config_map:
             continue
@@ -271,6 +284,13 @@ def prepare_stage(
             )
         shutil.copy2(wheel_path, wheels_dir / wheel_path.name)
         wheel_names[target.config_name] = wheel_path.name
+        dependency_names: list[str] = []
+        wheelhouse_dir = wheel_path.parent / "wheelhouse"
+        if wheelhouse_dir.exists():
+            for dependency_wheel in sorted(wheelhouse_dir.glob("*.whl")):
+                shutil.copy2(dependency_wheel, wheels_dir / dependency_wheel.name)
+                dependency_names.append(dependency_wheel.name)
+        wheel_dependency_names[target.config_name] = dependency_names
 
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
     create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
@@ -284,7 +304,7 @@ def prepare_stage(
     for name, payload in config_map.items():
         (configs_dir / name).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    manifest = build_manifest(options, set(config_map), wheel_names)
+    manifest = build_manifest(options, set(config_map), wheel_names, wheel_dependency_names)
     manifest_path = stage_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
@@ -482,7 +502,12 @@ def build_binary_service(
     return payload
 
 
-def build_manifest(options: StageOptions, available_configs: set[str], wheel_names: dict[str, str]) -> dict[str, Any]:
+def build_manifest(
+    options: StageOptions,
+    available_configs: set[str],
+    wheel_names: dict[str, str],
+    wheel_dependency_names: dict[str, list[str]],
+) -> dict[str, Any]:
     runtime_root = options.runtime_root
     directories = ["bin", "configs", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
     stop_units = [
@@ -519,6 +544,9 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
         wheels.append(
             {
                 "source": f"wheels/{wheel_name}",
+                "dependency_sources": [
+                    f"wheels/{dependency_name}" for dependency_name in wheel_dependency_names.get(target.config_name, [])
+                ],
                 "download_target": f"downloads/{wheel_name}",
                 "install_command": [
                     "python3",
@@ -581,6 +609,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
             "ui",
+            "audio-manager",
             "ai_inference",
             "workflow-engine",
             "configs",
@@ -598,6 +627,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             f"{runtime_root}/roi-config",
             f"{runtime_root}/rtsp-feeder",
             f"{runtime_root}/serve-device-ui.sh",
+            runtime_config_path(runtime_root, "audio-manager.json"),
             runtime_config_path(runtime_root, "ai-inference.json"),
             runtime_config_path(runtime_root, "workflow-engine.json"),
         ],

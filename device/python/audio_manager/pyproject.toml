@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trakrai-audio-manager"
+description = "Queued edge audio generation, playback, and network-speaker delivery service"
+readme = "README.md"
+requires-python = ">=3.8"
+dynamic = ["version"]
+authors = [
+  { name = "TrakrAI" },
+]
+license = { text = "Proprietary" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+  "gTTS>=2.5.0",
+]
+
+[project.scripts]
+trakrai-audio-manager = "trakrai_audio_manager.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "trakrai_audio_manager._version.__version__" }

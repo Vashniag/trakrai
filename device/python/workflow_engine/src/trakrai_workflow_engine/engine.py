@@ -58,7 +58,11 @@ class WorkflowEngine:
             len(self._dag.execution_levels),
         )
 
-    def execute(self, detection_data: WorkflowPayload | dict[str, Any] | None = None) -> WorkflowExecutionResult:
+    def execute(
+        self,
+        detection_data: WorkflowPayload | dict[str, Any] | None = None,
+        context_overrides: dict[str, Any] | None = None,
+    ) -> WorkflowExecutionResult:
         if not self.is_loaded:
             raise RuntimeError("No workflow loaded. Call load_workflow() first.")
 
@@ -69,6 +73,8 @@ class WorkflowEngine:
         output_map: dict[tuple[str, str], Any] = {}
         failed_nodes: set[str] = set()
         context = {"detection_data": detection_data or {}}
+        if context_overrides:
+            context.update(context_overrides)
         state_lock = threading.Lock()
 
         for level in self._dag.execution_levels:

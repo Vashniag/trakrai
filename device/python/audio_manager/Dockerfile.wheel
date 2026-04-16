@@ -1,0 +1,42 @@
+FROM python:3.8-slim AS builder
+
+ARG PACKAGE_VERSION=0.1.0
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PACKAGE_VERSION=${PACKAGE_VERSION}
+
+WORKDIR /src
+
+RUN python -m pip install --no-cache-dir --upgrade pip build setuptools wheel
+
+COPY pyproject.toml README.md requirements.txt ./
+COPY src ./src
+
+RUN python - <<'PY'
+import os
+from pathlib import Path
+
+version = os.environ["PACKAGE_VERSION"].strip()
+if not version:
+    raise SystemExit("PACKAGE_VERSION must be non-empty")
+
+Path("src/trakrai_audio_manager/_version.py").write_text(
+    f'from __future__ import annotations\n\n__version__ = "{version}"\n',
+    encoding="utf-8",
+)
+PY
+
+RUN python -m build --wheel --outdir /out
+RUN mkdir -p /wheelhouse \
+    && if grep -Eq '^[^#[:space:]]' requirements.txt; then \
+        python -m pip wheel --wheel-dir /wheelhouse -r requirements.txt; \
+    fi
+
+FROM scratch AS export
+
+COPY --from=builder /out/. /
+COPY --from=builder /wheelhouse /wheelhouse
+COPY --from=builder /src/requirements.txt /requirements.txt
+COPY --from=builder /src/README.md /README.md

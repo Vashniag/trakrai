@@ -67,27 +67,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python release dependencies
-        run: python3 -m pip install --upgrade pip boto3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
       - name: Release device packages
         env:
-          TRAKRAI_PACKAGE_S3_BUCKET: ${{ secrets.TRAKRAI_PACKAGE_S3_BUCKET }}
+          TRAKRAI_CLOUD_API_BASE_URL: ${{ secrets.TRAKRAI_CLOUD_API_BASE_URL }}
+          TRAKRAI_PACKAGE_RELEASE_TOKEN: ${{ secrets.TRAKRAI_PACKAGE_RELEASE_TOKEN }}
         run: |
           mkdir -p .github/state
           python3 device/scripts/manage_device_packages.py release \
             --metadata device/package-versions.json \
             --platform linux/arm64 \
-            --publish-target s3 \
-            --s3-bucket "${TRAKRAI_PACKAGE_S3_BUCKET}" \
-            --s3-region "${{ secrets.AWS_REGION }}" \
+            --publish-target cloud-api \
+            --cloud-api-base-url "${TRAKRAI_CLOUD_API_BASE_URL}" \
+            --cloud-api-token "${TRAKRAI_PACKAGE_RELEASE_TOKEN}" \
             --manifest-out .github/state/device-package-release.json
 
       - name: Upload release manifest

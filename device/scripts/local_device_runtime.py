@@ -4,9 +4,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import shutil
 import subprocess
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -25,11 +28,18 @@ DEFAULT_RUNTIME_ROOT = "/home/hacklab/trakrai-device-runtime"
 DEFAULT_UNIT_DIRECTORY = f"{DEFAULT_RUNTIME_ROOT}/units"
 DEFAULT_PUBLIC_HTTP_PORT = 18080
 DEFAULT_PUBLIC_RTSP_PORT = 18554
+DEFAULT_HOST_AUDIO_PORT = 18920
 DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
 LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
 LOCALDEV_ROI_TEMPLATE = common.DEVICE_ROOT / "localdev" / "roi" / "roi-config.json"
 COMPOSE_SERVICES = {"device-emulator", "fake-camera", "minio", "mock-cloud-api", "redis"}
+LOCALDEV_AUDIO_CODES_TEMPLATE = common.DEVICE_ROOT / "localdev" / "audio" / "speaker-codes.csv"
+HOST_AUDIO_PLAYER_SCRIPT = common.DEVICE_ROOT / "localdev" / "host-audio-player" / "server.py"
+HOST_AUDIO_DIR = LOCALDEV_ROOT / "host-audio-player"
+HOST_AUDIO_PID_FILE = HOST_AUDIO_DIR / "server.pid"
+HOST_AUDIO_LOG_FILE = HOST_AUDIO_DIR / "server.log"
+HOST_AUDIO_META_FILE = HOST_AUDIO_DIR / "server.json"
 
 
 def main() -> int:
@@ -41,6 +51,16 @@ def main() -> int:
     up_parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR), help="directory containing local device JSON configs")
     up_parser.add_argument("--mqtt-host", default="host.docker.internal", help="hostname/IP of the existing Mosquitto broker")
     up_parser.add_argument("--mqtt-port", type=int, default=1883, help="port of the existing Mosquitto broker")
+    up_parser.add_argument(
+        "--cloud-api-base-url",
+        default="http://host.docker.internal:3000",
+        help="base URL for the real cloud API as seen from inside the device container",
+    )
+    up_parser.add_argument(
+        "--cloud-api-auth-token",
+        default="",
+        help="optional bearer token for cloud storage presign requests",
+    )
     up_parser.add_argument("--device-id", default="trakrai-device-local", help="device ID to expose from cloud-comm")
     up_parser.add_argument(
         "--http-port",
@@ -53,6 +73,17 @@ def main() -> int:
         type=int,
         default=DEFAULT_PUBLIC_RTSP_PORT,
         help="host port for the fake camera RTSP server",
+    )
+    up_parser.add_argument(
+        "--host-audio-port",
+        type=int,
+        default=DEFAULT_HOST_AUDIO_PORT,
+        help="host port for the local host-audio-player relay",
+    )
+    up_parser.add_argument(
+        "--disable-host-audio-playback",
+        action="store_true",
+        help="keep audio-manager local playback mocked instead of playing through the laptop speakers",
     )
     up_parser.add_argument("--platform", default=common.DEFAULT_LOCAL_PLATFORM, help="Docker platform for local builds, for example linux/arm64")
     up_parser.add_argument("--skip-build", action="store_true", help="reuse existing device/out artifacts")
@@ -103,7 +134,7 @@ def main() -> int:
     logs_parser.add_argument("--compose-project-name", default=DEFAULT_PROJECT_NAME)
     logs_parser.add_argument(
         "--service",
-        choices=["device-emulator", "fake-camera", "minio", "mock-cloud-api", "redis"],
+        choices=["device-emulator", "fake-camera", "host-audio-player", "minio", "mock-speaker", "redis"],
         help="optional service filter",
     )
     logs_parser.add_argument("--lines", type=int, default=200)
@@ -131,16 +162,24 @@ def cmd_up(args: argparse.Namespace) -> int:
         raise SystemExit("--webrtc-udp-port-min and --webrtc-udp-port-max must both be greater than 0")
     if args.webrtc_udp_port_min > args.webrtc_udp_port_max:
         raise SystemExit("--webrtc-udp-port-min must be less than or equal to --webrtc-udp-port-max")
+    if args.host_audio_port <= 0:
+        raise SystemExit("--host-audio-port must be greater than 0")
+
+    enable_host_audio_playback = not args.disable_host_audio_playback
 
     config_map = common.load_local_config_dir(Path(args.config_dir).expanduser().resolve())
     config_map = patch_local_configs(
         config_map,
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
+        cloud_api_auth_token=args.cloud_api_auth_token,
+        cloud_api_base_url=args.cloud_api_base_url,
         device_id=args.device_id,
         webrtc_host_candidate_ip=args.webrtc_host_candidate_ip,
         webrtc_udp_port_min=args.webrtc_udp_port_min,
         webrtc_udp_port_max=args.webrtc_udp_port_max,
+        enable_host_audio_playback=enable_host_audio_playback,
+        host_audio_port=args.host_audio_port,
     )
 
     artifact_paths = common.ensure_local_artifacts(
@@ -174,8 +213,13 @@ def cmd_up(args: argparse.Namespace) -> int:
 
     LOCALDEV_ROOT.mkdir(parents=True, exist_ok=True)
     SHARED_DIR.mkdir(parents=True, exist_ok=True)
+    if enable_host_audio_playback:
+        ensure_host_audio_player(args.host_audio_port)
+    else:
+        stop_host_audio_player()
     seed_local_workflow_assets(config_map)
     seed_local_roi_assets(config_map)
+    seed_local_audio_assets(config_map)
     write_compose_env(
         compose_project_name=args.compose_project_name,
         stage_dir=STAGE_DIR,
@@ -197,11 +241,15 @@ def cmd_up(args: argparse.Namespace) -> int:
             run_compose(["up", "-d", "--wait"], env=env)
         else:
             run_compose(["up", "--build", "-d", "--wait"], env=env)
-    verify_local_stack(env=env)
+    verify_local_stack(env=env, host_audio_port=args.host_audio_port if enable_host_audio_playback else None)
 
     print("")
     print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
+    print(f"Cloud API (from device): {args.cloud_api_base_url}")
     print(f"Fake RTSP feed: rtsp://127.0.0.1:{args.rtsp_port}/stream")
+    print("Mock speaker API: http://127.0.0.1:18910")
+    if enable_host_audio_playback:
+        print(f"Host audio relay: http://127.0.0.1:{args.host_audio_port}")
     print(f"Host shared dir: {SHARED_DIR}")
     return 0
 
@@ -212,6 +260,7 @@ def cmd_down(args: argparse.Namespace) -> int:
     if args.volumes:
         command.append("--volumes")
     run_compose(command, env=env, check=False)
+    stop_host_audio_player()
     if not args.keep_stage and STAGE_DIR.exists():
         shutil.rmtree(STAGE_DIR)
     return 0
@@ -220,10 +269,14 @@ def cmd_down(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     env = compose_env(args.compose_project_name, common.DEFAULT_LOCAL_PLATFORM)
     run_compose(["ps"], env=env)
+    print_host_audio_status()
     return 0
 
 
 def cmd_logs(args: argparse.Namespace) -> int:
+    if args.service == "host-audio-player":
+        tail_host_audio_logs(args.lines)
+        return 0
     env = compose_env(args.compose_project_name, common.DEFAULT_LOCAL_PLATFORM)
     command = ["logs", "--tail", str(args.lines)]
     if args.service:
@@ -237,10 +290,14 @@ def patch_local_configs(
     *,
     mqtt_host: str,
     mqtt_port: int,
+    cloud_api_auth_token: str,
+    cloud_api_base_url: str,
     device_id: str,
     webrtc_host_candidate_ip: str,
     webrtc_udp_port_min: int,
     webrtc_udp_port_max: int,
+    enable_host_audio_playback: bool,
+    host_audio_port: int,
 ) -> dict[str, dict[str, object]]:
     patched = json.loads(json.dumps(config_map))
     cloud_comm = patched["cloud-comm.json"]
@@ -251,10 +308,38 @@ def patch_local_configs(
     cloud_transfer = patched.get("cloud-transfer.json")
     if isinstance(cloud_transfer, dict):
         cloud_transfer["device_id"] = device_id
+        cloud_api = cloud_transfer.setdefault("cloud_api", {})
+        cloud_api["auth_token"] = cloud_api_auth_token
+        cloud_api["base_url"] = cloud_api_base_url.rstrip("/")
 
     workflow_engine = patched.get("workflow-engine.json")
     if isinstance(workflow_engine, dict):
         workflow_engine["device_id"] = device_id
+
+    audio_manager = patched.get("audio-manager.json")
+    if isinstance(audio_manager, dict):
+        audio_manager["device_id"] = device_id
+        playback = audio_manager.setdefault("playback", {})
+        if isinstance(playback, dict):
+            if enable_host_audio_playback:
+                playback["backend"] = "command"
+                playback["timeout_sec"] = max(int(playback.get("timeout_sec", 60) or 60), 60)
+                playback["command_template"] = [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "-X",
+                    "POST",
+                    "--data-binary",
+                    "@{audio_path}",
+                    "-H",
+                    "Content-Type: {audio_content_type}",
+                    f"http://host.docker.internal:{host_audio_port}/play",
+                ]
+            else:
+                playback["backend"] = "mock"
+                playback.pop("command_template", None)
 
     live_feed = patched.get("live-feed.json")
     if isinstance(live_feed, dict):
@@ -308,6 +393,26 @@ def seed_local_roi_assets(config_map: dict[str, dict[str, object]]) -> None:
     shutil.copy2(LOCALDEV_ROI_TEMPLATE, host_path)
 
 
+def seed_local_audio_assets(config_map: dict[str, dict[str, object]]) -> None:
+    audio_config = config_map.get("audio-manager.json")
+    if not isinstance(audio_config, dict):
+        return
+    speaker = audio_config.get("speaker")
+    if not isinstance(speaker, dict):
+        return
+    mapping_file = str(speaker.get("mapping_file", "")).strip()
+    runtime_shared_prefix = f"{DEFAULT_RUNTIME_ROOT}/shared/"
+    if not mapping_file.startswith(runtime_shared_prefix):
+        return
+
+    relative_path = Path(mapping_file[len(runtime_shared_prefix) :])
+    host_path = SHARED_DIR / relative_path
+    if host_path.exists():
+        return
+    host_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(LOCALDEV_AUDIO_CODES_TEMPLATE, host_path)
+
+
 def write_compose_env(
     *,
     compose_project_name: str,
@@ -337,6 +442,123 @@ def write_compose_env(
         + "\n",
         encoding="utf-8",
     )
+
+
+def ensure_host_audio_player(port: int) -> None:
+    HOST_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    existing_pid = read_host_audio_pid()
+    if existing_pid is not None and process_alive(existing_pid) and host_audio_healthy(port):
+        return
+
+    if existing_pid is not None:
+        stop_host_audio_player()
+
+    log_handle = HOST_AUDIO_LOG_FILE.open("a", encoding="utf-8")
+    try:
+        process = subprocess.Popen(
+            [
+                "python3",
+                str(HOST_AUDIO_PLAYER_SCRIPT),
+                "--port",
+                str(port),
+                "--state-dir",
+                str(HOST_AUDIO_DIR),
+            ],
+            cwd=common.DEVICE_ROOT,
+            stdin=subprocess.DEVNULL,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    finally:
+        log_handle.close()
+    HOST_AUDIO_PID_FILE.write_text(str(process.pid), encoding="utf-8")
+    HOST_AUDIO_META_FILE.write_text(
+        json.dumps({"pid": process.pid, "port": port}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if process.poll() is not None:
+            raise SystemExit(f"host-audio-player exited early; see {HOST_AUDIO_LOG_FILE}")
+        if host_audio_healthy(port):
+            return
+        time.sleep(0.25)
+    raise SystemExit(f"host-audio-player did not become healthy on port {port}; see {HOST_AUDIO_LOG_FILE}")
+
+
+def stop_host_audio_player() -> None:
+    pid = read_host_audio_pid()
+    if pid is None:
+        return
+    try:
+        os.killpg(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if not process_alive(pid):
+            break
+        time.sleep(0.1)
+    else:
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    for path in (HOST_AUDIO_PID_FILE, HOST_AUDIO_META_FILE):
+        if path.exists():
+            path.unlink()
+
+
+def read_host_audio_pid() -> int | None:
+    if not HOST_AUDIO_PID_FILE.exists():
+        return None
+    raw = HOST_AUDIO_PID_FILE.read_text(encoding="utf-8").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def host_audio_healthy(port: int) -> bool:
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1.0) as response:
+            return int(getattr(response, "status", response.getcode())) == 200
+    except (OSError, urllib.error.URLError):
+        return False
+
+
+def print_host_audio_status() -> None:
+    if not HOST_AUDIO_META_FILE.exists():
+        print("host-audio-player: stopped")
+        return
+    try:
+        metadata = json.loads(HOST_AUDIO_META_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        print(f"host-audio-player: invalid metadata file at {HOST_AUDIO_META_FILE}")
+        return
+    pid = int(metadata.get("pid", 0) or 0)
+    port = int(metadata.get("port", 0) or 0)
+    healthy = port > 0 and host_audio_healthy(port)
+    state = "running" if pid > 0 and process_alive(pid) and healthy else "unhealthy"
+    print(f"host-audio-player: {state} (pid={pid or 'n/a'}, port={port or 'n/a'})")
+
+
+def tail_host_audio_logs(lines: int) -> None:
+    if not HOST_AUDIO_LOG_FILE.exists():
+        raise SystemExit(f"host-audio-player log file not found: {HOST_AUDIO_LOG_FILE}")
+    run_local(["tail", "-n", str(lines), str(HOST_AUDIO_LOG_FILE)], env=os.environ.copy())
 
 
 def compose_env(project_name: str, platform: str) -> dict[str, str]:
@@ -398,8 +620,10 @@ def run_local(command: list[str], *, env: dict[str, str], capture_output: bool =
     return result.stdout if capture_output else ""
 
 
-def verify_local_stack(*, env: dict[str, str]) -> None:
+def verify_local_stack(*, env: dict[str, str], host_audio_port: int | None) -> None:
     run_compose(["ps"], env=env)
+    if host_audio_port is not None and not host_audio_healthy(host_audio_port):
+        raise SystemExit(f"host-audio-player is not healthy on port {host_audio_port}")
     run_local(
         [
             "docker",
@@ -415,6 +639,7 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
             "-lc",
             (
                 "set -euo pipefail; "
+                "test -f /home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-transfer; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/live-feed; "
@@ -423,6 +648,7 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
                 "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
                 "python3.8 --version; "
                 "systemctl is-active trakrai-runtime-manager.service; "
+                "systemctl is-active trakrai-audio-manager.service; "
                 "systemctl is-active trakrai-cloud-comm.service; "
                 "systemctl is-active trakrai-cloud-transfer.service; "
                 "systemctl is-active trakrai-workflow-engine.service; "

@@ -3,6 +3,22 @@
 import { DeviceRuntimePage } from '@trakrai/live-ui/components/device-runtime-page';
 
 import { EdgeConsoleSurface } from '@/components/edge-console-surface';
+import { CloudPackageApiProvider, useCloudPackageCatalog } from '@/lib/cloud-package-api';
+
+const RuntimePageBody = ({
+  managementServiceName,
+}: Readonly<{
+  managementServiceName: string;
+}>) => {
+  const packageCatalog = useCloudPackageCatalog();
+
+  return (
+    <DeviceRuntimePage
+      managementServiceName={managementServiceName}
+      packageCatalog={packageCatalog}
+    />
+  );
+};
 
 const RuntimePage = () => (
   <EdgeConsoleSurface
@@ -10,7 +26,9 @@ const RuntimePage = () => (
     title="Runtime control"
   >
     {(runtimeConfig) => (
-      <DeviceRuntimePage managementServiceName={runtimeConfig.managementService} />
+      <CloudPackageApiProvider>
+        <RuntimePageBody managementServiceName={runtimeConfig.managementService} />
+      </CloudPackageApiProvider>
     )}
   </EdgeConsoleSurface>
 );

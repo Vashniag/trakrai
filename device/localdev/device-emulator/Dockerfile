@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
     curl \
+    espeak \
     file \
     gpg-agent \
     iproute2 \

@@ -49,10 +49,10 @@ type Config struct {
 func LoadConfig(path string) (*Config, error) {
 	cfg := &Config{
 		CloudAPI: CloudAPIConfig{
-			DownloadPresignPath:        "/api/v1/device-storage/presign-download",
-			PackageDownloadPresignPath: "/api/v1/package-storage/presign-download",
+			DownloadPresignPath:        "/api/external/storage/devices/download-session",
+			PackageDownloadPresignPath: "/api/external/storage/packages/download-session",
 			RequestTimeoutSec:          30,
-			UploadPresignPath:          "/api/v1/device-storage/presign-upload",
+			UploadPresignPath:          "/api/external/storage/devices/upload-session",
 		},
 		DeviceID: "default",
 		IPC: IPCConfig{
@@ -83,15 +83,15 @@ func LoadConfig(path string) (*Config, error) {
 	cfg.CloudAPI.AuthToken = strings.TrimSpace(cfg.CloudAPI.AuthToken)
 	cfg.CloudAPI.UploadPresignPath = normalizeDefault(
 		cfg.CloudAPI.UploadPresignPath,
-		"/api/v1/device-storage/presign-upload",
+		"/api/external/storage/devices/upload-session",
 	)
 	cfg.CloudAPI.DownloadPresignPath = normalizeDefault(
 		cfg.CloudAPI.DownloadPresignPath,
-		"/api/v1/device-storage/presign-download",
+		"/api/external/storage/devices/download-session",
 	)
 	cfg.CloudAPI.PackageDownloadPresignPath = normalizeDefault(
 		cfg.CloudAPI.PackageDownloadPresignPath,
-		"/api/v1/package-storage/presign-download",
+		"/api/external/storage/packages/download-session",
 	)
 	if cfg.CloudAPI.RequestTimeoutSec <= 0 {
 		cfg.CloudAPI.RequestTimeoutSec = 30

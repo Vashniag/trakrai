@@ -202,7 +202,6 @@ sequenceDiagram
   - `fake-camera`
   - `redis`
   - `minio`
-  - `mock-cloud-api`
 - verifies the stack after startup
 
 ### Important implementation details

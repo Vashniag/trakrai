@@ -25,6 +25,7 @@ METADATA_SCHEMA_VERSION = 1
 INITIAL_VERSION = "0.1.0"
 PACKAGE_METADATA_PATH = common.DEVICE_ROOT / "package-versions.json"
 DEFAULT_PACKAGE_PREFIX = "device-packages"
+CLOUD_API_PACKAGE_UPLOAD_PATH = "/api/external/storage/packages/upload-session"
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 PACKAGE_FILE_FIELDS = (
     "GoFiles",
@@ -347,6 +348,14 @@ def build_edge_ui(version: str) -> Path:
     return zip_path
 
 
+def guess_content_type(artifact_path: Path) -> str:
+    if artifact_path.suffix == ".zip":
+        return "application/zip"
+    if artifact_path.suffix == ".whl":
+        return "application/octet-stream"
+    return "application/octet-stream"
+
+
 def current_git_commit() -> str:
     proc = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -387,6 +396,64 @@ def publish_local_minio(base_url: str, remote_path: str, artifact_path: Path) ->
         raise SystemExit(f"local package upload failed for {remote_path}: HTTP {exc.code}: {detail}") from exc
 
 
+def cloud_api_request_json(
+    base_url: str,
+    request_path: str,
+    payload: dict[str, Any],
+    *,
+    auth_token: str,
+) -> dict[str, Any]:
+    request = urllib.request.Request(
+        urllib.parse.urljoin(base_url.rstrip("/") + "/", request_path.lstrip("/")),
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    if auth_token.strip() != "":
+        request.add_header("Authorization", f"Bearer {auth_token.strip()}")
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise SystemExit(
+            f"cloud API request failed for {request_path}: HTTP {exc.code}: {detail}",
+        ) from exc
+
+
+def publish_via_cloud_api(
+    base_url: str,
+    remote_path: str,
+    artifact_path: Path,
+    *,
+    auth_token: str,
+) -> None:
+    content_type = guess_content_type(artifact_path)
+    presigned = cloud_api_request_json(
+        base_url,
+        CLOUD_API_PACKAGE_UPLOAD_PATH,
+        {"contentType": content_type, "path": remote_path},
+        auth_token=auth_token,
+    )
+    request = urllib.request.Request(
+        presigned["url"],
+        data=artifact_path.read_bytes(),
+        method=str(presigned.get("method", "PUT")).upper(),
+        headers={**presigned.get("headers", {}), "Content-Type": content_type},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            if response.status >= 300:
+                raise SystemExit(
+                    f"cloud package upload failed for {remote_path}: HTTP {response.status}",
+                )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise SystemExit(
+            f"cloud package upload failed for {remote_path}: HTTP {exc.code}: {detail}",
+        ) from exc
+
+
 def upload_s3_object(bucket: str, key: str, artifact_path: Path, region: str) -> None:
     if importlib.util.find_spec("boto3") is None:
         raise SystemExit("publish-target s3 requires boto3 to be installed in the current Python environment")
@@ -401,6 +468,8 @@ def publish_artifact(
     remote_path: str,
     artifact_path: Path,
     *,
+    cloud_api_base_url: str,
+    cloud_api_token: str,
     package_prefix: str,
     local_cloud_api_base_url: str,
     s3_bucket: str,
@@ -408,8 +477,21 @@ def publish_artifact(
 ) -> None:
     if publish_target == "none":
         return
+    if publish_target == "cloud-api":
+        publish_via_cloud_api(
+            cloud_api_base_url,
+            remote_path,
+            artifact_path,
+            auth_token=cloud_api_token,
+        )
+        return
     if publish_target == "local-minio":
-        publish_local_minio(local_cloud_api_base_url, remote_path, artifact_path)
+        publish_via_cloud_api(
+            local_cloud_api_base_url,
+            remote_path,
+            artifact_path,
+            auth_token=cloud_api_token,
+        )
         return
     if publish_target == "s3":
         if s3_bucket.strip() == "":
@@ -549,8 +631,10 @@ def cmd_release(args: argparse.Namespace) -> int:
             args.publish_target,
             remote_path,
             artifact_path,
+            cloud_api_base_url=args.cloud_api_base_url,
+            cloud_api_token=args.cloud_api_token,
             package_prefix=args.package_prefix,
-            local_cloud_api_base_url=args.local_cloud_api_base_url,
+            local_cloud_api_base_url=args.cloud_api_base_url,
             s3_bucket=args.s3_bucket,
             s3_region=args.s3_region,
         )
@@ -572,22 +656,6 @@ def cmd_release(args: argparse.Namespace) -> int:
                 "sha256": artifact_sha,
             }
         )
-
-    if args.publish_target != "none":
-        index_payload = build_platform_index(next_metadata, platform)
-        index_path = artifact_output_root(platform_tag) / "package-index.json"
-        index_path.parent.mkdir(parents=True, exist_ok=True)
-        index_path.write_text(json.dumps(index_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        publish_artifact(
-            args.publish_target,
-            "index.json",
-            index_path,
-            package_prefix=args.package_prefix,
-            local_cloud_api_base_url=args.local_cloud_api_base_url,
-            s3_bucket=args.s3_bucket,
-            s3_region=args.s3_region,
-        )
-        release_manifest["indexPath"] = str(index_path)
 
     if args.write_metadata:
         write_metadata(metadata_path, next_metadata)
@@ -614,9 +682,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     release_parser = subparsers.add_parser("release", parents=[common_parent], help="build changed packages, publish them, and update package metadata")
     release_parser.add_argument("--platform", default=common.DEFAULT_ARM64_PLATFORM)
-    release_parser.add_argument("--publish-target", choices=["none", "local-minio", "s3"], default="none")
+    release_parser.add_argument("--publish-target", choices=["none", "cloud-api", "local-minio", "s3"], default="none")
+    release_parser.add_argument("--cloud-api-base-url", "--local-cloud-api-base-url", dest="cloud_api_base_url", default="http://127.0.0.1:3000")
+    release_parser.add_argument("--cloud-api-token", default="")
     release_parser.add_argument("--package-prefix", default=DEFAULT_PACKAGE_PREFIX)
-    release_parser.add_argument("--local-cloud-api-base-url", default="http://127.0.0.1:18090")
     release_parser.add_argument("--manifest-out", default="")
     release_parser.add_argument("--no-write-metadata", action="store_false", dest="write_metadata")
     release_parser.add_argument("--s3-bucket", default=os.environ.get("TRAKRAI_PACKAGE_S3_BUCKET", ""))

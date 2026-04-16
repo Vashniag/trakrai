@@ -12,6 +12,7 @@ What it does:
 
 Default local configs only include the services that can run meaningfully without hardware or cloud credentials:
 
+- `audio-manager`
 - `cloud-comm`
 - `cloud-transfer`
 - `live-feed`
@@ -19,10 +20,15 @@ Default local configs only include the services that can run meaningfully withou
 - `workflow-engine`
 - `runtime-manager`
 
-The local stack also starts mock cloud storage infrastructure for the transfer worker:
+The local stack also starts local object storage infrastructure for the transfer worker:
 
 - `minio` on `http://127.0.0.1:19000`
-- `mock-cloud-api` on `http://127.0.0.1:18090`
+- `mock-speaker` on `http://127.0.0.1:18910`
+- `host-audio-player` on `http://127.0.0.1:18920`
+
+The real cloud API is expected to be provided by the `trakrai` web app, typically on:
+
+- `http://127.0.0.1:3000`
 
 If you want to add more services, pass `--config-dir` to [`local_device_runtime.py`](/Users/hardikj/code/web-apps/trakrbi/trakrai/device/scripts/local_device_runtime.py).
 
@@ -49,10 +55,21 @@ Important defaults:
 - fake RTSP feed: `rtsp://127.0.0.1:18554/stream`
 - host-backed transfer shared dir: `trakrai/device/.localdev/shared`
 - host-backed workflow file: `trakrai/device/.localdev/shared/workflow.json`
+- host-backed speaker code mapping: `trakrai/device/.localdev/shared/audio/speaker-codes.csv`
 - broker host inside containers: `host.docker.internal:1883`
 - local MinIO API: `http://127.0.0.1:19000`
 - local MinIO console: `http://127.0.0.1:19001`
-- local mock cloud API: `http://127.0.0.1:18090`
+- local cloud API: `http://127.0.0.1:3000`
+- local host audio relay: `http://127.0.0.1:18920`
+
+By default, `local_device_runtime.py up` also starts a small host-side audio relay that plays generated WAV files
+through the laptop speakers. On macOS it uses `afplay`. If you do not want audible playback, add:
+
+```bash
+python3 trakrai/device/scripts/local_device_runtime.py up \
+  --video /absolute/path/to/sample.mp4 \
+  --disable-host-audio-playback
+```
 
 ## Using Uploads And Downloads From The UI
 
@@ -103,11 +120,37 @@ That script:
 - registers a temporary verifier service on the IPC socket
 - enqueues an upload through `cloud-transfer` over the local service bus
 - waits for the upload to complete
-- confirms the object exists in the mock cloud bucket
-- simulates a cloud outage to verify retry/backoff recovery
+- simulates a storage outage by stopping MinIO to verify retry/backoff recovery
 - simulates a short timeout window to verify expiry/failure behavior
 - enqueues a download for the same object
 - verifies the downloaded payload matches the original file
+
+## Verifying Audio Manager
+
+The local stack includes `audio-manager` as a wheel-installed managed service. In local dev it:
+
+- tries `gTTS` first and falls back to `espeak` when Google TTS is unavailable
+- sends local playback to the host audio relay, which plays it on the laptop speakers
+- delivers network speaker announcements to the `mock-speaker` HTTP service
+
+Run the end-to-end verifier from the repository root:
+
+```bash
+python3 trakrai/device/scripts/verify_audio_service_local.py
+```
+
+That script:
+
+- queues a direct `play-audio` request over the local IPC bus
+- waits for the queued job to complete
+- verifies the generated audio file exists in the shared runtime volume
+- verifies the host audio relay accepted and played the generated audio file
+- verifies `mock-speaker` received the short-code payload
+- temporarily swaps in an audio test workflow
+- submits a detection frame to `workflow-engine`
+- waits for the workflow-triggered audio job to complete
+- verifies the workflow-triggered audio file was also played through the host audio relay
+- restores the original workflow file afterward
 
 ## Using The Workflow Engine
 

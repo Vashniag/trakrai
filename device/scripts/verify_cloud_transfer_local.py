@@ -5,9 +5,6 @@ import argparse
 import json
 import subprocess
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
 from uuid import uuid4
 
@@ -118,16 +115,15 @@ raise SystemExit("timed out waiting for cloud-transfer response")
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify the local cloud-transfer service against MinIO.")
-    parser.add_argument("--mock-cloud-api-url", default="http://127.0.0.1:18090")
     parser.add_argument("--timeout-sec", type=int, default=90)
     args = parser.parse_args()
 
     if not COMPOSE_ENV_FILE.exists():
         raise SystemExit(f"compose env file not found: {COMPOSE_ENV_FILE}")
 
-    happy_path = verify_happy_path(args.mock_cloud_api_url, args.timeout_sec)
-    retry_recovery = verify_retry_recovery(args.mock_cloud_api_url, args.timeout_sec)
-    timeout_failure = verify_timeout_failure(args.timeout_sec, args.mock_cloud_api_url)
+    happy_path = verify_happy_path(args.timeout_sec)
+    retry_recovery = verify_retry_recovery(args.timeout_sec)
+    timeout_failure = verify_timeout_failure(args.timeout_sec)
     transfers = cloud_transfer_call(
         "list-transfers",
         {"requestId": uuid4().hex},
@@ -215,7 +211,7 @@ def wait_for_transfer(transfer_id: str, timeout_sec: int, *, expected_states: se
     )
 
 
-def verify_happy_path(mock_cloud_api_url: str, timeout_sec: int) -> dict[str, object]:
+def verify_happy_path(timeout_sec: int) -> dict[str, object]:
     token = uuid4().hex
     remote_path = f"cloud-transfer-tests/{token}/payload.txt"
     upload_relative_path = f"cloud-transfer-tests/{token}/upload/payload.txt"
@@ -242,13 +238,6 @@ def verify_happy_path(mock_cloud_api_url: str, timeout_sec: int) -> dict[str, ob
         timeout_sec,
         expected_states={"completed"},
     )
-
-    debug_payload = fetch_json(
-        f"{mock_cloud_api_url}/api/v1/device-storage/debug/object?"
-        + urllib.parse.urlencode({"deviceId": upload_status["deviceId"], "path": remote_path})
-    )
-    if debug_payload.get("exists") is not True:
-        raise SystemExit(f"uploaded object was not found in mock cloud storage: {json.dumps(debug_payload, indent=2)}")
 
     download_response = cloud_transfer_call(
         "enqueue-download",
@@ -277,13 +266,12 @@ def verify_happy_path(mock_cloud_api_url: str, timeout_sec: int) -> dict[str, ob
         )
 
     return {
-        "download": download_status,
-        "mockObject": debug_payload,
         "upload": upload_status,
+        "download": download_status,
     }
 
 
-def verify_retry_recovery(mock_cloud_api_url: str, timeout_sec: int) -> dict[str, object]:
+def verify_retry_recovery(timeout_sec: int) -> dict[str, object]:
     token = uuid4().hex
     remote_path = f"cloud-transfer-tests/{token}/retry.txt"
     upload_relative_path = f"cloud-transfer-tests/{token}/retry/upload.txt"
@@ -291,7 +279,7 @@ def verify_retry_recovery(mock_cloud_api_url: str, timeout_sec: int) -> dict[str
     content = f"trakrai-cloud-transfer-retry-{token}\n"
 
     write_remote_file(upload_absolute_path, content)
-    stop_compose_service("mock-cloud-api")
+    stop_compose_service("minio")
     try:
         enqueue_response = cloud_transfer_call(
             "enqueue-upload",
@@ -307,24 +295,17 @@ def verify_retry_recovery(mock_cloud_api_url: str, timeout_sec: int) -> dict[str
         transfer_id = enqueue_response["payload"]["transfer"]["id"]
         retry_status = wait_for_transfer(transfer_id, 20, expected_states={"retry_wait"})
     finally:
-        start_compose_service("mock-cloud-api")
+        start_compose_service("minio")
 
     completed_status = wait_for_transfer(transfer_id, timeout_sec, expected_states={"completed"})
-    debug_payload = fetch_json(
-        f"{mock_cloud_api_url}/api/v1/device-storage/debug/object?"
-        + urllib.parse.urlencode({"deviceId": completed_status["deviceId"], "path": remote_path})
-    )
-    if debug_payload.get("exists") is not True:
-        raise SystemExit(f"recovered upload was not found in mock cloud storage: {json.dumps(debug_payload, indent=2)}")
 
     return {
-        "completed": completed_status,
-        "debugObject": debug_payload,
         "retryWait": retry_status,
+        "completed": completed_status,
     }
 
 
-def verify_timeout_failure(timeout_sec: int, mock_cloud_api_url: str | None = None) -> dict[str, object]:
+def verify_timeout_failure(timeout_sec: int) -> dict[str, object]:
     token = uuid4().hex
     remote_path = f"cloud-transfer-tests/{token}/timeout.txt"
     upload_relative_path = f"cloud-transfer-tests/{token}/timeout/upload.txt"
@@ -332,7 +313,7 @@ def verify_timeout_failure(timeout_sec: int, mock_cloud_api_url: str | None = No
     content = f"trakrai-cloud-transfer-timeout-{token}\n"
 
     write_remote_file(upload_absolute_path, content)
-    stop_compose_service("mock-cloud-api")
+    stop_compose_service("minio")
     try:
         enqueue_response = cloud_transfer_call(
             "enqueue-upload",
@@ -348,18 +329,9 @@ def verify_timeout_failure(timeout_sec: int, mock_cloud_api_url: str | None = No
         transfer_id = enqueue_response["payload"]["transfer"]["id"]
         failed_status = wait_for_transfer(transfer_id, timeout_sec, expected_states={"failed"})
     finally:
-        start_compose_service("mock-cloud-api")
+        start_compose_service("minio")
 
-    result = {"failed": failed_status, "sourceContent": content}
-    if mock_cloud_api_url:
-        debug_payload = fetch_json(
-            f"{mock_cloud_api_url}/api/v1/device-storage/debug/object?"
-            + urllib.parse.urlencode({"deviceId": failed_status["deviceId"], "path": remote_path})
-        )
-        if debug_payload.get("exists") is True:
-            raise SystemExit(f"timed-out transfer unexpectedly uploaded an object: {json.dumps(debug_payload, indent=2)}")
-        result["debugObject"] = debug_payload
-    return result
+    return {"failed": failed_status, "sourceContent": content}
 
 
 def write_remote_file(path: str, content: str) -> None:
@@ -427,16 +399,6 @@ def compose_command(*args: str) -> list[str]:
         str(COMPOSE_FILE),
         *args,
     ]
-
-
-def fetch_json(url: str) -> dict[str, object]:
-    request = urllib.request.Request(url, method="GET")
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as exc:
-        raise SystemExit(f"failed to fetch {url}: {exc}") from exc
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

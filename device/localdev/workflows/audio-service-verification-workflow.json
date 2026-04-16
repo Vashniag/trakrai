@@ -1,0 +1,54 @@
+{
+  "metadata": {
+    "name": "Audio Service Verification Workflow"
+  },
+  "nodes": [
+    {
+      "id": "camera",
+      "type": "get-camera-id",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Camera",
+        "configuration": {}
+      }
+    },
+    {
+      "id": "audio",
+      "type": "play-audio-message",
+      "position": {
+        "x": 220,
+        "y": 0
+      },
+      "data": {
+        "label": "Audio",
+        "configuration": {
+          "language": "en",
+          "message": "Workflow audio verification",
+          "playLocal": true,
+          "playSpeaker": true,
+          "speakerMessageId": "workflow-alert",
+          "waitTimeoutSec": 5
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "camera-to-audio-camera-id",
+      "source": "camera",
+      "sourceHandle": "cameraId",
+      "target": "audio",
+      "targetHandle": "cameraId"
+    },
+    {
+      "id": "camera-to-audio-camera-name",
+      "source": "camera",
+      "sourceHandle": "cameraName",
+      "target": "audio",
+      "targetHandle": "cameraName"
+    }
+  ]
+}

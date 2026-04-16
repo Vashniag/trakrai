@@ -19,6 +19,25 @@ import type { ManagedRuntimeServiceDefinition } from '@trakrai/live-transport/li
 
 type RuntimeManagerPanelProps = Readonly<{
   manager: RuntimeManagerState;
+  packageCatalog?: RuntimeManagerPackageCatalogState;
+}>;
+
+export type AvailableRuntimePackageArtifact = Readonly<{
+  artifactSha256?: string;
+  fileName: string;
+  platform: string;
+  provider?: string;
+  remotePath: string;
+  serviceName: string;
+  sizeBytes?: number;
+  updatedAt?: string;
+  version: string;
+}>;
+
+export type RuntimeManagerPackageCatalogState = Readonly<{
+  artifacts: AvailableRuntimePackageArtifact[];
+  error: string | null;
+  isLoading: boolean;
 }>;
 
 const statusClasses = (state: string): string => {
@@ -125,7 +144,7 @@ const createServiceTemplate = (
   };
 };
 
-export const RuntimeManagerPanel = ({ manager }: RuntimeManagerPanelProps) => {
+export const RuntimeManagerPanel = ({ manager, packageCatalog }: RuntimeManagerPanelProps) => {
   const {
     activeDefinition,
     error,
@@ -398,198 +417,248 @@ export const RuntimeManagerPanel = ({ manager }: RuntimeManagerPanelProps) => {
           </div>
 
           <div className="space-y-4">
-            {services.map((service) => (
-              <div key={service.name} className="space-y-3 border p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-sm font-semibold">{service.displayName}</div>
-                      {service.core ? (
-                        <span className="border-secondary/50 bg-secondary text-secondary-foreground border px-2 py-1 text-[10px] tracking-[0.18em] uppercase">
-                          Core
+            {services.map((service) => {
+              const serviceArtifacts =
+                packageCatalog?.artifacts.filter(
+                  (artifact) => artifact.serviceName === service.name,
+                ) ?? [];
+              let packagePlaceholder = 'No published artifacts available';
+              if (packageCatalog?.isLoading === true) {
+                packagePlaceholder = 'Loading published artifacts...';
+              } else if (serviceArtifacts.length > 0) {
+                packagePlaceholder = 'Select a published artifact';
+              }
+
+              return (
+                <div key={service.name} className="space-y-3 border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-semibold">{service.displayName}</div>
+                        {service.core ? (
+                          <span className="border-secondary/50 bg-secondary text-secondary-foreground border px-2 py-1 text-[10px] tracking-[0.18em] uppercase">
+                            Core
+                          </span>
+                        ) : null}
+                        <span
+                          className={`border px-2 py-1 text-[10px] tracking-[0.18em] uppercase ${statusClasses(service.state)}`}
+                        >
+                          {service.state}
                         </span>
-                      ) : null}
-                      <span
-                        className={`border px-2 py-1 text-[10px] tracking-[0.18em] uppercase ${statusClasses(service.state)}`}
-                      >
-                        {service.state}
-                      </span>
-                    </div>
-                    {service.description !== undefined && service.description !== '' ? (
-                      <div className="text-muted-foreground mt-1 text-xs">
-                        {service.description}
                       </div>
-                    ) : null}
+                      {service.description !== undefined && service.description !== '' ? (
+                        <div className="text-muted-foreground mt-1 text-xs">
+                          {service.description}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="text-muted-foreground text-right text-xs">
+                      <div>{service.kind}</div>
+                      {service.systemdUnit !== undefined && service.systemdUnit !== '' ? (
+                        <div className="mt-1">{service.systemdUnit}</div>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="text-muted-foreground text-right text-xs">
-                    <div>{service.kind}</div>
-                    {service.systemdUnit !== undefined && service.systemdUnit !== '' ? (
-                      <div className="mt-1">{service.systemdUnit}</div>
-                    ) : null}
+
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <div className="border p-3">
+                      <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                        Version
+                      </div>
+                      <div className="mt-1 text-sm font-medium">{service.version ?? 'Unknown'}</div>
+                    </div>
+                    <div className="border p-3">
+                      <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                        CPU
+                      </div>
+                      <div className="mt-1 text-sm font-medium">
+                        {formatNumber(service.cpuPercent, '%')}
+                      </div>
+                    </div>
+                    <div className="border p-3">
+                      <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                        Memory
+                      </div>
+                      <div className="mt-1 text-sm font-medium">
+                        {formatMemory(service.memoryBytes)}
+                      </div>
+                    </div>
+                    <div className="border p-3">
+                      <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                        PID / elapsed
+                      </div>
+                      <div className="mt-1 text-sm font-medium">
+                        {service.mainPid ?? 'N/A'}
+                        {service.processElapsed !== undefined ? ` • ${service.processElapsed}` : ''}
+                      </div>
+                    </div>
                   </div>
+
+                  <div className="text-muted-foreground grid gap-2 text-xs md:grid-cols-2">
+                    <div>Install path: {service.installPath ?? 'N/A'}</div>
+                    <div>Working dir: {service.workingDirectory ?? 'N/A'}</div>
+                    <div>Wrapper: {service.scriptPath ?? 'N/A'}</div>
+                    <div>Version file: {service.versionFile ?? 'N/A'}</div>
+                  </div>
+
+                  {service.message !== undefined && service.message !== '' ? (
+                    <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
+                      {service.message}
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      disabled={!service.allowControl || isBusy}
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        onRunServiceAction(service.name, 'start-service');
+                      }}
+                    >
+                      Start
+                    </Button>
+                    <Button
+                      disabled={!service.allowControl || isBusy}
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        onRunServiceAction(service.name, 'stop-service');
+                      }}
+                    >
+                      Stop
+                    </Button>
+                    <Button
+                      disabled={!service.allowControl || isBusy}
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        onRunServiceAction(service.name, 'restart-service');
+                      }}
+                    >
+                      Restart
+                    </Button>
+                    <Button
+                      disabled={isBusy || service.logPath === undefined || service.logPath === ''}
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        onRefreshLogs(service.name, LOG_TAIL_LINE_COUNT);
+                      }}
+                    >
+                      Tail logs
+                    </Button>
+                    <Button
+                      disabled={isBusy}
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        onLoadServiceDefinition(service.name);
+                      }}
+                    >
+                      Edit definition
+                    </Button>
+                  </div>
+
+                  {service.allowUpdate ? (
+                    <>
+                      <Separator />
+                      <div className="grid gap-3">
+                        {packageCatalog !== undefined ? (
+                          <div className="space-y-2">
+                            <Label htmlFor={`${service.name}-package-artifact`}>
+                              Published artifact
+                            </Label>
+                            <select
+                              className="bg-background w-full border px-3 py-2 text-sm"
+                              id={`${service.name}-package-artifact`}
+                              value={updateInputs[service.name]?.remotePath ?? ''}
+                              onChange={(event) => {
+                                const selectedArtifact = serviceArtifacts.find(
+                                  (artifact) => artifact.remotePath === event.target.value,
+                                );
+                                setUpdateInputs((currentInputs) => ({
+                                  ...currentInputs,
+                                  [service.name]: {
+                                    ...currentInputs[service.name],
+                                    artifactSha256: selectedArtifact?.artifactSha256 ?? '',
+                                    remotePath: event.target.value,
+                                  },
+                                }));
+                              }}
+                            >
+                              <option value="">{packagePlaceholder}</option>
+                              {serviceArtifacts.map((artifact) => (
+                                <option key={artifact.remotePath} value={artifact.remotePath}>
+                                  {`${artifact.version} • ${artifact.platform} • ${artifact.fileName}`}
+                                </option>
+                              ))}
+                            </select>
+                            {packageCatalog.error !== null && packageCatalog.error !== '' ? (
+                              <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
+                                {packageCatalog.error}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <Input
+                          placeholder="package remote path override, for example cloud-comm/0.1.2/linux-arm64/cloud-comm-linux-arm64-v0.1.2"
+                          value={updateInputs[service.name]?.remotePath ?? ''}
+                          onChange={(event) => {
+                            setUpdateInputs((currentInputs) => ({
+                              ...currentInputs,
+                              [service.name]: {
+                                ...currentInputs[service.name],
+                                remotePath: event.target.value,
+                              },
+                            }));
+                          }}
+                        />
+                        <Input
+                          placeholder="optional artifact sha256"
+                          value={updateInputs[service.name]?.artifactSha256 ?? ''}
+                          onChange={(event) => {
+                            setUpdateInputs((currentInputs) => ({
+                              ...currentInputs,
+                              [service.name]: {
+                                ...currentInputs[service.name],
+                                artifactSha256: event.target.value,
+                              },
+                            }));
+                          }}
+                        />
+                        <Input
+                          placeholder="legacy direct URL or local file path"
+                          value={updateInputs[service.name]?.artifactUrl ?? ''}
+                          onChange={(event) => {
+                            setUpdateInputs((currentInputs) => ({
+                              ...currentInputs,
+                              [service.name]: {
+                                ...currentInputs[service.name],
+                                artifactUrl: event.target.value,
+                              },
+                            }));
+                          }}
+                        />
+                        <Button
+                          disabled={
+                            isBusy ||
+                            ((updateInputs[service.name]?.remotePath ?? '').trim() === '' &&
+                              (updateInputs[service.name]?.artifactUrl ?? '').trim() === '')
+                          }
+                          type="button"
+                          onClick={() => {
+                            onUpdateService(service.name, updateInputs[service.name] ?? {});
+                          }}
+                        >
+                          Update package
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
-
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div className="border p-3">
-                    <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                      Version
-                    </div>
-                    <div className="mt-1 text-sm font-medium">{service.version ?? 'Unknown'}</div>
-                  </div>
-                  <div className="border p-3">
-                    <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                      CPU
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {formatNumber(service.cpuPercent, '%')}
-                    </div>
-                  </div>
-                  <div className="border p-3">
-                    <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                      Memory
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {formatMemory(service.memoryBytes)}
-                    </div>
-                  </div>
-                  <div className="border p-3">
-                    <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-                      PID / elapsed
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {service.mainPid ?? 'N/A'}
-                      {service.processElapsed !== undefined ? ` • ${service.processElapsed}` : ''}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-muted-foreground grid gap-2 text-xs md:grid-cols-2">
-                  <div>Install path: {service.installPath ?? 'N/A'}</div>
-                  <div>Working dir: {service.workingDirectory ?? 'N/A'}</div>
-                  <div>Wrapper: {service.scriptPath ?? 'N/A'}</div>
-                  <div>Version file: {service.versionFile ?? 'N/A'}</div>
-                </div>
-
-                {service.message !== undefined && service.message !== '' ? (
-                  <div className="bg-accent text-accent-foreground border px-3 py-2 text-xs">
-                    {service.message}
-                  </div>
-                ) : null}
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    disabled={!service.allowControl || isBusy}
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      onRunServiceAction(service.name, 'start-service');
-                    }}
-                  >
-                    Start
-                  </Button>
-                  <Button
-                    disabled={!service.allowControl || isBusy}
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      onRunServiceAction(service.name, 'stop-service');
-                    }}
-                  >
-                    Stop
-                  </Button>
-                  <Button
-                    disabled={!service.allowControl || isBusy}
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      onRunServiceAction(service.name, 'restart-service');
-                    }}
-                  >
-                    Restart
-                  </Button>
-                  <Button
-                    disabled={isBusy || service.logPath === undefined || service.logPath === ''}
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      onRefreshLogs(service.name, LOG_TAIL_LINE_COUNT);
-                    }}
-                  >
-                    Tail logs
-                  </Button>
-                  <Button
-                    disabled={isBusy}
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      onLoadServiceDefinition(service.name);
-                    }}
-                  >
-                    Edit definition
-                  </Button>
-                </div>
-
-                {service.allowUpdate ? (
-                  <>
-                    <Separator />
-                    <div className="grid gap-3">
-                      <Input
-                        placeholder="package remote path, for example cloud-comm/0.1.2/linux-arm64/cloud-comm-linux-arm64-v0.1.2"
-                        value={updateInputs[service.name]?.remotePath ?? ''}
-                        onChange={(event) => {
-                          setUpdateInputs((currentInputs) => ({
-                            ...currentInputs,
-                            [service.name]: {
-                              ...currentInputs[service.name],
-                              remotePath: event.target.value,
-                            },
-                          }));
-                        }}
-                      />
-                      <Input
-                        placeholder="optional artifact sha256"
-                        value={updateInputs[service.name]?.artifactSha256 ?? ''}
-                        onChange={(event) => {
-                          setUpdateInputs((currentInputs) => ({
-                            ...currentInputs,
-                            [service.name]: {
-                              ...currentInputs[service.name],
-                              artifactSha256: event.target.value,
-                            },
-                          }));
-                        }}
-                      />
-                      <Input
-                        placeholder="legacy direct URL or local file path"
-                        value={updateInputs[service.name]?.artifactUrl ?? ''}
-                        onChange={(event) => {
-                          setUpdateInputs((currentInputs) => ({
-                            ...currentInputs,
-                            [service.name]: {
-                              ...currentInputs[service.name],
-                              artifactUrl: event.target.value,
-                            },
-                          }));
-                        }}
-                      />
-                      <Button
-                        disabled={
-                          isBusy ||
-                          ((updateInputs[service.name]?.remotePath ?? '').trim() === '' &&
-                            (updateInputs[service.name]?.artifactUrl ?? '').trim() === '')
-                        }
-                        type="button"
-                        onClick={() => {
-                          onUpdateService(service.name, updateInputs[service.name] ?? {});
-                        }}
-                      >
-                        Update package
-                      </Button>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {selectedLogSummary !== null ? (

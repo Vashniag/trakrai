@@ -155,11 +155,22 @@ def install_python_wheels(
     gid: int,
 ) -> None:
     for item in wheels:
+        dependency_targets: list[Path] = []
+        for dependency_source in item.get("dependency_sources", []):
+            dependency = stage_dir / dependency_source
+            dependency_target = runtime_root / "downloads" / Path(dependency_source).name
+            dependency_target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(dependency, dependency_target)
+            os.chown(dependency_target, uid, gid)
+            dependency_targets.append(dependency_target)
+
         source = stage_dir / item["source"]
         target = runtime_root / item["download_target"]
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         os.chown(target, uid, gid)
+        for dependency_target in dependency_targets:
+            run(["python3", "-m", "pip", "install", "--no-deps", "--force-reinstall", str(dependency_target)])
         run(resolve_tokens(item["install_command"], wheel_path=str(target)))
 
 
