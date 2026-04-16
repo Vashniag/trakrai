@@ -49,20 +49,39 @@ jobs:
         with:
           go-version-file: device/go.mod
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          package_json_file: web/package.json
+          run_install: false
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
           node-version: 20
-
-      - name: Enable corepack
-        run: corepack enable
 
       - name: Install web dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Restore Docker build cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-device-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-device-${{ github.ref_name }}-
+            ${{ runner.os }}-buildx-device-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -73,10 +92,13 @@ jobs:
         env:
           TRAKRAI_CLOUD_API_BASE_URL: ${{ secrets.TRAKRAI_CLOUD_API_BASE_URL }}
           TRAKRAI_PACKAGE_RELEASE_TOKEN: ${{ secrets.TRAKRAI_PACKAGE_RELEASE_TOKEN }}
+          TRAKRAI_DOCKER_CACHE_FROM: type=local,src=/tmp/.buildx-cache
+          TRAKRAI_DOCKER_CACHE_TO: type=local,dest=/tmp/.buildx-cache-new,mode=max
         run: |
           test -n "${TRAKRAI_CLOUD_API_BASE_URL}" || { echo "Missing TRAKRAI_CLOUD_API_BASE_URL for the Production environment"; exit 1; }
           test -n "${TRAKRAI_PACKAGE_RELEASE_TOKEN}" || { echo "Missing TRAKRAI_PACKAGE_RELEASE_TOKEN for the Production environment"; exit 1; }
           mkdir -p .github/state
+          mkdir -p /tmp/.buildx-cache
           python3 device/scripts/manage_device_packages.py release \
             --metadata device/package-versions.json \
             --platform linux/arm64 \
@@ -84,6 +106,14 @@ jobs:
             --cloud-api-base-url "${TRAKRAI_CLOUD_API_BASE_URL}" \
             --cloud-api-token "${TRAKRAI_PACKAGE_RELEASE_TOKEN}" \
             --manifest-out .github/state/device-package-release.json
+
+      - name: Finalize Docker build cache
+        if: always()
+        run: |
+          if [ -d /tmp/.buildx-cache-new ]; then
+            rm -rf /tmp/.buildx-cache
+            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          fi
 
       - name: Upload release manifest
         uses: actions/upload-artifact@v4
