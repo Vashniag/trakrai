@@ -1,4 +1,22 @@
 services:
+  gateway-proxy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      LIVE_GATEWAY_UPSTREAM: ${LIVE_GATEWAY_UPSTREAM:-live-gateway:4000}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      live-gateway:
+        condition: service_started
+
   postgres:
     image: postgres:17
     restart: unless-stopped
@@ -37,8 +55,8 @@ services:
       context: ../web/services/live-gateway
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - '4000:4000'
+    expose:
+      - '4000'
     environment:
       MQTT_BROKER_URL: mqtt://mosquitto:1883
       PORT: '4000'
@@ -68,6 +86,8 @@ services:
     command: ['/bin/sh', '/usr/local/bin/trakrai-coturn-entrypoint.sh']
 
 volumes:
+  caddy_data:
+  caddy_config:
   trakrai_postgres_data:
   mosquitto_data:
   mosquitto_log:
