@@ -27,6 +27,7 @@ DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
 LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
 LOCALDEV_ROI_TEMPLATE = common.DEVICE_ROOT / "localdev" / "roi" / "roi-config.json"
+LOCALDEV_AUDIO_CODES_TEMPLATE = common.DEVICE_ROOT / "localdev" / "audio" / "speaker-codes.csv"
 
 
 def main() -> int:
@@ -96,7 +97,7 @@ def main() -> int:
     logs_parser.add_argument("--compose-project-name", default=DEFAULT_PROJECT_NAME)
     logs_parser.add_argument(
         "--service",
-        choices=["device-emulator", "fake-camera", "minio", "redis"],
+        choices=["device-emulator", "fake-camera", "minio", "mock-speaker", "redis"],
         help="optional service filter",
     )
     logs_parser.add_argument("--lines", type=int, default=200)
@@ -171,6 +172,7 @@ def cmd_up(args: argparse.Namespace) -> int:
     SHARED_DIR.mkdir(parents=True, exist_ok=True)
     seed_local_workflow_assets(config_map)
     seed_local_roi_assets(config_map)
+    seed_local_audio_assets(config_map)
     write_compose_env(
         compose_project_name=args.compose_project_name,
         stage_dir=STAGE_DIR,
@@ -190,6 +192,7 @@ def cmd_up(args: argparse.Namespace) -> int:
     print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
     print(f"Cloud API (from device): {args.cloud_api_base_url}")
     print(f"Fake RTSP feed: rtsp://127.0.0.1:{args.rtsp_port}/stream")
+    print("Mock speaker API: http://127.0.0.1:18910")
     print(f"Host shared dir: {SHARED_DIR}")
     return 0
 
@@ -249,6 +252,10 @@ def patch_local_configs(
     if isinstance(workflow_engine, dict):
         workflow_engine["device_id"] = device_id
 
+    audio_manager = patched.get("audio-manager.json")
+    if isinstance(audio_manager, dict):
+        audio_manager["device_id"] = device_id
+
     live_feed = patched.get("live-feed.json")
     if isinstance(live_feed, dict):
         webrtc = live_feed.setdefault("webrtc", {})
@@ -299,6 +306,26 @@ def seed_local_roi_assets(config_map: dict[str, dict[str, object]]) -> None:
         return
     host_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(LOCALDEV_ROI_TEMPLATE, host_path)
+
+
+def seed_local_audio_assets(config_map: dict[str, dict[str, object]]) -> None:
+    audio_config = config_map.get("audio-manager.json")
+    if not isinstance(audio_config, dict):
+        return
+    speaker = audio_config.get("speaker")
+    if not isinstance(speaker, dict):
+        return
+    mapping_file = str(speaker.get("mapping_file", "")).strip()
+    runtime_shared_prefix = f"{DEFAULT_RUNTIME_ROOT}/shared/"
+    if not mapping_file.startswith(runtime_shared_prefix):
+        return
+
+    relative_path = Path(mapping_file[len(runtime_shared_prefix) :])
+    host_path = SHARED_DIR / relative_path
+    if host_path.exists():
+        return
+    host_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(LOCALDEV_AUDIO_CODES_TEMPLATE, host_path)
 
 
 def write_compose_env(
@@ -386,6 +413,7 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
             "-lc",
             (
                 "set -euo pipefail; "
+                "test -f /home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-comm; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/cloud-transfer; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/live-feed; "
@@ -394,6 +422,7 @@ def verify_local_stack(*, env: dict[str, str]) -> None:
                 "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
                 "python3.8 --version; "
                 "systemctl is-active trakrai-runtime-manager.service; "
+                "systemctl is-active trakrai-audio-manager.service; "
                 "systemctl is-active trakrai-cloud-comm.service; "
                 "systemctl is-active trakrai-cloud-transfer.service; "
                 "systemctl is-active trakrai-workflow-engine.service; "

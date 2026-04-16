@@ -15,6 +15,7 @@ from .config import ServiceConfig
 from .engine import WorkflowEngine, WorkflowExecutionResult
 from .ipc import IPCClient
 from .payloads import NormalizedDetectionRequest, normalize_detection_request
+from .service_bridge import WorkflowServiceBridge
 from . import nodes  # noqa: F401
 
 SERVICE_NAME = "workflow-engine"
@@ -37,6 +38,7 @@ class WorkflowService:
         self._config = config
         self._logger = logger
         self._ipc = IPCClient(config.ipc.socket_path, SERVICE_NAME, logger)
+        self._service_bridge = WorkflowServiceBridge(self._ipc, logger)
         self._queue: "queue.Queue[QueuedDetection]" = queue.Queue(maxsize=config.queue.max_pending)
         self._results = deque(maxlen=config.workflow.result_history_size)
         self._stop_event = threading.Event()
@@ -97,11 +99,19 @@ class WorkflowService:
                 if isinstance(envelope, dict):
                     self._handle_command("", envelope)
             elif method == "service-message":
-                if str(params.get("subtopic", "")).strip() != "command":
-                    continue
+                subtopic = str(params.get("subtopic", "")).strip()
                 envelope = params.get("envelope")
+                source_service = str(params.get("sourceService", "")).strip()
+                if isinstance(envelope, dict) and self._service_bridge.handle_service_notification(
+                    source_service,
+                    subtopic,
+                    envelope,
+                ):
+                    continue
+                if subtopic != "command":
+                    continue
                 if isinstance(envelope, dict):
-                    self._handle_command(str(params.get("sourceService", "")).strip(), envelope)
+                    self._handle_command(source_service, envelope)
 
     def _handle_command(self, source_service: str, envelope: dict[str, Any]) -> None:
         message_type = str(envelope.get("type", "")).strip()
@@ -195,7 +205,10 @@ class WorkflowService:
                 continue
 
             try:
-                result = engine.execute(detection_data=job.payload)
+                result = engine.execute(
+                    detection_data=job.payload,
+                    context_overrides={"service_bridge": self._service_bridge},
+                )
             except Exception as exc:
                 with self._state_lock:
                     self._failed_runs += 1

@@ -20,6 +20,26 @@ services:
       timeout: 3s
       retries: 10
 
+  mock-speaker:
+    build:
+      context: ./mock-speaker
+    restart: unless-stopped
+    ports:
+      - '18910:8081'
+    volumes:
+      - '${TRAKRAI_LOCAL_SHARED_DIR}/mock-speaker:/data'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python3',
+          '-c',
+          'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8081/health", timeout=2).read()',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   fake-camera:
     build:
       context: ./fake-camera
@@ -48,6 +68,8 @@ services:
     restart: unless-stopped
     depends_on:
       redis:
+        condition: service_healthy
+      mock-speaker:
         condition: service_healthy
       fake-camera:
         condition: service_healthy

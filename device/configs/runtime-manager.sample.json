@@ -83,6 +83,42 @@
       "install_path": "/home/hacklab/trakrai-device-runtime/ui"
     },
     {
+      "name": "audio-manager",
+      "display_name": "Audio manager",
+      "description": "Queued text-to-speech generation, local playback, and network-speaker delivery service.",
+      "kind": "wheel",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "exec_start": [
+        "python3",
+        "-m",
+        "trakrai_audio_manager",
+        "--config",
+        "/home/hacklab/trakrai-device-runtime/configs/audio-manager.json"
+      ],
+      "environment": {
+        "HOME": "/home/hacklab",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "setup_command": [
+        "python3",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--force-reinstall",
+        "{{artifact_path}}"
+      ],
+      "version_command": [
+        "python3",
+        "-m",
+        "trakrai_audio_manager",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-audio-manager.service"
+    },
+    {
       "name": "cloud-transfer",
       "display_name": "Cloud transfer",
       "description": "Queued upload/download worker backed by SQLite and presigned URLs.",

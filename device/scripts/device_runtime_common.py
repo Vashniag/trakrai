@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEVICE_ROOT = REPO_ROOT / "device"
 WEB_DEVICE_APP_ROOT = REPO_ROOT / "web" / "apps" / "trakrai-device"
 DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
+DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
 GO_LDFLAGS = os.environ.get("GO_LDFLAGS", "")
 DEFAULT_ARM64_PLATFORM = "linux/arm64"
@@ -36,6 +37,7 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
 )
 
 CONFIG_NAMES: tuple[str, ...] = (
+    "audio-manager.json",
     "cloud-comm.json",
     "cloud-transfer.json",
     "live-feed.json",
@@ -80,6 +82,16 @@ class PythonWheelTarget:
 
 
 PYTHON_WHEEL_TARGETS: tuple[PythonWheelTarget, ...] = (
+    PythonWheelTarget(
+        artifact_key="audio-manager-wheel",
+        config_name="audio-manager.json",
+        context_dir=DEVICE_ROOT / "python" / "audio_manager",
+        default_version=DEFAULT_AUDIO_MANAGER_VERSION,
+        description="Queued audio generation, local playback, and network-speaker delivery service.",
+        display_name="Audio manager",
+        module_name="trakrai_audio_manager",
+        service_name="audio-manager",
+    ),
     PythonWheelTarget(
         artifact_key="ai-wheel",
         config_name="ai-inference.json",
@@ -574,6 +586,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
             "ui",
+            "audio-manager",
             "ai_inference",
             "workflow-engine",
             "configs",
@@ -591,6 +604,7 @@ def build_manifest(options: StageOptions, available_configs: set[str], wheel_nam
             f"{runtime_root}/roi-config",
             f"{runtime_root}/rtsp-feeder",
             f"{runtime_root}/serve-device-ui.sh",
+            runtime_config_path(runtime_root, "audio-manager.json"),
             runtime_config_path(runtime_root, "ai-inference.json"),
             runtime_config_path(runtime_root, "workflow-engine.json"),
         ],

@@ -12,6 +12,7 @@ What it does:
 
 Default local configs only include the services that can run meaningfully without hardware or cloud credentials:
 
+- `audio-manager`
 - `cloud-comm`
 - `cloud-transfer`
 - `live-feed`
@@ -22,6 +23,7 @@ Default local configs only include the services that can run meaningfully withou
 The local stack also starts local object storage infrastructure for the transfer worker:
 
 - `minio` on `http://127.0.0.1:19000`
+- `mock-speaker` on `http://127.0.0.1:18910`
 
 The real cloud API is expected to be provided by the `trakrai` web app, typically on:
 
@@ -52,6 +54,7 @@ Important defaults:
 - fake RTSP feed: `rtsp://127.0.0.1:18554/stream`
 - host-backed transfer shared dir: `trakrai/device/.localdev/shared`
 - host-backed workflow file: `trakrai/device/.localdev/shared/workflow.json`
+- host-backed speaker code mapping: `trakrai/device/.localdev/shared/audio/speaker-codes.csv`
 - broker host inside containers: `host.docker.internal:1883`
 - local MinIO API: `http://127.0.0.1:19000`
 - local MinIO console: `http://127.0.0.1:19001`
@@ -110,6 +113,31 @@ That script:
 - simulates a short timeout window to verify expiry/failure behavior
 - enqueues a download for the same object
 - verifies the downloaded payload matches the original file
+
+## Verifying Audio Manager
+
+The local stack includes `audio-manager` as a wheel-installed managed service. In local dev it:
+
+- synthesizes WAV files with `espeak`
+- records local playback via the `mock` playback backend
+- delivers network speaker announcements to the `mock-speaker` HTTP service
+
+Run the end-to-end verifier from the repository root:
+
+```bash
+python3 trakrai/device/scripts/verify_audio_service_local.py
+```
+
+That script:
+
+- queues a direct `play-audio` request over the local IPC bus
+- waits for the queued job to complete
+- verifies the generated audio file exists in the shared runtime volume
+- verifies `mock-speaker` received the short-code payload
+- temporarily swaps in an audio test workflow
+- submits a detection frame to `workflow-engine`
+- waits for the workflow-triggered audio job to complete
+- restores the original workflow file afterward
 
 ## Using The Workflow Engine
 

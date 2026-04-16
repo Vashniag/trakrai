@@ -1,10 +1,22 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, TypedDict, cast
+from typing import Any, Callable, Dict, Optional, Protocol, TypedDict, cast
 
 NodeInputs = Dict[str, Any]
 NodeOutputs = Dict[str, Any]
 NodeFunction = Callable[[NodeInputs], NodeOutputs]
+
+
+class ServiceBridgeProtocol(Protocol):
+    def request(
+        self,
+        *,
+        target_service: str,
+        message_type: str,
+        payload: dict[str, Any],
+        expected_types: set[str],
+        timeout_sec: float,
+    ) -> dict[str, Any]: ...
 
 
 class Detection(TypedDict, total=False):
@@ -36,15 +48,26 @@ class WorkflowPayload(TypedDict, total=False):
 
 class ExecutionContext(TypedDict, total=False):
     detection_data: WorkflowPayload
+    service_bridge: ServiceBridgeProtocol
 
 
 def get_detection_data_from_inputs(inputs: NodeInputs) -> WorkflowPayload:
-    raw_ctx = inputs.get("__context__", {})
-    if not isinstance(raw_ctx, dict):
-        return cast(WorkflowPayload, {})
-
+    raw_ctx = _get_execution_context(inputs)
     raw_payload = raw_ctx.get("detection_data", {})
     if not isinstance(raw_payload, dict):
         return cast(WorkflowPayload, {})
 
     return cast(WorkflowPayload, raw_payload)
+
+
+def get_service_bridge_from_inputs(inputs: NodeInputs) -> Optional[ServiceBridgeProtocol]:
+    raw_ctx = _get_execution_context(inputs)
+    raw_bridge = raw_ctx.get("service_bridge")
+    return cast(Optional[ServiceBridgeProtocol], raw_bridge)
+
+
+def _get_execution_context(inputs: NodeInputs) -> ExecutionContext:
+    raw_ctx = inputs.get("__context__", {})
+    if not isinstance(raw_ctx, dict):
+        return cast(ExecutionContext, {})
+    return cast(ExecutionContext, raw_ctx)
