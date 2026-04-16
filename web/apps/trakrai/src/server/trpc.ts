@@ -111,8 +111,10 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({
 
 export const deviceProcedure = t.procedure
   .use(timingMiddleware)
-  .use(async ({ ctx, input, next }) => {
-    const deviceId = readDeviceIdFromInput(input);
+  .use(async ({ ctx, getRawInput, input, next }) => {
+    // OpenAPI requests can reach middleware before `input` has been materialized,
+    // so fall back to the raw request body when needed.
+    const deviceId = readDeviceIdFromInput(input) ?? readDeviceIdFromInput(await getRawInput());
     if (deviceId === null) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
