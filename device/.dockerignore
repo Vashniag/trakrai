@@ -1,0 +1,13 @@
+.git
+.gitignore
+.localdev
+localdev
+out
+configs
+python
+scripts
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.md
