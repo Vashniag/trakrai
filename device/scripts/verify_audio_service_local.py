@@ -19,6 +19,7 @@ LOCAL_SHARED_DIR = DEVICE_ROOT / ".localdev" / "shared"
 LOCAL_AUDIO_WORKFLOW_TEMPLATE = DEVICE_ROOT / "localdev" / "workflows" / "audio-service-verification-workflow.json"
 RUNTIME_SHARED_DIR = "/home/hacklab/trakrai-device-runtime/shared"
 RUNTIME_CONFIG_PATH = "/home/hacklab/trakrai-device-runtime/configs/workflow-engine.json"
+HOST_AUDIO_LAST_REQUEST = DEVICE_ROOT / ".localdev" / "host-audio-player" / "last-request.json"
 MOCK_SPEAKER_LAST_REQUEST = LOCAL_SHARED_DIR / "mock-speaker" / "last-request.json"
 RUNTIME_SHARED_PREFIX = f"{RUNTIME_SHARED_DIR}/"
 
@@ -144,6 +145,7 @@ def main() -> int:
 def verify_direct_audio_request(timeout_sec: int) -> dict[str, Any]:
     token = uuid4().hex[:8]
     request_id = uuid4().hex
+    before_host_audio_mtime = HOST_AUDIO_LAST_REQUEST.stat().st_mtime if HOST_AUDIO_LAST_REQUEST.exists() else 0.0
     before_speaker_mtime = MOCK_SPEAKER_LAST_REQUEST.stat().st_mtime if MOCK_SPEAKER_LAST_REQUEST.exists() else 0.0
     response = service_call(
         target_service="audio-manager",
@@ -171,8 +173,14 @@ def verify_direct_audio_request(timeout_sec: int) -> dict[str, Any]:
     audio_path = runtime_to_host_path(completed_job["audioPath"])
     if not audio_path.exists():
         raise SystemExit(f"expected generated audio file at {audio_path}")
+    if not HOST_AUDIO_LAST_REQUEST.exists() or HOST_AUDIO_LAST_REQUEST.stat().st_mtime <= before_host_audio_mtime:
+        raise SystemExit("host audio player did not record a new local playback request")
     if not MOCK_SPEAKER_LAST_REQUEST.exists() or MOCK_SPEAKER_LAST_REQUEST.stat().st_mtime <= before_speaker_mtime:
         raise SystemExit("mock speaker did not record a new direct audio request")
+
+    host_audio_request = json.loads(HOST_AUDIO_LAST_REQUEST.read_text(encoding="utf-8"))
+    if host_audio_request.get("played") is not True or int(host_audio_request.get("returnCode", 1)) != 0:
+        raise SystemExit(json.dumps({"error": "host audio player failed", "hostAudioRequest": host_audio_request}, indent=2))
 
     speaker_request = json.loads(MOCK_SPEAKER_LAST_REQUEST.read_text(encoding="utf-8"))
     if speaker_request.get("body") != "m:901":
@@ -182,7 +190,12 @@ def verify_direct_audio_request(timeout_sec: int) -> dict[str, Any]:
     if event.get("event") != "completed":
         raise SystemExit(json.dumps({"error": "missing completed audio event", "event": event}, indent=2))
 
-    return {"event": event, "job": completed_job, "speakerRequest": speaker_request}
+    return {
+        "event": event,
+        "hostAudioRequest": host_audio_request,
+        "job": completed_job,
+        "speakerRequest": speaker_request,
+    }
 
 
 def verify_workflow_audio_request(timeout_sec: int) -> dict[str, Any]:
@@ -195,6 +208,7 @@ def verify_workflow_audio_request(timeout_sec: int) -> dict[str, Any]:
     workflow["metadata"]["name"] = f"Audio Service Verification Workflow {uuid4().hex[:6]}"
     workflow["nodes"][1]["data"]["configuration"]["message"] = f"Workflow audio verification {uuid4().hex[:6]}"
     workflow_path.write_text(json.dumps(workflow, indent=2) + "\n", encoding="utf-8")
+    before_host_audio_mtime = HOST_AUDIO_LAST_REQUEST.stat().st_mtime if HOST_AUDIO_LAST_REQUEST.exists() else 0.0
 
     try:
         wait_for_workflow_name(str(workflow["metadata"]["name"]), timeout_sec)
@@ -218,11 +232,21 @@ def verify_workflow_audio_request(timeout_sec: int) -> dict[str, Any]:
         completed_job = wait_for_audio_job(str(audio_output.get("jobId", "")).strip(), timeout_sec)
         if completed_job["state"] != "completed":
             raise SystemExit(json.dumps({"error": "workflow audio job did not complete", "job": completed_job}, indent=2))
+        if not HOST_AUDIO_LAST_REQUEST.exists() or HOST_AUDIO_LAST_REQUEST.stat().st_mtime <= before_host_audio_mtime:
+            raise SystemExit("host audio player did not record a new workflow playback request")
 
+        host_audio_request = json.loads(HOST_AUDIO_LAST_REQUEST.read_text(encoding="utf-8"))
+        if host_audio_request.get("played") is not True or int(host_audio_request.get("returnCode", 1)) != 0:
+            raise SystemExit(json.dumps({"error": "workflow host audio player failed", "hostAudioRequest": host_audio_request}, indent=2))
         speaker_request = json.loads(MOCK_SPEAKER_LAST_REQUEST.read_text(encoding="utf-8"))
         if speaker_request.get("body") != "m:902":
             raise SystemExit(json.dumps({"error": "unexpected workflow speaker payload", "speakerRequest": speaker_request}, indent=2))
-        return {"job": completed_job, "run": run, "speakerRequest": speaker_request}
+        return {
+            "hostAudioRequest": host_audio_request,
+            "job": completed_job,
+            "run": run,
+            "speakerRequest": speaker_request,
+        }
     finally:
         if backup_path.exists():
             shutil.move(str(backup_path), str(workflow_path))

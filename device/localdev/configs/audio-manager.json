@@ -24,8 +24,21 @@
     }
   },
   "playback": {
-    "backend": "mock",
-    "timeout_sec": 5
+    "backend": "command",
+    "timeout_sec": 60,
+    "command_template": [
+      "curl",
+      "--fail",
+      "--silent",
+      "--show-error",
+      "-X",
+      "POST",
+      "--data-binary",
+      "@{audio_path}",
+      "-H",
+      "Content-Type: audio/wav",
+      "http://host.docker.internal:18920/play"
+    ]
   },
   "speaker": {
     "enabled": true,

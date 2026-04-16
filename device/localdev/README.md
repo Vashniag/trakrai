@@ -24,6 +24,7 @@ The local stack also starts local object storage infrastructure for the transfer
 
 - `minio` on `http://127.0.0.1:19000`
 - `mock-speaker` on `http://127.0.0.1:18910`
+- `host-audio-player` on `http://127.0.0.1:18920`
 
 The real cloud API is expected to be provided by the `trakrai` web app, typically on:
 
@@ -59,6 +60,16 @@ Important defaults:
 - local MinIO API: `http://127.0.0.1:19000`
 - local MinIO console: `http://127.0.0.1:19001`
 - local cloud API: `http://127.0.0.1:3000`
+- local host audio relay: `http://127.0.0.1:18920`
+
+By default, `local_device_runtime.py up` also starts a small host-side audio relay that plays generated WAV files
+through the laptop speakers. On macOS it uses `afplay`. If you do not want audible playback, add:
+
+```bash
+python3 trakrai/device/scripts/local_device_runtime.py up \
+  --video /absolute/path/to/sample.mp4 \
+  --disable-host-audio-playback
+```
 
 ## Using Uploads And Downloads From The UI
 
@@ -119,7 +130,7 @@ That script:
 The local stack includes `audio-manager` as a wheel-installed managed service. In local dev it:
 
 - synthesizes WAV files with `espeak`
-- records local playback via the `mock` playback backend
+- sends local playback to the host audio relay, which plays it on the laptop speakers
 - delivers network speaker announcements to the `mock-speaker` HTTP service
 
 Run the end-to-end verifier from the repository root:
@@ -133,10 +144,12 @@ That script:
 - queues a direct `play-audio` request over the local IPC bus
 - waits for the queued job to complete
 - verifies the generated audio file exists in the shared runtime volume
+- verifies the host audio relay accepted and played the WAV file
 - verifies `mock-speaker` received the short-code payload
 - temporarily swaps in an audio test workflow
 - submits a detection frame to `workflow-engine`
 - waits for the workflow-triggered audio job to complete
+- verifies the workflow-triggered WAV was also played through the host audio relay
 - restores the original workflow file afterward
 
 ## Using The Workflow Engine
