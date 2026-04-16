@@ -1,5 +1,6 @@
 import { type FetchCreateContextFnOptions, fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
+import { applyCorsHeaders, createCorsPreflightResponse } from '@/lib/cors';
 import logger from '@/lib/logger';
 import { withRequestContext } from '@/lib/request-context';
 import { setCookieHeader } from '@/lib/set-cookie-header';
@@ -13,8 +14,8 @@ const createContext = (req: Request, opts: FetchCreateContextFnOptions) => {
   });
 };
 
-const handler = withRequestContext((req: Request) =>
-  fetchRequestHandler({
+const handler = withRequestContext(async (req: Request) => {
+  const response = await fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
     router: appRouter,
@@ -22,7 +23,10 @@ const handler = withRequestContext((req: Request) =>
     onError: ({ path, error }) => {
       logger.error(`tRPC failed on ${path ?? '<no-path>'}: ${error.message}`);
     },
-  }),
-);
+  });
+  return applyCorsHeaders(req, response);
+});
 
-export { handler as GET, handler as POST };
+const optionsHandler = (req: Request) => createCorsPreflightResponse(req);
+
+export { handler as GET, handler as POST, optionsHandler as OPTIONS };

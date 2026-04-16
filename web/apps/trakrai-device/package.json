@@ -9,6 +9,8 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.99.0",
+    "@trakrai/cloud-api-contract": "workspace:*",
     "@trakrai/cloud-transfer-ui": "workspace:*",
     "@trakrai/design-system": "workspace:*",
     "@trakrai/live-transport": "workspace:*",
@@ -16,10 +18,13 @@
     "@trakrai/roi-configurator": "workspace:*",
     "@trakrai/runtime-manager-ui": "workspace:*",
     "@trakrai/webrtc": "workspace:*",
+    "@trpc/client": "^11.16.0",
+    "@trpc/react-query": "^11.16.0",
     "next": "16.2.3",
     "react": "19.2.5",
     "react-dom": "19.2.5",
-    "sonner": "^2.0.7"
+    "sonner": "^2.0.7",
+    "superjson": "^2.2.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

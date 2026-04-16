@@ -38,6 +38,16 @@ def main() -> int:
     up_parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR), help="directory containing local device JSON configs")
     up_parser.add_argument("--mqtt-host", default="host.docker.internal", help="hostname/IP of the existing Mosquitto broker")
     up_parser.add_argument("--mqtt-port", type=int, default=1883, help="port of the existing Mosquitto broker")
+    up_parser.add_argument(
+        "--cloud-api-base-url",
+        default="http://host.docker.internal:3000",
+        help="base URL for the real cloud API as seen from inside the device container",
+    )
+    up_parser.add_argument(
+        "--cloud-api-auth-token",
+        default="",
+        help="optional bearer token for cloud storage presign requests",
+    )
     up_parser.add_argument("--device-id", default="trakrai-device-local", help="device ID to expose from cloud-comm")
     up_parser.add_argument(
         "--http-port",
@@ -86,7 +96,7 @@ def main() -> int:
     logs_parser.add_argument("--compose-project-name", default=DEFAULT_PROJECT_NAME)
     logs_parser.add_argument(
         "--service",
-        choices=["device-emulator", "fake-camera", "minio", "mock-cloud-api", "redis"],
+        choices=["device-emulator", "fake-camera", "minio", "redis"],
         help="optional service filter",
     )
     logs_parser.add_argument("--lines", type=int, default=200)
@@ -120,6 +130,8 @@ def cmd_up(args: argparse.Namespace) -> int:
         config_map,
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
+        cloud_api_auth_token=args.cloud_api_auth_token,
+        cloud_api_base_url=args.cloud_api_base_url,
         device_id=args.device_id,
         webrtc_host_candidate_ip=args.webrtc_host_candidate_ip,
         webrtc_udp_port_min=args.webrtc_udp_port_min,
@@ -176,6 +188,7 @@ def cmd_up(args: argparse.Namespace) -> int:
 
     print("")
     print(f"Device edge UI: http://127.0.0.1:{args.http_port}")
+    print(f"Cloud API (from device): {args.cloud_api_base_url}")
     print(f"Fake RTSP feed: rtsp://127.0.0.1:{args.rtsp_port}/stream")
     print(f"Host shared dir: {SHARED_DIR}")
     return 0
@@ -212,6 +225,8 @@ def patch_local_configs(
     *,
     mqtt_host: str,
     mqtt_port: int,
+    cloud_api_auth_token: str,
+    cloud_api_base_url: str,
     device_id: str,
     webrtc_host_candidate_ip: str,
     webrtc_udp_port_min: int,
@@ -226,6 +241,9 @@ def patch_local_configs(
     cloud_transfer = patched.get("cloud-transfer.json")
     if isinstance(cloud_transfer, dict):
         cloud_transfer["device_id"] = device_id
+        cloud_api = cloud_transfer.setdefault("cloud_api", {})
+        cloud_api["auth_token"] = cloud_api_auth_token
+        cloud_api["base_url"] = cloud_api_base_url.rstrip("/")
 
     workflow_engine = patched.get("workflow-engine.json")
     if isinstance(workflow_engine, dict):

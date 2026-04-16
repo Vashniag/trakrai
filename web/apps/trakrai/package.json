@@ -13,12 +13,16 @@
     "auth:generate": "pnpm dlx @better-auth/cli generate --output src/db/auth-schema.ts -y"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.29.1",
+    "@aws-sdk/client-s3": "^3.913.0",
+    "@aws-sdk/s3-request-presigner": "^3.913.0",
     "@better-auth/passkey": "^1.5.6",
     "@hookform/resolvers": "5.2.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@react-email/components": "^1.0.10",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tanstack/react-query": "^5.99.0",
+    "@trakrai/cloud-api-contract": "workspace:*",
     "@trakrai/cloud-transfer-ui": "workspace:*",
     "@trakrai/design-system": "workspace:*",
     "@trakrai/live-transport": "workspace:*",

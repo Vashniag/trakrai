@@ -19,10 +19,13 @@ Default local configs only include the services that can run meaningfully withou
 - `workflow-engine`
 - `runtime-manager`
 
-The local stack also starts mock cloud storage infrastructure for the transfer worker:
+The local stack also starts local object storage infrastructure for the transfer worker:
 
 - `minio` on `http://127.0.0.1:19000`
-- `mock-cloud-api` on `http://127.0.0.1:18090`
+
+The real cloud API is expected to be provided by the `trakrai` web app, typically on:
+
+- `http://127.0.0.1:3000`
 
 If you want to add more services, pass `--config-dir` to [`local_device_runtime.py`](/Users/hardikj/code/web-apps/trakrbi/trakrai/device/scripts/local_device_runtime.py).
 
@@ -52,7 +55,7 @@ Important defaults:
 - broker host inside containers: `host.docker.internal:1883`
 - local MinIO API: `http://127.0.0.1:19000`
 - local MinIO console: `http://127.0.0.1:19001`
-- local mock cloud API: `http://127.0.0.1:18090`
+- local cloud API: `http://127.0.0.1:3000`
 
 ## Using Uploads And Downloads From The UI
 
@@ -103,8 +106,7 @@ That script:
 - registers a temporary verifier service on the IPC socket
 - enqueues an upload through `cloud-transfer` over the local service bus
 - waits for the upload to complete
-- confirms the object exists in the mock cloud bucket
-- simulates a cloud outage to verify retry/backoff recovery
+- simulates a storage outage by stopping MinIO to verify retry/backoff recovery
 - simulates a short timeout window to verify expiry/failure behavior
 - enqueues a download for the same object
 - verifies the downloaded payload matches the original file

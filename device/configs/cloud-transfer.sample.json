@@ -11,9 +11,9 @@
   "cloud_api": {
     "base_url": "https://api.trakrai.example",
     "auth_token": "",
-    "upload_presign_path": "/api/v1/device-storage/presign-upload",
-    "download_presign_path": "/api/v1/device-storage/presign-download",
-    "package_download_presign_path": "/api/v1/package-storage/presign-download",
+    "upload_presign_path": "/api/external/storage/devices/upload-session",
+    "download_presign_path": "/api/external/storage/devices/download-session",
+    "package_download_presign_path": "/api/external/storage/packages/download-session",
     "request_timeout_sec": 30
   },
   "queue": {
