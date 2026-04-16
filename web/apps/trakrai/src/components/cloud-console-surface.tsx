@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -49,11 +49,13 @@ type CloudConsoleSurfaceProps = Readonly<{
 }>;
 
 const DeviceSelectionCard = ({
-  deviceId,
-  onDeviceIdChange,
+  deviceIdDraft,
+  onCommitDeviceId,
+  onDeviceIdDraftChange,
 }: Readonly<{
-  deviceId: string;
-  onDeviceIdChange: (nextValue: string) => void;
+  deviceIdDraft: string;
+  onCommitDeviceId: () => void;
+  onDeviceIdDraftChange: (nextValue: string) => void;
 }>) => (
   <Card className="border">
     <CardHeader className="border-b">
@@ -64,11 +66,21 @@ const DeviceSelectionCard = ({
         <Label htmlFor="cloud-live-device-id">Device ID</Label>
         <Input
           id="cloud-live-device-id"
-          value={deviceId}
+          value={deviceIdDraft}
+          onBlur={onCommitDeviceId}
           onChange={(event) => {
-            onDeviceIdChange(event.target.value);
+            onDeviceIdDraftChange(event.target.value);
+          }}
+          onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key !== 'Enter') {
+              return;
+            }
+
+            event.preventDefault();
+            onCommitDeviceId();
           }}
         />
+        <p className="text-muted-foreground text-xs">Press Enter or leave the field to apply.</p>
       </div>
     </CardContent>
   </Card>
@@ -77,6 +89,7 @@ const DeviceSelectionCard = ({
 export const CloudConsoleSurface = ({ children, description, title }: CloudConsoleSurfaceProps) => {
   const pathname = usePathname();
   const [deviceId, setDeviceId] = useState(DEFAULT_CLOUD_DEVICE_ID);
+  const [deviceIdDraft, setDeviceIdDraft] = useState(DEFAULT_CLOUD_DEVICE_ID);
 
   useEffect(() => {
     const storedDeviceId = window.localStorage.getItem(STORAGE_KEY)?.trim();
@@ -86,12 +99,17 @@ export const CloudConsoleSurface = ({ children, description, title }: CloudConso
 
     const frameId = window.requestAnimationFrame(() => {
       setDeviceId(storedDeviceId);
+      setDeviceIdDraft(storedDeviceId);
     });
 
     return () => {
       window.cancelAnimationFrame(frameId);
     };
   }, []);
+
+  useEffect(() => {
+    setDeviceIdDraft(deviceId);
+  }, [deviceId]);
 
   useEffect(() => {
     const normalizedDeviceId = deviceId.trim();
@@ -102,6 +120,17 @@ export const CloudConsoleSurface = ({ children, description, title }: CloudConso
 
     window.localStorage.setItem(STORAGE_KEY, normalizedDeviceId);
   }, [deviceId]);
+
+  const commitDeviceIdDraft = () => {
+    const normalizedDeviceId = deviceIdDraft.trim();
+    if (normalizedDeviceId === '') {
+      setDeviceIdDraft(deviceId);
+      return;
+    }
+
+    setDeviceId(normalizedDeviceId);
+    setDeviceIdDraft(normalizedDeviceId);
+  };
 
   return (
     <CloudTransportProvider
@@ -118,7 +147,13 @@ export const CloudConsoleSurface = ({ children, description, title }: CloudConso
           'Runtime and transfer routes call device services through the same request/response transport, without their own network clients.',
           'Device ID selection stays in the app shell, while the feature packages stay focused on PTZ, live video, runtime control, and transfers.',
         ]}
-        controls={<DeviceSelectionCard deviceId={deviceId} onDeviceIdChange={setDeviceId} />}
+        controls={
+          <DeviceSelectionCard
+            deviceIdDraft={deviceIdDraft}
+            onCommitDeviceId={commitDeviceIdDraft}
+            onDeviceIdDraftChange={setDeviceIdDraft}
+          />
+        }
         description={description}
         detailItems={[
           { label: 'Active device', value: deviceId },

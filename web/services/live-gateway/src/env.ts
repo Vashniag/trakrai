@@ -24,6 +24,8 @@ export const env = createEnv({
     STUN_SERVER_URL: z.string().default('stun:stun.l.google.com:19302'),
 
     // TURN relay credentials advertised to browsers when `TURN_SERVER_URL` is set.
+    // Provide one or more TURN urls as a comma-separated list when you want
+    // transport fallback, for example UDP plus TCP.
     // Get these from the coturn deployment or relay service you actually operate.
     TURN_CREDENTIAL: z.string().default('trakrai-secret'),
     TURN_SERVER_URL: z.string().optional(),

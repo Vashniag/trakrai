@@ -5,6 +5,17 @@ const parseOptionalEnvValue = (value: string | undefined): string | null => {
   return normalizedValue !== undefined && normalizedValue !== '' ? normalizedValue : null;
 };
 
+const parseOptionalEnvValues = (value: string | undefined): string[] => {
+  if (value === undefined) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((candidate) => candidate.trim())
+    .filter((candidate) => candidate !== '');
+};
+
 const isLoopbackHostname = (hostname: string): boolean => {
   const normalizedHostname = hostname.trim().toLowerCase();
   return (
@@ -42,23 +53,25 @@ const getTurnHostname = (turnUrl: string): string | null => {
   return colonIndex > 0 ? hostPort.slice(0, colonIndex) : hostPort;
 };
 
-const resolveTurnConfig = (): { credential: string; url: string; username: string } | null => {
-  const turnUrl = parseOptionalEnvValue(env.TURN_SERVER_URL);
-  if (turnUrl === null) {
-    return null;
-  }
+const resolveTurnConfig = (): { credential: string; urls: string[]; username: string } | null => {
+  const turnUrls = parseOptionalEnvValues(env.TURN_SERVER_URL).filter((turnUrl) => {
+    const hostname = getTurnHostname(turnUrl);
+    if (hostname === null || !isLoopbackHostname(hostname)) {
+      return true;
+    }
 
-  const hostname = getTurnHostname(turnUrl);
-  if (hostname !== null && isLoopbackHostname(hostname)) {
     console.warn(
-      `[${serviceName}] TURN disabled because TURN_SERVER_URL points to loopback address ${hostname}.`,
+      `[${serviceName}] Ignoring TURN url because it points to loopback address ${hostname}.`,
     );
+    return false;
+  });
+  if (turnUrls.length === 0) {
     return null;
   }
 
   return {
     credential: env.TURN_CREDENTIAL,
-    url: turnUrl,
+    urls: turnUrls,
     username: env.TURN_USERNAME,
   };
 };

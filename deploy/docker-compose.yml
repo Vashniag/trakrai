@@ -15,7 +15,7 @@ services:
       - caddy_config:/config
     depends_on:
       live-gateway:
-        condition: service_started
+        condition: service_healthy
 
   postgres:
     image: postgres:17
@@ -68,15 +68,22 @@ services:
     depends_on:
       mosquitto:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   coturn:
     image: coturn/coturn:latest
     restart: unless-stopped
-    ports:
-      - '3478:3478'
-      - '3478:3478/udp'
-      - '5349:5349'
-      - '49160-49170:49160-49170/udp'
+    network_mode: host
     environment:
       TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-}
       TURN_PRIVATE_IP: ${TURN_PRIVATE_IP:-}
