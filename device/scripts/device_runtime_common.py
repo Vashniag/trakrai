@@ -20,6 +20,8 @@ DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
 DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
 GO_LDFLAGS = os.environ.get("GO_LDFLAGS", "")
+DOCKER_CACHE_FROM = os.environ.get("TRAKRAI_DOCKER_CACHE_FROM", "").strip()
+DOCKER_CACHE_TO = os.environ.get("TRAKRAI_DOCKER_CACHE_TO", "").strip()
 DEFAULT_ARM64_PLATFORM = "linux/arm64"
 def _detect_local_platform() -> str:
     machine = (platform.machine() or "").lower()
@@ -293,6 +295,10 @@ def docker_buildx(
         "-f",
         dockerfile,
     ]
+    if DOCKER_CACHE_FROM:
+        command.extend(["--cache-from", DOCKER_CACHE_FROM])
+    if DOCKER_CACHE_TO:
+        command.extend(["--cache-to", DOCKER_CACHE_TO])
     for key, value in build_args.items():
         command.extend(["--build-arg", f"{key}={value}"])
     command.append(str(context_dir))

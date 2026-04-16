@@ -72,8 +72,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      mock-speaker:
-        condition: service_healthy
       fake-camera:
         condition: service_healthy
     extra_hosts:
