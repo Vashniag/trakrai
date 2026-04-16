@@ -12,6 +12,18 @@ import { sendEmail } from './send-email';
 const SESSION_CACHE_MAX_AGE_MINUTES = 5;
 const SECONDS_PER_MINUTE = 60;
 
+const resolveTrustedOrigins = (): string[] => {
+  if (env.NODE_ENV === 'development') {
+    return ['http://localhost:3000', 'http://localhost:3100'];
+  }
+
+  if (env.VERCEL_URL !== undefined) {
+    return [`https://${env.VERCEL_URL}`];
+  }
+
+  return [];
+};
+
 export const auth = betterAuth({
   appName: 'trakrai',
   plugins: [
@@ -65,10 +77,7 @@ export const auth = betterAuth({
       );
     },
   },
-  trustedOrigins:
-    env.NODE_ENV === 'development'
-      ? ['http://localhost:3000', 'http://localhost:3100']
-      : [`https://${process.env.VERCEL_URL ?? ''}`],
+  trustedOrigins: resolveTrustedOrigins(),
   socialProviders: {
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID,

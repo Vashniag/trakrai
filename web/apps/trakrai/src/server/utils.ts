@@ -2,6 +2,7 @@ import { defaultShouldDehydrateQuery, QueryClient } from '@tanstack/react-query'
 import { loggerLink, splitLink, httpSubscriptionLink, httpBatchLink } from '@trpc/client';
 import { SuperJSON } from 'superjson';
 
+import { cloudAppBuildConfig } from '@/lib/build-config';
 import { MILLISECONDS_IN_SECONDS, SECONDS_IN_MINUTE } from '@/lib/constants';
 import { getBaseUrl } from '@/lib/getBaseUrl';
 
@@ -25,7 +26,7 @@ export const createQueryClient = (): QueryClient =>
 export const links = [
   loggerLink({
     enabled: (op) =>
-      process.env.NODE_ENV === 'development' ||
+      cloudAppBuildConfig.enableTrpcLogger ||
       (op.direction === 'down' && op.result instanceof Error),
   }),
   splitLink({

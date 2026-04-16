@@ -15,10 +15,22 @@ export type ResolvedDeviceUiTransport = {
   signalingUrl: string;
 };
 
+export type DeviceUiBuildConfig = {
+  cloudApiBaseUrl: string;
+  cloudBridgeUrl: string;
+  configuredEdgeBridgeUrl?: string;
+  deviceId: string;
+  diagnosticsEnabled: boolean;
+  enableTrpcLogger: boolean;
+  isDevelopment: boolean;
+  localDeviceHttpPort: string;
+  managementService: string;
+  runtimeConfigUrl?: string;
+  transportMode: DeviceTransportMode;
+};
+
 const WS_PATH_SUFFIX = '/ws';
 const DEFAULT_RUNTIME_CONFIG_PATH = '/api/runtime-config';
-const DEFAULT_LOCAL_DEVICE_HTTP_PORT = '18080';
-const REMOTE_RUNTIME_CONFIG_URL = process.env.NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL;
 
 type WindowRuntimeConfig = Partial<DeviceUiRuntimeConfig> & {
   diagnosticsEnabled?: boolean | string;
@@ -37,11 +49,6 @@ const normalizeString = (value: string | undefined, fallback: string): string =>
 
   return normalized !== undefined && normalized !== '' ? normalized : fallback;
 };
-
-const LOCAL_DEVICE_HTTP_PORT = normalizeString(
-  process.env.NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT,
-  DEFAULT_LOCAL_DEVICE_HTTP_PORT,
-);
 
 const normalizeMode = (
   value: string | undefined,
@@ -81,32 +88,31 @@ const normalizePath = (pathName: string): string => {
 };
 
 const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
-const isDevelopment = (): boolean => process.env.NODE_ENV === 'development';
 const readBrowserHostname = (): string =>
   typeof window === 'undefined'
     ? '127.0.0.1'
     : normalizeString(window.location.hostname, '127.0.0.1');
 
-const buildLocalDevDeviceBaseUrl = (): string =>
-  `http://${readBrowserHostname()}:${LOCAL_DEVICE_HTTP_PORT}`;
+const buildLocalDevDeviceBaseUrl = (localDeviceHttpPort: string): string =>
+  `http://${readBrowserHostname()}:${localDeviceHttpPort}`;
 
-const resolveDefaultEdgeBridgeUrl = (): string => {
-  const configuredUrl = process.env.NEXT_PUBLIC_TRAKRAI_EDGE_BRIDGE_URL?.trim();
-  if (configuredUrl !== undefined && configuredUrl !== '') {
-    return configuredUrl;
+const resolveDefaultEdgeBridgeUrl = (buildConfig: DeviceUiBuildConfig): string => {
+  if (buildConfig.configuredEdgeBridgeUrl !== undefined) {
+    return buildConfig.configuredEdgeBridgeUrl;
   }
 
-  return isDevelopment() ? buildLocalDevDeviceBaseUrl() : 'http://127.0.0.1:8080';
+  return buildConfig.isDevelopment
+    ? buildLocalDevDeviceBaseUrl(buildConfig.localDeviceHttpPort)
+    : 'http://127.0.0.1:8080';
 };
 
-const resolveRuntimeConfigUrl = (): string => {
-  const remoteRuntimeConfigUrl = REMOTE_RUNTIME_CONFIG_URL?.trim();
-  if (remoteRuntimeConfigUrl !== undefined && remoteRuntimeConfigUrl !== '') {
-    return remoteRuntimeConfigUrl;
+const resolveRuntimeConfigUrl = (buildConfig: DeviceUiBuildConfig): string => {
+  if (buildConfig.runtimeConfigUrl !== undefined) {
+    return buildConfig.runtimeConfigUrl;
   }
 
-  return isDevelopment()
-    ? `${buildLocalDevDeviceBaseUrl()}${DEFAULT_RUNTIME_CONFIG_PATH}`
+  return buildConfig.isDevelopment
+    ? `${buildLocalDevDeviceBaseUrl(buildConfig.localDeviceHttpPort)}${DEFAULT_RUNTIME_CONFIG_PATH}`
     : DEFAULT_RUNTIME_CONFIG_PATH;
 };
 
@@ -143,29 +149,21 @@ const deriveTransportUrls = (endpoint: string): ResolvedDeviceUiTransport => {
   };
 };
 
-export const getDefaultDeviceUiRuntimeConfig = (): DeviceUiRuntimeConfig => ({
-  deviceId: normalizeString(process.env.NEXT_PUBLIC_TRAKRAI_DEVICE_ID, 'trakrai-device-local'),
-  transportMode: normalizeMode(process.env.NEXT_PUBLIC_TRAKRAI_DEVICE_TRANSPORT_MODE, 'edge'),
-  cloudBridgeUrl: normalizeString(
-    process.env.NEXT_PUBLIC_TRAKRAI_CLOUD_BRIDGE_URL,
-    'ws://127.0.0.1:8090/ws',
-  ),
-  edgeBridgeUrl: normalizeString(
-    process.env.NEXT_PUBLIC_TRAKRAI_EDGE_BRIDGE_URL,
-    resolveDefaultEdgeBridgeUrl(),
-  ),
-  diagnosticsEnabled: normalizeBoolean(process.env.NEXT_PUBLIC_TRAKRAI_ENABLE_DIAGNOSTICS, true),
-  managementService: normalizeManagementService(
-    process.env.NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE,
-    'runtime-manager',
-  ),
+export const getDefaultDeviceUiRuntimeConfig = (
+  buildConfig: DeviceUiBuildConfig,
+): DeviceUiRuntimeConfig => ({
+  deviceId: buildConfig.deviceId,
+  transportMode: buildConfig.transportMode,
+  cloudBridgeUrl: buildConfig.cloudBridgeUrl,
+  edgeBridgeUrl: resolveDefaultEdgeBridgeUrl(buildConfig),
+  diagnosticsEnabled: buildConfig.diagnosticsEnabled,
+  managementService: buildConfig.managementService,
 });
 
 const normalizeRuntimeConfig = (
   runtimeConfig: WindowRuntimeConfig | undefined,
+  defaultRuntimeConfig: DeviceUiRuntimeConfig,
 ): DeviceUiRuntimeConfig => {
-  const defaultRuntimeConfig = getDefaultDeviceUiRuntimeConfig();
-
   return {
     deviceId: normalizeString(runtimeConfig?.deviceId, defaultRuntimeConfig.deviceId),
     transportMode: normalizeMode(runtimeConfig?.transportMode, defaultRuntimeConfig.transportMode),
@@ -188,25 +186,29 @@ const normalizeRuntimeConfig = (
   };
 };
 
-export const readDeviceUiRuntimeConfig = (): DeviceUiRuntimeConfig => {
+export const readDeviceUiRuntimeConfig = (
+  buildConfig: DeviceUiBuildConfig,
+): DeviceUiRuntimeConfig => {
+  const defaultRuntimeConfig = getDefaultDeviceUiRuntimeConfig(buildConfig);
   if (typeof window === 'undefined') {
-    return getDefaultDeviceUiRuntimeConfig();
+    return defaultRuntimeConfig;
   }
 
-  return normalizeRuntimeConfig(window.__TRAKRAI_DEVICE_UI_CONFIG__);
+  return normalizeRuntimeConfig(window.__TRAKRAI_DEVICE_UI_CONFIG__, defaultRuntimeConfig);
 };
 
 export const loadDeviceUiRuntimeConfig = async (
+  buildConfig: DeviceUiBuildConfig,
   signal?: AbortSignal,
 ): Promise<DeviceUiRuntimeConfig> => {
-  const fallbackConfig = readDeviceUiRuntimeConfig();
+  const fallbackConfig = readDeviceUiRuntimeConfig(buildConfig);
 
   if (typeof window === 'undefined') {
     return fallbackConfig;
   }
 
   try {
-    const runtimeConfigUrl = resolveRuntimeConfigUrl();
+    const runtimeConfigUrl = resolveRuntimeConfigUrl(buildConfig);
     const response = await fetch(runtimeConfigUrl, {
       cache: 'no-store',
       credentials: isAbsoluteUrl(runtimeConfigUrl) ? 'omit' : 'same-origin',
@@ -217,7 +219,7 @@ export const loadDeviceUiRuntimeConfig = async (
     }
 
     const runtimeConfig = (await response.json()) as WindowRuntimeConfig;
-    return normalizeRuntimeConfig(runtimeConfig);
+    return normalizeRuntimeConfig(runtimeConfig, fallbackConfig);
   } catch {
     return fallbackConfig;
   }

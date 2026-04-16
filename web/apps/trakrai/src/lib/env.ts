@@ -1,10 +1,11 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
+import { DEFAULT_PORT } from '@/lib/constants';
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
-    NODE_ENV: z.enum(['development', 'test', 'production']),
     STORAGE_PROVIDER: z.enum(['AZURE', 'MINIO', 'S3']).default('MINIO'),
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_REGION: z.string().optional(),
@@ -33,9 +34,22 @@ export const env = createEnv({
     SMTP_USER: z.string(),
     SMTP_PASSWORD: z.string(),
     EMAIL_SENDER_ADDRESS: z.string(),
+    VERCEL_URL: z.string().optional(),
+  },
+  shared: {
+    NODE_ENV: z.enum(['development', 'test', 'production']),
+    PORT: z.coerce.number().int().positive().default(DEFAULT_PORT),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_FEEDER_WS_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL: z.string().optional(),
+    NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY: z.enum(['all', 'relay']).optional(),
+    NEXT_PUBLIC_LIVE_GATEWAY_WS_URL: z.string().optional(),
+    NEXT_PUBLIC_MEDIATOR_HTTP_URL: z.string().optional(),
+    NEXT_PUBLIC_MEDIATOR_WS_URL: z.string().optional(),
+    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: z.string().optional(),
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
   },
   runtimeEnv: {
@@ -69,9 +83,20 @@ export const env = createEnv({
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     EMAIL_SENDER_ADDRESS: process.env['EMAIL_SENDER_ADDRESS'],
+    PORT: process.env['PORT'],
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
+    NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL: process.env['NEXT_PUBLIC_LIVE_FEEDER_HTTP_URL'],
+    NEXT_PUBLIC_LIVE_FEEDER_WS_URL: process.env['NEXT_PUBLIC_LIVE_FEEDER_WS_URL'],
+    NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL: process.env['NEXT_PUBLIC_LIVE_GATEWAY_HTTP_URL'],
+    NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY:
+      process.env['NEXT_PUBLIC_LIVE_GATEWAY_ICE_TRANSPORT_POLICY'],
+    NEXT_PUBLIC_LIVE_GATEWAY_WS_URL: process.env['NEXT_PUBLIC_LIVE_GATEWAY_WS_URL'],
+    NEXT_PUBLIC_MEDIATOR_HTTP_URL: process.env['NEXT_PUBLIC_MEDIATOR_HTTP_URL'],
+    NEXT_PUBLIC_MEDIATOR_WS_URL: process.env['NEXT_PUBLIC_MEDIATOR_WS_URL'],
+    NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE: process.env['NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],
+    VERCEL_URL: process.env['VERCEL_URL'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&

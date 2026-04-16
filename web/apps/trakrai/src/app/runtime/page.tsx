@@ -3,13 +3,8 @@
 import { DeviceRuntimePage } from '@trakrai/live-ui/components/device-runtime-page';
 
 import { CloudConsoleSurface } from '@/components/cloud-console-surface';
+import { cloudAppBuildConfig } from '@/lib/build-config';
 import { useTRPCQuery } from '@/server/react';
-
-const configuredManagementService = process.env['NEXT_PUBLIC_TRAKRAI_MANAGEMENT_SERVICE']?.trim();
-const MANAGEMENT_SERVICE_NAME =
-  configuredManagementService === undefined || configuredManagementService === ''
-    ? 'runtime-manager'
-    : configuredManagementService;
 
 const CloudRuntimePageBody = () => {
   const packageCatalogQuery = useTRPCQuery((api) =>
@@ -18,7 +13,7 @@ const CloudRuntimePageBody = () => {
 
   return (
     <DeviceRuntimePage
-      managementServiceName={MANAGEMENT_SERVICE_NAME}
+      managementServiceName={cloudAppBuildConfig.managementServiceName}
       packageCatalog={{
         artifacts: packageCatalogQuery.data?.artifacts ?? [],
         error:
