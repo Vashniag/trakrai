@@ -13,8 +13,9 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+WEB_ROOT = REPO_ROOT / "web"
 DEVICE_ROOT = REPO_ROOT / "device"
-WEB_DEVICE_APP_ROOT = REPO_ROOT / "web" / "apps" / "trakrai-device"
+WEB_DEVICE_APP_ROOT = WEB_ROOT / "apps" / "trakrai-device"
 DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
 DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
@@ -59,6 +60,20 @@ DEFAULT_UI_DEV_ORIGINS: tuple[str, ...] = tuple(
     origin
     for port in range(3000, 3006)
     for origin in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
+)
+
+DEVICE_UI_BUILD_INPUTS: tuple[Path, ...] = (
+    WEB_DEVICE_APP_ROOT / "src",
+    WEB_DEVICE_APP_ROOT / "package.json",
+    WEB_DEVICE_APP_ROOT / "next.config.ts",
+    WEB_DEVICE_APP_ROOT / "postcss.config.mjs",
+    WEB_DEVICE_APP_ROOT / "tsconfig.json",
+    WEB_DEVICE_APP_ROOT / "eslint.config.mjs",
+    WEB_ROOT / "package.json",
+    WEB_ROOT / "pnpm-lock.yaml",
+    WEB_ROOT / "pnpm-workspace.yaml",
+    WEB_ROOT / "turbo.json",
+    WEB_ROOT / "packages",
 )
 
 
@@ -179,17 +194,52 @@ def ensure_local_artifacts(
 
 def ensure_device_ui_export(*, build_if_missing: bool, require_ui: bool) -> None:
     static_out = WEB_DEVICE_APP_ROOT / "out"
-    if static_out.exists() or not require_ui:
+    if not require_ui:
+        return
+
+    export_missing = not static_out.exists()
+    export_stale = not export_missing and device_ui_export_is_stale(static_out)
+    if not export_missing and not export_stale:
         return
 
     if build_if_missing:
+        reason = "missing" if export_missing else "stale"
+        print(f"Device UI export is {reason}; rebuilding {static_out}")
         run_local(["pnpm", "--filter", "trakrai-device", "build"], cwd=REPO_ROOT / "web")
-        if static_out.exists():
+        if static_out.exists() and not device_ui_export_is_stale(static_out):
             return
 
+    if export_missing:
+        raise SystemExit(
+            f"Missing static device UI export at {static_out}. Run `pnpm --filter trakrai-device build` first."
+        )
     raise SystemExit(
-        f"Missing static device UI export at {static_out}. Run `pnpm --filter trakrai-device build` first."
+        f"Stale static device UI export at {static_out}. Rebuild it with `pnpm --filter trakrai-device build`."
     )
+
+
+def device_ui_export_is_stale(static_out: Path) -> bool:
+    if not static_out.exists():
+        return True
+    output_mtime = latest_tree_mtime(static_out)
+    input_mtime = max(latest_tree_mtime(path) for path in DEVICE_UI_BUILD_INPUTS)
+    return input_mtime > output_mtime
+
+
+def latest_tree_mtime(path: Path) -> float:
+    if not path.exists():
+        return 0.0
+    latest_mtime = path.stat().st_mtime
+    if path.is_file():
+        return latest_mtime
+    for child in path.rglob("*"):
+        try:
+            child_mtime = child.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        if child_mtime > latest_mtime:
+            latest_mtime = child_mtime
+    return latest_mtime
 
 
 def build_device_artifacts(*, platform: str, include_python_wheels: set[str]) -> None:
@@ -695,11 +745,23 @@ def create_ui_zip(source_dir: Path, output_path: Path) -> None:
             archive.write(path, path.relative_to(source_dir))
 
 
+def resolve_local_command(command: str) -> str:
+    candidates = [command]
+    if os.name == "nt" and Path(command).suffix == "":
+        candidates.extend([f"{command}.cmd", f"{command}.exe", f"{command}.bat"])
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+    return command
+
+
 def run_local(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
-    print("+", " ".join(command))
-    result = subprocess.run(command, cwd=cwd, env=env, check=False)
+    resolved_command = [resolve_local_command(command[0]), *command[1:]]
+    print("+", " ".join(resolved_command))
+    result = subprocess.run(resolved_command, cwd=cwd, env=env, check=False)
     if result.returncode != 0:
-        raise SystemExit(f"Local command failed ({result.returncode}): {' '.join(command)}")
+        raise SystemExit(f"Local command failed ({result.returncode}): {' '.join(resolved_command)}")
 
 
 def find_single_file(directory: Path, pattern: str) -> Path | None:

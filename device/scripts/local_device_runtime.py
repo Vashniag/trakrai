@@ -7,9 +7,11 @@ import os
 import signal
 import shutil
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
+from collections import deque
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -33,7 +35,7 @@ DEFAULT_WEBRTC_UDP_PORT_MIN = 40000
 DEFAULT_WEBRTC_UDP_PORT_MAX = 40049
 LOCALDEV_WORKFLOW_TEMPLATE = common.DEVICE_ROOT / "localdev" / "workflows" / "minimal-detection-workflow.json"
 LOCALDEV_ROI_TEMPLATE = common.DEVICE_ROOT / "localdev" / "roi" / "roi-config.json"
-COMPOSE_SERVICES = {"device-emulator", "fake-camera", "minio", "mock-cloud-api", "redis"}
+COMPOSE_SERVICES = {"device-emulator", "fake-camera", "minio", "mock-speaker", "redis"}
 LOCALDEV_AUDIO_CODES_TEMPLATE = common.DEVICE_ROOT / "localdev" / "audio" / "speaker-codes.csv"
 HOST_AUDIO_PLAYER_SCRIPT = common.DEVICE_ROOT / "localdev" / "host-audio-player" / "server.py"
 HOST_AUDIO_DIR = LOCALDEV_ROOT / "host-audio-player"
@@ -99,7 +101,7 @@ def main() -> int:
         help=(
             "comma-separated docker compose services to build before `up` "
             "(for example: device-emulator,fake-camera). "
-            "If omitted, `up --build` builds all services."
+            "If omitted, `up` reuses existing images and only falls back to build when startup fails."
         ),
     )
     up_parser.add_argument("--compose-project-name", default=DEFAULT_PROJECT_NAME)
@@ -240,7 +242,13 @@ def cmd_up(args: argparse.Namespace) -> int:
             run_compose(["build", *compose_build_services], env=env)
             run_compose(["up", "-d", "--wait"], env=env)
         else:
-            run_compose(["up", "--build", "-d", "--wait"], env=env)
+            exit_code = run_compose(["up", "-d", "--wait"], env=env, check=False)
+            if exit_code != 0:
+                print("`docker compose up` failed without a rebuild; retrying with `--build` once.")
+                run_compose(["up", "--build", "-d", "--wait"], env=env)
+    # The staged runtime is only applied when device-emulator bootstraps, so recreate it
+    # on every `up` to ensure updated UI/config payloads are installed into the runtime volume.
+    run_compose(["up", "-d", "--wait", "--force-recreate", "device-emulator"], env=env)
     verify_local_stack(env=env, host_audio_port=args.host_audio_port if enable_host_audio_playback else None)
 
     print("")
@@ -457,7 +465,7 @@ def ensure_host_audio_player(port: int) -> None:
     try:
         process = subprocess.Popen(
             [
-                "python3",
+                sys.executable or "python",
                 str(HOST_AUDIO_PLAYER_SCRIPT),
                 "--port",
                 str(port),
@@ -492,23 +500,32 @@ def stop_host_audio_player() -> None:
     pid = read_host_audio_pid()
     if pid is None:
         return
-    try:
-        os.killpg(pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+    terminate_host_audio_process(pid, force=False)
     deadline = time.time() + 5
     while time.time() < deadline:
         if not process_alive(pid):
             break
         time.sleep(0.1)
     else:
-        try:
-            os.killpg(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        terminate_host_audio_process(pid, force=True)
     for path in (HOST_AUDIO_PID_FILE, HOST_AUDIO_META_FILE):
         if path.exists():
             path.unlink()
+
+
+def terminate_host_audio_process(pid: int, *, force: bool) -> None:
+    if os.name == "nt":
+        command = ["taskkill", "/PID", str(pid), "/T"]
+        if force:
+            command.append("/F")
+        subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        return
+
+    sig = signal.SIGKILL if force else signal.SIGTERM
+    try:
+        os.killpg(pid, sig)
+    except ProcessLookupError:
+        pass
 
 
 def read_host_audio_pid() -> int | None:
@@ -558,7 +575,12 @@ def print_host_audio_status() -> None:
 def tail_host_audio_logs(lines: int) -> None:
     if not HOST_AUDIO_LOG_FILE.exists():
         raise SystemExit(f"host-audio-player log file not found: {HOST_AUDIO_LOG_FILE}")
-    run_local(["tail", "-n", str(lines), str(HOST_AUDIO_LOG_FILE)], env=os.environ.copy())
+    if lines <= 0:
+        return
+    with HOST_AUDIO_LOG_FILE.open("r", encoding="utf-8", errors="replace") as handle:
+        trailing_lines = deque(handle, maxlen=lines)
+    for line in trailing_lines:
+        print(line.rstrip("\n"))
 
 
 def compose_env(project_name: str, platform: str) -> dict[str, str]:
@@ -587,7 +609,7 @@ def parse_compose_services_arg(raw_value: str) -> list[str]:
     return items
 
 
-def run_compose(command: list[str], *, env: dict[str, str], check: bool = True) -> None:
+def run_compose(command: list[str], *, env: dict[str, str], check: bool = True) -> int:
     full_command = [
         "docker",
         "compose",
@@ -601,6 +623,7 @@ def run_compose(command: list[str], *, env: dict[str, str], check: bool = True) 
     result = subprocess.run(full_command, cwd=common.DEVICE_ROOT, env=env, check=False)
     if check and result.returncode != 0:
         raise SystemExit(result.returncode)
+    return result.returncode
 
 
 def run_local(command: list[str], *, env: dict[str, str], capture_output: bool = False, check: bool = True) -> str:
@@ -646,19 +669,24 @@ def verify_local_stack(*, env: dict[str, str], host_audio_port: int | None) -> N
                 "test -x /home/hacklab/trakrai-device-runtime/bin/ptz-control; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/roi-config; "
                 "test -x /home/hacklab/trakrai-device-runtime/bin/rtsp-feeder; "
-                "python3.8 --version; "
-                "systemctl is-active trakrai-runtime-manager.service; "
-                "systemctl is-active trakrai-audio-manager.service; "
-                "systemctl is-active trakrai-cloud-comm.service; "
-                "systemctl is-active trakrai-cloud-transfer.service; "
-                "systemctl is-active trakrai-workflow-engine.service; "
-                "systemctl is-active trakrai-live-feed.service; "
-                "systemctl is-active trakrai-ptz-control.service; "
-                "systemctl is-active trakrai-roi-config.service; "
-                "systemctl is-active trakrai-rtsp-feeder.service"
+                "python3.8 --version"
             ),
         ],
         env=env,
+    )
+    wait_for_active_units(
+        env=env,
+        units=[
+            "trakrai-runtime-manager.service",
+            "trakrai-audio-manager.service",
+            "trakrai-cloud-comm.service",
+            "trakrai-cloud-transfer.service",
+            "trakrai-workflow-engine.service",
+            "trakrai-live-feed.service",
+            "trakrai-ptz-control.service",
+            "trakrai-roi-config.service",
+            "trakrai-rtsp-feeder.service",
+        ],
     )
     wait_for_redis_frame(env=env)
     wait_for_runtime_config()
@@ -698,6 +726,60 @@ def wait_for_redis_frame(*, env: dict[str, str]) -> None:
             return
         time.sleep(1)
     raise SystemExit("Timed out waiting for rtsp-feeder to publish a frame into Redis")
+
+
+def wait_for_active_units(*, env: dict[str, str], units: list[str], timeout_sec: int = 45) -> None:
+    deadline = time.time() + timeout_sec
+    latest_states: dict[str, str] = {}
+
+    while time.time() < deadline:
+        latest_states = read_unit_states(env=env, units=units)
+        if all(latest_states.get(unit) == "active" for unit in units):
+            return
+        time.sleep(1)
+
+    state_summary = ", ".join(f"{unit}={latest_states.get(unit, 'unknown')}" for unit in units)
+    raise SystemExit(f"Timed out waiting for services to become active: {state_summary}")
+
+
+def read_unit_states(*, env: dict[str, str], units: list[str]) -> dict[str, str]:
+    command = [
+        "docker",
+        "compose",
+        "--env-file",
+        str(COMPOSE_ENV_FILE),
+        "-f",
+        str(COMPOSE_FILE),
+        "exec",
+        "-T",
+        "device-emulator",
+        "bash",
+        "-lc",
+        (
+            "set -euo pipefail; "
+            + " ".join(f"state=$(systemctl is-active {unit} || true); echo '{unit}:'\"${{state}}\";" for unit in units)
+        ),
+    ]
+    result = subprocess.run(
+        command,
+        cwd=common.DEVICE_ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    states: dict[str, str] = {}
+    combined_output = "\n".join(part for part in [result.stdout, result.stderr] if part)
+    for raw_line in combined_output.splitlines():
+        line = raw_line.strip()
+        if ":" not in line:
+            continue
+        unit, state = line.split(":", 1)
+        unit = unit.strip()
+        if unit in units:
+            states[unit] = state.strip()
+    return states
 
 
 def wait_for_runtime_config(timeout_sec: int = 30) -> None:
