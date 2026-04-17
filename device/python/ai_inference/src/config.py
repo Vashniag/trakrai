@@ -31,7 +31,6 @@ class ModelConfig:
 
 @dataclass(frozen=True)
 class InferenceConfig:
-    legacy_code_root: str
     device: str
     poll_interval_ms: int
     idle_sleep_ms: int
@@ -75,22 +74,6 @@ def load_config(path: str | Path) -> ServiceConfig:
     )
 
     inference_raw = require_object(raw.get("inference"), "inference")
-    legacy_code_root = string_value(inference_raw.get("legacy_code_root"), field="inference.legacy_code_root")
-    if not legacy_code_root:
-        raise ValueError("inference.legacy_code_root is required")
-
-    legacy_path = resolve_path(
-        config_dir,
-        legacy_code_root,
-        field="inference.legacy_code_root",
-        required=True,
-    )
-    assert legacy_path is not None
-    if not legacy_path.exists():
-        raise ValueError(f"inference.legacy_code_root does not exist: {legacy_path}")
-    if not (legacy_path / "server_batch.py").exists():
-        raise ValueError(f"inference.legacy_code_root is missing server_batch.py: {legacy_path}")
-
     models_raw = inference_raw.get("models")
     if not models_raw:
         single_weights = str(inference_raw.get("weights_path", "")).strip()
@@ -132,7 +115,6 @@ def load_config(path: str | Path) -> ServiceConfig:
     )
 
     inference_cfg = InferenceConfig(
-        legacy_code_root=str(legacy_path.resolve()),
         device=string_value(inference_raw.get("device"), default="0", field="inference.device") or "0",
         poll_interval_ms=int_value(
             inference_raw.get("poll_interval_ms"),

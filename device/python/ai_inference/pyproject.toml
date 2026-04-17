@@ -29,7 +29,7 @@ include-package-data = false
 ai_inference = "."
 
 [tool.setuptools.package-data]
-ai_inference = ["src/*.py"]
+ai_inference = ["src/**/*.py", "src/**/*.yaml", "src/**/*.txt"]
 
 [tool.setuptools.dynamic]
 version = { attr = "ai_inference._version.__version__" }

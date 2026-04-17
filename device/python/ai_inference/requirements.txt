@@ -4,8 +4,8 @@
 #
 # Scope:
 # - direct dependencies of device/python/ai_inference
-# - import-time/runtime dependencies of the reused legacy
-#   TRAKR_AI_PTW/server_batch.py PyTorch inference path
+# - import-time/runtime dependencies of the bundled YOLOv5
+#   DetectMultiBackend inference runtime shipped inside this package
 #
 # Not included:
 # - optional export/backends that are not required for the current

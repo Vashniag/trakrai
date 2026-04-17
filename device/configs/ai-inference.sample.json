@@ -8,7 +8,6 @@
     "key_prefix": "camera"
   },
   "inference": {
-    "legacy_code_root": "/home/hacklab/git/TRAKR_AI_PTZ",
     "device": "0",
     "poll_interval_ms": 5,
     "idle_sleep_ms": 40,
@@ -20,7 +19,7 @@
     "fp16_inference": true,
     "models": [
       {
-        "weights_path": "/home/hacklab/git/trakr-ai-ptw/deployed-models/primary.engine",
+        "weights_path": "/home/hacklab/trakrai-device-runtime/models/primary.engine",
         "allowed_detections": "*"
       }
     ]

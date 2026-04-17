@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import importlib
 import json
 import logging
-import sys
 import time
 import zlib
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 import redis
 
+from .backend import build_inference_server
 from .config import CameraConfig, ServiceConfig
 
 PROCESSED_SUFFIX = "processed"
@@ -69,7 +67,7 @@ class InferenceRedisService:
             "annotate_ms": 0.0,
             "redis_write_ms": 0.0,
         }
-        self._server = self._build_legacy_server()
+        self._server = build_inference_server(config.inference, logger)
 
     def warmup(self) -> None:
         self._logger.info("Connecting to Redis at %s:%s", self._config.redis.host, self._config.redis.port)
@@ -231,31 +229,6 @@ class InferenceRedisService:
             "totalDetection": 0,
             "bbox": [],
         }
-
-    def _build_legacy_server(self) -> Any:
-        legacy_root = Path(self._config.inference.legacy_code_root)
-        legacy_path = str(legacy_root)
-        if legacy_path not in sys.path:
-            sys.path.insert(0, legacy_path)
-
-        module = importlib.import_module("server_batch")
-        server_batch_class = getattr(module, "ServerBatch")
-        common_config = {
-            "inference_image_size": list(self._config.inference.inference_image_size),
-            "confidence_threshold": self._config.inference.confidence_threshold,
-            "iou_threshold": self._config.inference.iou_threshold,
-            "fp16_inference": self._config.inference.fp16_inference,
-        }
-        server = server_batch_class(
-            None,
-            redis_connection=None,
-            device=self._config.inference.device,
-            common_config=common_config,
-        )
-        server.set_device(self._config.inference.device)
-        for model in self._config.inference.models:
-            server.add_new_model(model.weights_path, model.allowed_detections)
-        return server
 
     def _annotate_image(self, image: np.ndarray, detections: list[dict[str, Any]]) -> np.ndarray:
         annotated = np.ascontiguousarray(image.copy())
