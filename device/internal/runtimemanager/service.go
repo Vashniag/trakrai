@@ -69,6 +69,7 @@ type Service struct {
 	statusSnapshotAt      time.Time
 	statusSnapshotValid   bool
 	statusSnapshotBuildCh chan struct{}
+	systemMetrics         systemMetricsCollector
 	transferResponses     *ipc.ResponseRouter
 
 	execCommand func(context.Context, string, ...string) ([]byte, error)
@@ -92,6 +93,7 @@ func NewService(cfg *Config) (*Service, error) {
 		log:               slog.With("component", ServiceName),
 		managed:           managed,
 		seededFromConfig:  seededFromConfig,
+		systemMetrics:     newHostMetricsCollector(cfg, time.Now),
 		transferResponses: ipc.NewResponseRouter(),
 		execCommand: func(ctx context.Context, command string, args ...string) ([]byte, error) {
 			cmd := exec.CommandContext(ctx, command, args...)
@@ -707,6 +709,10 @@ func (s *Service) buildFreshStatusPayload(ctx context.Context) (RuntimeStatusPay
 			coreCount++
 		}
 	}
+	systemSnapshot := RuntimeSystemSnapshot{}
+	if s.systemMetrics != nil {
+		systemSnapshot = s.systemMetrics.Collect(ctx)
+	}
 
 	return RuntimeStatusPayload{
 		BinaryDir:    s.cfg.Runtime.BinaryDir,
@@ -721,6 +727,7 @@ func (s *Service) buildFreshStatusPayload(ctx context.Context) (RuntimeStatusPay
 		SharedDir:    s.cfg.Runtime.SharedDir,
 		Services:     services,
 		StateFile:    s.cfg.Runtime.StateFile,
+		System:       systemSnapshot,
 		VersionDir:   s.cfg.Runtime.VersionDir,
 	}, nil
 }

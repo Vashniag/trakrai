@@ -243,6 +243,9 @@ func TestBuildStatusPayloadCachesFreshSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build status payload failed: %v", err)
 	}
+	if firstPayload.System.CPU.CoreCount != 4 {
+		t.Fatalf("expected stub system metrics to be included, got %#v", firstPayload.System.CPU)
+	}
 
 	secondPayload, err := service.buildStatusPayload(context.Background())
 	if err != nil {
@@ -337,6 +340,14 @@ func newStatusPayloadTestService(
 				SystemdUnit: "trakrai-cloud-comm.service",
 			},
 		},
+		systemMetrics: staticSystemMetricsCollector{
+			snapshot: RuntimeSystemSnapshot{
+				CollectedAt: now().UTC().Format(time.RFC3339Nano),
+				CPU: RuntimeCPUStats{
+					CoreCount: 4,
+				},
+			},
+		},
 		execCommand: func(_ context.Context, command string, args ...string) ([]byte, error) {
 			commandCount.Add(1)
 			time.Sleep(20 * time.Millisecond)
@@ -360,6 +371,14 @@ func newStatusPayloadTestService(
 	}
 
 	return service, commandCount
+}
+
+type staticSystemMetricsCollector struct {
+	snapshot RuntimeSystemSnapshot
+}
+
+func (c staticSystemMetricsCollector) Collect(context.Context) RuntimeSystemSnapshot {
+	return c.snapshot
 }
 
 func containsAll(input string, values ...string) bool {

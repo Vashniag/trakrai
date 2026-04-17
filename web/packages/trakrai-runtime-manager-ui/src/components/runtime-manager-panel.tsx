@@ -59,7 +59,11 @@ const statusClasses = (state: string): string => {
 const formatNumber = (value: number | undefined, suffix: string): string =>
   value === undefined ? 'N/A' : `${value}${suffix}`;
 
+const formatPercent = (value: number | undefined): string =>
+  value === undefined ? 'N/A' : `${value.toFixed(1)}%`;
+
 const BYTES_IN_MEGABYTE = Number('1024') * Number('1024');
+const BYTES_IN_GIGABYTE = BYTES_IN_MEGABYTE * Number('1024');
 const LOG_TAIL_LINE_COUNT = 120;
 
 const formatMemory = (value: number | undefined): string => {
@@ -67,7 +71,26 @@ const formatMemory = (value: number | undefined): string => {
     return 'N/A';
   }
 
+  if (value >= BYTES_IN_GIGABYTE) {
+    return `${(value / BYTES_IN_GIGABYTE).toFixed(1)} GB`;
+  }
+
   return `${(value / BYTES_IN_MEGABYTE).toFixed(1)} MB`;
+};
+
+const formatRate = (value: number | undefined): string => {
+  if (value === undefined) {
+    return 'N/A';
+  }
+
+  if (value >= BYTES_IN_GIGABYTE) {
+    return `${(value / BYTES_IN_GIGABYTE).toFixed(2)} GB/s`;
+  }
+  if (value >= BYTES_IN_MEGABYTE) {
+    return `${(value / BYTES_IN_MEGABYTE).toFixed(2)} MB/s`;
+  }
+
+  return `${(value / Number('1024')).toFixed(1)} KB/s`;
 };
 
 const formatTimestamp = (value: string | null | undefined): string => {
@@ -76,6 +99,25 @@ const formatTimestamp = (value: string | null | undefined): string => {
   }
 
   return new Date(value).toLocaleString();
+};
+
+const formatUptime = (value: number | undefined): string => {
+  if (value === undefined) {
+    return 'N/A';
+  }
+
+  const totalSeconds = Math.max(0, Math.floor(value));
+  const hours = Math.floor(totalSeconds / Number('3600'));
+  const minutes = Math.floor((totalSeconds % Number('3600')) / Number('60'));
+  const seconds = totalSeconds % Number('60');
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
 };
 
 const createServiceTemplate = (
@@ -160,6 +202,7 @@ export const RuntimeManagerPanel = ({ manager, packageCatalog }: RuntimeManagerP
     serviceRegistered,
     services,
     statusLabel,
+    systemMetrics,
     updateService: onUpdateService,
     upsertServiceDefinition: onUpsertServiceDefinition,
   } = manager;
@@ -307,6 +350,198 @@ export const RuntimeManagerPanel = ({ manager, packageCatalog }: RuntimeManagerP
                 Version dir
               </div>
               <div className="mt-1 text-xs font-medium break-all">{paths?.versionDir ?? 'N/A'}</div>
+            </div>
+          </div>
+
+          <div className="space-y-4 border p-4">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold">Device resource snapshot</div>
+              <div className="text-muted-foreground text-xs">
+                Host-level metrics collected by runtime-manager from the device or emulator. Refresh
+                runs automatically every few seconds while this panel stays connected.
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  CPU usage
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatPercent(systemMetrics?.cpu.usagePercent)}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {formatNumber(systemMetrics?.cpu.coreCount, ' cores')}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Load average
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {systemMetrics?.load.oneMinute?.toFixed(2) ?? 'N/A'}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {`5m ${systemMetrics?.load.fiveMinute?.toFixed(2) ?? 'N/A'} • 15m ${
+                    systemMetrics?.load.fifteenMinute?.toFixed(2) ?? 'N/A'
+                  }`}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Memory
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatMemory(systemMetrics?.memory.usedBytes)}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {`${formatPercent(systemMetrics?.memory.usedPercent)} of ${formatMemory(
+                    systemMetrics?.memory.totalBytes,
+                  )}`}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Disk
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatMemory(systemMetrics?.disks?.[0]?.usedBytes)}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {`${formatPercent(systemMetrics?.disks?.[0]?.usedPercent)} of ${formatMemory(
+                    systemMetrics?.disks?.[0]?.totalBytes,
+                  )}`}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Network
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {`${formatRate(systemMetrics?.network.rxBytesPerSecond)} down`}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {`${formatRate(systemMetrics?.network.txBytesPerSecond)} up`}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  GPU / uptime
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatPercent(systemMetrics?.gpu?.utilizationPercent)}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {`temp ${
+                    systemMetrics?.gpu?.temperatureCelsius?.toFixed(1) ?? 'N/A'
+                  }C • up ${formatUptime(systemMetrics?.uptimeSeconds)}`}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="space-y-3 border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold">Disk usage</div>
+                  <div className="text-muted-foreground text-xs">
+                    {formatTimestamp(systemMetrics?.collectedAt)}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {(systemMetrics?.disks ?? []).map((disk) => (
+                    <div key={disk.label} className="border p-3 text-xs">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-medium">{disk.label}</div>
+                        <div>{formatPercent(disk.usedPercent)}</div>
+                      </div>
+                      <div className="text-muted-foreground mt-1 break-all">{disk.path}</div>
+                      <div className="mt-2">
+                        {`${formatMemory(disk.usedBytes)} used • ${formatMemory(
+                          disk.freeBytes,
+                        )} free • ${formatMemory(disk.totalBytes)} total`}
+                      </div>
+                    </div>
+                  ))}
+                  {(systemMetrics?.disks ?? []).length === 0 ? (
+                    <div className="text-muted-foreground border border-dashed px-3 py-2 text-xs">
+                      Disk metrics are not available yet.
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-3 border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold">Network interfaces</div>
+                  <div className="text-muted-foreground text-xs">
+                    {`${formatMemory(systemMetrics?.network.rxBytes)} received • ${formatMemory(
+                      systemMetrics?.network.txBytes,
+                    )} sent`}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {(systemMetrics?.network.interfaces ?? []).map((networkInterface) => (
+                    <div key={networkInterface.name} className="border p-3 text-xs">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-medium">{networkInterface.name}</div>
+                        <div className="text-muted-foreground">
+                          {`${formatRate(networkInterface.rxBytesPerSecond)} down • ${formatRate(
+                            networkInterface.txBytesPerSecond,
+                          )} up`}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        {`${formatMemory(networkInterface.rxBytes)} received • ${formatMemory(
+                          networkInterface.txBytes,
+                        )} sent`}
+                      </div>
+                    </div>
+                  ))}
+                  {(systemMetrics?.network.interfaces ?? []).length === 0 ? (
+                    <div className="text-muted-foreground border border-dashed px-3 py-2 text-xs">
+                      Network metrics are not available yet.
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  GPU source
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {systemMetrics?.gpu?.source ?? 'Not detected'}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  GPU encoder
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatPercent(systemMetrics?.gpu?.encoderUtilizationPercent)}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  GPU decoder
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatPercent(systemMetrics?.gpu?.decoderUtilizationPercent)}
+                </div>
+              </div>
+              <div className="border p-3">
+                <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
+                  Swap
+                </div>
+                <div className="mt-1 text-sm font-medium">
+                  {formatMemory(systemMetrics?.memory.swapUsedBytes)}
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {`of ${formatMemory(systemMetrics?.memory.swapTotalBytes)}`}
+                </div>
+              </div>
             </div>
           </div>
 

@@ -73,6 +73,7 @@ type RuntimeStatusPayload struct {
 	SharedDir    string                   `json:"sharedDir"`
 	Services     []ManagedServiceSnapshot `json:"services"`
 	StateFile    string                   `json:"stateFile"`
+	System       RuntimeSystemSnapshot    `json:"system"`
 	VersionDir   string                   `json:"versionDir"`
 }
 
