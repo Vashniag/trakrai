@@ -3,16 +3,26 @@
     "audio-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_audio_manager-0.1.2-py3-none-any.whl",
-          "remotePath": "audio-manager/0.1.2/linux-arm64/trakrai_audio_manager-0.1.2-py3-none-any.whl",
-          "sha256": "9f00ae8d5b6591faf83d4b931f753c62ae19f5ae1b9b0cbfca2c0ee1fb767ffb",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "remotePath": "audio-manager/0.1.3/linux-arm64/trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "sha256": "11e3671e3faffb5e1393ceca2f3f34a7e151109cb415093ad4d0245bf06a7c26",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "python-wheel",
-      "kind": "wheel",
+      "history": [
+        {
+          "fileName": "trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "platform": "linux/arm64",
+          "remotePath": "audio-manager/0.1.3/linux-arm64/trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "sha256": "11e3671e3faffb5e1393ceca2f3f34a7e151109cb415093ad4d0245bf06a7c26",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.3"
+        }
+      ],
+      "kind": "python-wheel",
       "serviceName": "audio-manager",
-      "sourceHash": "sha256:75ec0a2e70cd7d7a3dffdf8975b63ce8f01b4caa230214d7c3c4e6ee2c728d0f",
+      "sourceHash": "sha256:a6bb361437dd79a593c8e333b8407b30e2a5c9dca2bb1c172da1fd146ed4a0e2",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/audio_manager/FLOW.md",
@@ -32,7 +42,9 @@
         "device/python/audio_manager/src/tts.py",
         "device/python/audio_manager/tests/test_store.py",
         "device/python/audio_manager/tests/test_tts.py",
-        "device/python/conftest.py",
+        "device/python/generated_configs/__init__.py",
+        "device/python/generated_configs/_runtime.py",
+        "device/python/generated_configs/audio_manager.py",
         "device/python/trakrai_service_runtime/__init__.py",
         "device/python/trakrai_service_runtime/src/config_support.py",
         "device/python/trakrai_service_runtime/src/ipc.py",
@@ -41,21 +53,31 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "cloud-comm": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-comm-linux-arm64-v0.1.2",
-          "remotePath": "cloud-comm/0.1.2/linux-arm64/cloud-comm-linux-arm64-v0.1.2",
-          "sha256": "3de4538edd4a840c02a751734cab410e219c76ec5ba5b34f5d7157bfa68c3b29",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "cloud-comm-linux-arm64-v0.1.3",
+          "remotePath": "cloud-comm/0.1.3/linux-arm64/cloud-comm-linux-arm64-v0.1.3",
+          "sha256": "41a94b9f2de74f7c6ccfe87d3862ba208f7c413f1ea2f06c7c03b91e243318c3",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "cloud-comm-linux-arm64-v0.1.3",
+          "platform": "linux/arm64",
+          "remotePath": "cloud-comm/0.1.3/linux-arm64/cloud-comm-linux-arm64-v0.1.3",
+          "sha256": "41a94b9f2de74f7c6ccfe87d3862ba208f7c413f1ea2f06c7c03b91e243318c3",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.3"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "cloud-comm",
-      "sourceHash": "sha256:45ff0a4741599ee28dccbd4fed4c3f28e455294139d0e9a0617d7b12e62a7d4a",
+      "sourceHash": "sha256:2a68b4f0d7492f48da3f0b23b74ecea8ad08017b094e3e163e4e5b8a6355e872",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-comm/main.go",
@@ -67,29 +89,46 @@
         "device/internal/cloudcomm/mqtt.go",
         "device/internal/cloudcomm/publisher.go",
         "device/internal/cloudcomm/service.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "cloud-transfer": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-transfer-linux-arm64-v0.1.1",
-          "remotePath": "cloud-transfer/0.1.1/linux-arm64/cloud-transfer-linux-arm64-v0.1.1",
-          "sha256": "c4acc35d55fef7b433541c45cc8417a5e95e6c65dd005b6bb972e95b8af852a2",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "cloud-transfer-linux-arm64-v0.1.2",
+          "remotePath": "cloud-transfer/0.1.2/linux-arm64/cloud-transfer-linux-arm64-v0.1.2",
+          "sha256": "558d46fdc02bcf1580f43ef3a3b4519de1908b35d5236e24a07460767ac716c0",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "cloud-transfer-linux-arm64-v0.1.2",
+          "platform": "linux/arm64",
+          "remotePath": "cloud-transfer/0.1.2/linux-arm64/cloud-transfer-linux-arm64-v0.1.2",
+          "sha256": "558d46fdc02bcf1580f43ef3a3b4519de1908b35d5236e24a07460767ac716c0",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.2"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "cloud-transfer",
-      "sourceHash": "sha256:ce41ad30cb8def1c565d136867b83cf7a80c22526448ed12b337513514d20c38",
+      "sourceHash": "sha256:33e169cf5cdbfad49251ab78eb20ffed42f583c0e898d32948048864b8a8174f",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-transfer/main.go",
@@ -103,35 +142,48 @@
         "device/internal/cloudtransfer/reply.go",
         "device/internal/cloudtransfer/service.go",
         "device/internal/cloudtransfer/store.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.2.zip",
-          "remotePath": "edge-ui/0.1.2/universal/edge-ui-v0.1.2.zip",
-          "sha256": "56ab26868d100f643d49a3e7a97e7beaa1dbe1c88a0ea672cdb6753538f2f5d9",
-          "updatedAt": "2026-04-17T11:59:42Z"
+          "fileName": "edge-ui-v0.1.3.zip",
+          "remotePath": "edge-ui/0.1.3/universal/edge-ui-v0.1.3.zip",
+          "sha256": "0aec5ea738c6812cbf7a87964b483b23ed1cdc26c0c10e63c787408e13019b92",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "ui-bundle",
-      "kind": "zip",
+      "history": [
+        {
+          "fileName": "edge-ui-v0.1.3.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.3/universal/edge-ui-v0.1.3.zip",
+          "sha256": "0aec5ea738c6812cbf7a87964b483b23ed1cdc26c0c10e63c787408e13019b92",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.3"
+        }
+      ],
+      "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:48b78b6b11c84ebcece13c373b2734cb8b4cf6e07a1238bd9df8711922187061",
+      "sourceHash": "sha256:db7de82101c1befa580c1e7e81509692a10c6abdaa7b74df7e08d06cc954715f",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
-        "web/apps/trakrai-device/eslint.config.mjs",
-        "web/apps/trakrai-device/next.config.ts",
-        "web/apps/trakrai-device/package.json",
-        "web/apps/trakrai-device/postcss.config.mjs",
         "web/apps/trakrai-device/src/app/globals.css",
         "web/apps/trakrai-device/src/app/icon.svg",
         "web/apps/trakrai-device/src/app/layout.tsx",
@@ -144,7 +196,6 @@
         "web/apps/trakrai-device/src/lib/device-ui-build-config.ts",
         "web/apps/trakrai-device/src/lib/env.ts",
         "web/apps/trakrai-device/src/lib/runtime-config.ts",
-        "web/apps/trakrai-device/tsconfig.json",
         "web/package.json",
         "web/packages/eslint-config/base.js",
         "web/packages/eslint-config/next.js",
@@ -270,27 +321,45 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "live-feed": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "live-feed-linux-arm64-v0.1.5",
-          "remotePath": "live-feed/0.1.5/linux-arm64/live-feed-linux-arm64-v0.1.5",
-          "sha256": "c64c023e8b2b49a23fb7733e7833b40de1520263f2eea0c9f35d36a446ffd875",
-          "updatedAt": "2026-04-17T08:28:00Z"
+          "fileName": "live-feed-linux-arm64-v0.1.6",
+          "remotePath": "live-feed/0.1.6/linux-arm64/live-feed-linux-arm64-v0.1.6",
+          "sha256": "53aeeb5676a985b471e6263f10ef6f5f36f65a6576c44455879e369db1ba0f35",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "live-feed-linux-arm64-v0.1.6",
+          "platform": "linux/arm64",
+          "remotePath": "live-feed/0.1.6/linux-arm64/live-feed-linux-arm64-v0.1.6",
+          "sha256": "53aeeb5676a985b471e6263f10ef6f5f36f65a6576c44455879e369db1ba0f35",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.6"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "live-feed",
-      "sourceHash": "sha256:518d1d45bd0ea889aa186b975ba5108d9202a46ff33b0d2e685965891f7278b7",
+      "sourceHash": "sha256:32a96bb06630337f62d19033eaa7e9339b727da09e4d3c282b22ec532e379a85",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/live-feed/main.go",
         "device/go.mod",
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/gstcodec/jpeg_h264.go",
         "device/internal/gstcodec/video_codec.go",
         "device/internal/ipc/client.go",
@@ -306,32 +375,49 @@
         "device/internal/livefeed/layout.go",
         "device/internal/livefeed/service.go",
         "device/internal/livefeed/webrtc.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go",
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "ptz-control": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "ptz-control-linux-arm64-v0.1.1",
-          "remotePath": "ptz-control/0.1.1/linux-arm64/ptz-control-linux-arm64-v0.1.1",
-          "sha256": "e48044148d0ad50bcd1eaaf1ae5045d89d263271407cc58ba419c00fad0363ef",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "ptz-control-linux-arm64-v0.1.2",
+          "remotePath": "ptz-control/0.1.2/linux-arm64/ptz-control-linux-arm64-v0.1.2",
+          "sha256": "4f0ce48ea6eea47303d302cc9e4ba3cf62faf092cbb94d66774ee5048885044b",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "ptz-control-linux-arm64-v0.1.2",
+          "platform": "linux/arm64",
+          "remotePath": "ptz-control/0.1.2/linux-arm64/ptz-control-linux-arm64-v0.1.2",
+          "sha256": "4f0ce48ea6eea47303d302cc9e4ba3cf62faf092cbb94d66774ee5048885044b",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.2"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "ptz-control",
-      "sourceHash": "sha256:90022e44b399a377559fc85f26de44c0d40d8780db6aaa287ec26215c6c056dc",
+      "sourceHash": "sha256:b9c7976c7a78c81d9bc1d2c77eb999b17a50e0c239c88247b32d11df0a4d4d60",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/ptz-control/main.go",
         "device/go.mod",
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
@@ -339,31 +425,48 @@
         "device/internal/ptzcontrol/config.go",
         "device/internal/ptzcontrol/onvif.go",
         "device/internal/ptzcontrol/service.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "roi-config": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "roi-config-linux-arm64-v0.1.2",
-          "remotePath": "roi-config/0.1.2/linux-arm64/roi-config-linux-arm64-v0.1.2",
-          "sha256": "c53fec339d33ce8ea8d4331bf29e584cd233077bd0013eaa1db434d599b82010",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "roi-config-linux-arm64-v0.1.3",
+          "remotePath": "roi-config/0.1.3/linux-arm64/roi-config-linux-arm64-v0.1.3",
+          "sha256": "74a0987577733893295d7f6dd8111888b43e0de77d08650818bba494c73365ff",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "roi-config-linux-arm64-v0.1.3",
+          "platform": "linux/arm64",
+          "remotePath": "roi-config/0.1.3/linux-arm64/roi-config-linux-arm64-v0.1.3",
+          "sha256": "74a0987577733893295d7f6dd8111888b43e0de77d08650818bba494c73365ff",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.3"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "roi-config",
-      "sourceHash": "sha256:2e198adfac322a6b12de4698a5e6a1cd2d29a97c80dc2683c91b0ec84925c93b",
+      "sourceHash": "sha256:1556dfd9fed5a9503fc7b3d77abc820eaf9d5468b3e977ae8980b2fba59c5bee",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/roi-config/main.go",
         "device/go.mod",
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
@@ -372,55 +475,81 @@
         "device/internal/roiconfig/models.go",
         "device/internal/roiconfig/service.go",
         "device/internal/roiconfig/store.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "rtsp-feeder": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "rtsp-feeder-linux-arm64-v0.1.0",
-          "remotePath": "rtsp-feeder/0.1.0/linux-arm64/rtsp-feeder-linux-arm64-v0.1.0",
-          "sha256": "9920c504db7aa765d9aeb8bb8de914e15bad9ff749400db5b02e359cbdbb8d71",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "rtsp-feeder-linux-arm64-v0.1.1",
+          "remotePath": "rtsp-feeder/0.1.1/linux-arm64/rtsp-feeder-linux-arm64-v0.1.1",
+          "sha256": "b7dbdab6c2c5e607cfca89ceb8893ed52d754ffdf10a37c8382f20fa2d8e563d",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "rtsp-feeder-linux-arm64-v0.1.1",
+          "platform": "linux/arm64",
+          "remotePath": "rtsp-feeder/0.1.1/linux-arm64/rtsp-feeder-linux-arm64-v0.1.1",
+          "sha256": "b7dbdab6c2c5e607cfca89ceb8893ed52d754ffdf10a37c8382f20fa2d8e563d",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.1"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "rtsp-feeder",
-      "sourceHash": "sha256:4fe44b25a0795a903f0981c5214b1afb2953824dd9704d0239b02ef11e45bc44",
+      "sourceHash": "sha256:c4687f03ac8c7c4d2360757ffd59b678bd041540390024f18fa976d5335b613d",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/rtsp-feeder/main.go",
         "device/go.mod",
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/rtspfeeder/config.go",
         "device/internal/rtspfeeder/feeder.go",
         "device/internal/rtspfeeder/pipeline.go",
         "device/internal/rtspfeeder/service.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go",
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "runtime-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "runtime-manager-linux-arm64-v0.1.3",
-          "remotePath": "runtime-manager/0.1.3/linux-arm64/runtime-manager-linux-arm64-v0.1.3",
-          "sha256": "62b5657c85b3258b8fc20e194d161d67ec72a5f8545a2be649c7aa41d4002a44",
-          "updatedAt": "2026-04-17T14:58:15Z"
+          "fileName": "runtime-manager-linux-arm64-v0.1.4",
+          "remotePath": "runtime-manager/0.1.4/linux-arm64/runtime-manager-linux-arm64-v0.1.4",
+          "sha256": "8a05d61ba93a6f783d77e50f27170dafcf3bcc838f91af082999497e1f2c3ddd",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "runtime-manager-linux-arm64-v0.1.4",
+          "platform": "linux/arm64",
+          "remotePath": "runtime-manager/0.1.4/linux-arm64/runtime-manager-linux-arm64-v0.1.4",
+          "sha256": "8a05d61ba93a6f783d77e50f27170dafcf3bcc838f91af082999497e1f2c3ddd",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.4"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "runtime-manager",
-      "sourceHash": "sha256:0c52cf90f0d87b75033780cefbc5a58801b70676b5e3fc9f0e7c8cd8f4b2e90c",
+      "sourceHash": "sha256:9889607da9d35f392ef9ebeb9957ddb0092f5576bc9b577355aa3e5d1bb6f16e",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/runtime-manager/main.go",
@@ -434,6 +563,14 @@
         "device/internal/cloudtransfer/reply.go",
         "device/internal/cloudtransfer/service.go",
         "device/internal/cloudtransfer/store.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
@@ -443,25 +580,34 @@
         "device/internal/runtimemanager/models.go",
         "device/internal/runtimemanager/service.go",
         "device/internal/runtimemanager/tail.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.3"
+      "version": "0.1.4"
     },
     "trakrai-ai-inference": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_ai_inference-0.1.6-py3-none-any.whl",
-          "remotePath": "trakrai-ai-inference/0.1.6/linux-arm64/trakrai_ai_inference-0.1.6-py3-none-any.whl",
-          "sha256": "5e5139c9ef58c2b6c85765d78603d98dfcdd244bce701c8f18edefd096d6b166",
-          "updatedAt": "2026-04-17T14:15:23Z"
+          "fileName": "trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "remotePath": "trakrai-ai-inference/0.1.7/linux-arm64/trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "sha256": "1022880c3ab6940835dfbe79173a22883453b9c2f18f717f40f449f01a38d7a9",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "python-wheel",
-      "kind": "wheel",
+      "history": [
+        {
+          "fileName": "trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "platform": "linux/arm64",
+          "remotePath": "trakrai-ai-inference/0.1.7/linux-arm64/trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "sha256": "1022880c3ab6940835dfbe79173a22883453b9c2f18f717f40f449f01a38d7a9",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.7"
+        }
+      ],
+      "kind": "python-wheel",
       "serviceName": "trakrai-ai-inference",
-      "sourceHash": "sha256:03981e4bfbea6d3049c51866b4b9e1eb6e584df2b7e4c9843aec92f1c80eb280",
+      "sourceHash": "sha256:d1b29e18a6f8f5c044596a90ef73a1e683b5a61b06e31868116bb922bf74240a",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/ai_inference/.gitignore",
@@ -544,7 +690,9 @@
         "device/python/ai_inference/src/yolo_runtime/utils/torch_utils.py",
         "device/python/ai_inference/tests/test_backend.py",
         "device/python/ai_inference/tests/test_config.py",
-        "device/python/conftest.py",
+        "device/python/generated_configs/__init__.py",
+        "device/python/generated_configs/_runtime.py",
+        "device/python/generated_configs/trakrai_ai_inference.py",
         "device/python/trakrai_service_runtime/__init__.py",
         "device/python/trakrai_service_runtime/src/config_support.py",
         "device/python/trakrai_service_runtime/src/ipc.py",
@@ -553,21 +701,31 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.6"
+      "version": "0.1.7"
     },
     "video-recorder": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "video-recorder-linux-arm64-v0.1.2",
-          "remotePath": "video-recorder/0.1.2/linux-arm64/video-recorder-linux-arm64-v0.1.2",
-          "sha256": "18e63ce1014e45767247f9b5b015a9a1b7b5e88352e87d74348dc50854064dd4",
-          "updatedAt": "2026-04-17T08:28:00Z"
+          "fileName": "video-recorder-linux-arm64-v0.1.3",
+          "remotePath": "video-recorder/0.1.3/linux-arm64/video-recorder-linux-arm64-v0.1.3",
+          "sha256": "e2738d71b236afe357d28e44751e97d4d4fdb9b638d238254ca5c284571b5587",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "go-binary",
-      "kind": "binary",
+      "history": [
+        {
+          "fileName": "video-recorder-linux-arm64-v0.1.3",
+          "platform": "linux/arm64",
+          "remotePath": "video-recorder/0.1.3/linux-arm64/video-recorder-linux-arm64-v0.1.3",
+          "sha256": "e2738d71b236afe357d28e44751e97d4d4fdb9b638d238254ca5c284571b5587",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.3"
+        }
+      ],
+      "kind": "go-binary",
       "serviceName": "video-recorder",
-      "sourceHash": "sha256:799f27acc54d6179b529c2258aa0b67e2b169397e67bab2f8fdc2e33d381d211",
+      "sourceHash": "sha256:49013238dd1779742ae2fe5cbfdd695ea8bff73e2d26842a16cc981061225e29",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/video-recorder/main.go",
@@ -581,13 +739,20 @@
         "device/internal/cloudtransfer/reply.go",
         "device/internal/cloudtransfer/service.go",
         "device/internal/cloudtransfer/store.go",
+        "device/internal/generatedconfig/cloud_comm.go",
+        "device/internal/generatedconfig/cloud_transfer.go",
+        "device/internal/generatedconfig/live_feed.go",
+        "device/internal/generatedconfig/ptz_control.go",
+        "device/internal/generatedconfig/roi_config.go",
+        "device/internal/generatedconfig/rtsp_feeder.go",
+        "device/internal/generatedconfig/runtime_manager.go",
+        "device/internal/generatedconfig/video_recorder.go",
         "device/internal/gstcodec/jpeg_h264.go",
         "device/internal/gstcodec/video_codec.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
-        "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go",
         "device/internal/shared/redisconfig/config.go",
         "device/internal/videorecorder/buffer.go",
@@ -597,24 +762,36 @@
         "device/internal/videorecorder/writer.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "workflow-engine": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_workflow_engine-0.1.3-py3-none-any.whl",
-          "remotePath": "workflow-engine/0.1.3/linux-arm64/trakrai_workflow_engine-0.1.3-py3-none-any.whl",
-          "sha256": "16821fe2d04a766e38b40e989c33cbe34f6a88cd5374cd51b4b1257d6b74d715",
-          "updatedAt": "2026-04-17T08:28:00Z"
+          "fileName": "trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "remotePath": "workflow-engine/0.1.4/linux-arm64/trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "sha256": "e8301f294801a07be1004fa713bb1a906cb50dc3d8ca3c87abd32b1eb06f1602",
+          "updatedAt": "2026-04-17T23:02:39Z"
         }
       },
       "buildTarget": "python-wheel",
-      "kind": "wheel",
+      "history": [
+        {
+          "fileName": "trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "platform": "linux/arm64",
+          "remotePath": "workflow-engine/0.1.4/linux-arm64/trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "sha256": "e8301f294801a07be1004fa713bb1a906cb50dc3d8ca3c87abd32b1eb06f1602",
+          "updatedAt": "2026-04-17T23:02:39Z",
+          "version": "0.1.4"
+        }
+      ],
+      "kind": "python-wheel",
       "serviceName": "workflow-engine",
-      "sourceHash": "sha256:97704db385d036d07d25eccbaeff721f93eda0b09b7361dd2fad6ec80e403a2b",
+      "sourceHash": "sha256:53c6bd0c426ab2470acd91c1595fb5263aedc0f529060c1c549562ffce36b1ed",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
-        "device/python/conftest.py",
+        "device/python/generated_configs/__init__.py",
+        "device/python/generated_configs/_runtime.py",
+        "device/python/generated_configs/workflow_engine.py",
         "device/python/trakrai_service_runtime/__init__.py",
         "device/python/trakrai_service_runtime/src/config_support.py",
         "device/python/trakrai_service_runtime/src/ipc.py",
@@ -647,9 +824,9 @@
         "device/python/workflow_engine/tests/test_engine.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.3"
+      "version": "0.1.4"
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T14:58:15Z"
+  "updatedAt": "2026-04-17T23:02:39Z"
 }
