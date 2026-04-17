@@ -69,8 +69,7 @@ type Service struct {
 	statusSnapshotAt      time.Time
 	statusSnapshotValid   bool
 	statusSnapshotBuildCh chan struct{}
-	transferWaitersMu     sync.Mutex
-	transferWaiters       map[string]chan ipc.ServiceMessageNotification
+	transferResponses     *ipc.ResponseRouter
 
 	execCommand func(context.Context, string, ...string) ([]byte, error)
 	now         func() time.Time
@@ -88,12 +87,12 @@ func NewService(cfg *Config) (*Service, error) {
 	}
 
 	return &Service{
-		cfg:              cfg,
-		ipcClient:        ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
-		log:              slog.With("component", ServiceName),
-		managed:          managed,
-		seededFromConfig: seededFromConfig,
-		transferWaiters:  make(map[string]chan ipc.ServiceMessageNotification),
+		cfg:               cfg,
+		ipcClient:         ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
+		log:               slog.With("component", ServiceName),
+		managed:           managed,
+		seededFromConfig:  seededFromConfig,
+		transferResponses: ipc.NewResponseRouter(),
 		execCommand: func(ctx context.Context, command string, args ...string) ([]byte, error) {
 			cmd := exec.CommandContext(ctx, command, args...)
 			return cmd.CombinedOutput()
@@ -175,20 +174,7 @@ func (s *Service) handleNotifications(ctx context.Context) {
 				if strings.TrimSpace(message.Subtopic) != "response" {
 					continue
 				}
-				requestID := readRequestID(message.Envelope.Payload)
-				if requestID == "" {
-					continue
-				}
-				s.transferWaitersMu.Lock()
-				waiter := s.transferWaiters[requestID]
-				s.transferWaitersMu.Unlock()
-				if waiter == nil {
-					continue
-				}
-				select {
-				case waiter <- message:
-				default:
-				}
+				s.transferResponses.Dispatch(message)
 			}
 		}
 	}
@@ -197,7 +183,7 @@ func (s *Service) handleNotifications(ctx context.Context) {
 func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
 	switch env.Type {
 	case "get-status":
-		s.handleGetStatus(ctx, readRequestID(env.Payload))
+		s.handleGetStatus(ctx, ipc.ReadRequestID(env.Payload))
 	case "get-service-definition":
 		s.handleGetServiceDefinition(env)
 	case "get-service-log":
@@ -1179,61 +1165,11 @@ func (s *Service) downloadArtifactViaTransfer(
 }
 
 func (s *Service) requestTransfer(ctx context.Context, requestType string, payload interface{}) (ipc.ServiceMessageNotification, error) {
-	requestID := readRequestIDFromValue(payload)
-	if requestID == "" {
-		return ipc.ServiceMessageNotification{}, fmt.Errorf("%s request is missing requestId", requestType)
-	}
-
-	waiter := make(chan ipc.ServiceMessageNotification, 1)
-	s.transferWaitersMu.Lock()
-	s.transferWaiters[requestID] = waiter
-	s.transferWaitersMu.Unlock()
-	defer func() {
-		s.transferWaitersMu.Lock()
-		delete(s.transferWaiters, requestID)
-		s.transferWaitersMu.Unlock()
-	}()
-
-	if err := s.ipcClient.SendServiceMessage(s.cfg.Updates.DownloadService, "command", requestType, payload); err != nil {
-		return ipc.ServiceMessageNotification{}, fmt.Errorf("send %s to %s: %w", requestType, s.cfg.Updates.DownloadService, err)
-	}
-
-	select {
-	case <-ctx.Done():
-		return ipc.ServiceMessageNotification{}, ctx.Err()
-	case message := <-waiter:
-		if strings.TrimSpace(message.SourceService) != s.cfg.Updates.DownloadService {
-			return ipc.ServiceMessageNotification{}, fmt.Errorf("unexpected response source %q", message.SourceService)
-		}
-		return message, nil
-	}
+	return s.transferResponses.Request(ctx, s.ipcClient, s.cfg.Updates.DownloadService, requestType, payload)
 }
 
 func decodeTransferReply(message ipc.ServiceMessageNotification) (cloudtransfer.Transfer, error) {
-	switch strings.TrimSpace(message.Envelope.Type) {
-	case "cloud-transfer-transfer":
-		var payload cloudtransfer.TransferPayload
-		if err := json.Unmarshal(message.Envelope.Payload, &payload); err != nil {
-			return cloudtransfer.Transfer{}, fmt.Errorf("decode transfer payload: %w", err)
-		}
-		return payload.Transfer, nil
-	case "cloud-transfer-error":
-		var payload cloudtransfer.TransferErrorPayload
-		if err := json.Unmarshal(message.Envelope.Payload, &payload); err != nil {
-			return cloudtransfer.Transfer{}, fmt.Errorf("decode transfer error payload: %w", err)
-		}
-		return cloudtransfer.Transfer{}, fmt.Errorf("%s", payload.Error)
-	default:
-		return cloudtransfer.Transfer{}, fmt.Errorf("unexpected transfer response type %q", message.Envelope.Type)
-	}
-}
-
-func readRequestIDFromValue(value interface{}) string {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return ""
-	}
-	return readRequestID(data)
+	return cloudtransfer.DecodeServiceMessage(message)
 }
 
 func sha256File(path string) (string, error) {
@@ -1766,21 +1702,6 @@ func (s *Service) daemonReload(ctx context.Context) error {
 func (s *Service) executeCommand(ctx context.Context, command string, args ...string) (string, error) {
 	output, err := s.execCommand(ctx, command, args...)
 	return strings.TrimSpace(string(output)), err
-}
-
-func readRequestID(payload json.RawMessage) string {
-	if len(payload) == 0 {
-		return ""
-	}
-
-	var decoded struct {
-		RequestID string `json:"requestId"`
-	}
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(decoded.RequestID)
 }
 
 func (s *Service) publishResponse(messageType string, payload interface{}) error {

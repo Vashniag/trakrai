@@ -17,6 +17,7 @@ Default local configs only include the services that can run meaningfully withou
 - `cloud-transfer`
 - `live-feed`
 - `rtsp-feeder`
+- `video-recorder`
 - `workflow-engine`
 - `runtime-manager`
 
@@ -124,6 +125,26 @@ That script:
 - simulates a short timeout window to verify expiry/failure behavior
 - enqueues a download for the same object
 - verifies the downloaded payload matches the original file
+
+## Verifying Violation Recording
+
+The local stack now includes `video-recorder` plus the `send-violation-to-cloud` workflow node.
+
+Run the end-to-end verifier from the repository root:
+
+```bash
+python3 trakrai/device/scripts/verify_violation_service_local.py
+```
+
+That script:
+
+- temporarily swaps in a workflow that uses `send-violation-to-cloud`
+- submits a detection frame to `workflow-engine`
+- waits for the immediate photo capture and photo upload handoff to complete
+- waits for `video-recorder` to finish the buffered clip and upload it through `cloud-transfer`
+- fetches the uploaded photo and video back through the real cloud API download-session route
+- subscribes to the broker topic for `workflow-engine/event` and verifies the `violation-created` envelope was published
+- restores the original workflow file afterward
 
 ## Verifying Audio Manager
 

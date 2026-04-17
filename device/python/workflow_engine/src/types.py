@@ -18,6 +18,15 @@ class ServiceBridgeProtocol(Protocol):
         timeout_sec: float,
     ) -> dict[str, Any]: ...
 
+    def publish(
+        self,
+        *,
+        subtopic: str,
+        message_type: str,
+        payload: dict[str, Any],
+        timeout_sec: float,
+    ) -> None: ...
+
 
 class Detection(TypedDict, total=False):
     label: str

@@ -218,6 +218,26 @@
       "systemd_unit": "trakrai-rtsp-feeder.service"
     },
     {
+      "name": "video-recorder",
+      "display_name": "Video recorder",
+      "description": "Rolling camera buffer with photo capture, clip recording, and upload orchestration.",
+      "kind": "binary",
+      "allow_control": true,
+      "allow_update": true,
+      "enabled": true,
+      "install_path": "/home/hacklab/trakrai-device-runtime/bin/video-recorder",
+      "exec_start": [
+        "{{install_path}}",
+        "-config",
+        "/home/hacklab/trakrai-device-runtime/configs/video-recorder.json"
+      ],
+      "version_command": [
+        "{{install_path}}",
+        "--version"
+      ],
+      "systemd_unit": "trakrai-video-recorder.service"
+    },
+    {
       "name": "trakrai-ai-inference",
       "display_name": "AI inference",
       "description": "Wheel-installed Python inference service using a module entrypoint.",

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from ..node_support import bool_value, float_value, string_value
 from ..models import NodeCategory, PortDefinition, t_boolean, t_number, t_string
 from ..registry import register_node
 from ..types import (
@@ -42,19 +41,19 @@ def play_audio_message(inputs: NodeInputs) -> NodeOutputs:
 
     detection_metadata = get_detection_metadata_from_inputs(inputs)
     request_payload = {
-        "cameraId": _string(inputs.get("cameraId")) or detection_metadata["cameraId"],
+        "cameraId": string_value(inputs.get("cameraId")) or detection_metadata["cameraId"],
         "cameraName": detection_metadata["cameraName"],
-        "dedupeKey": _string(inputs.get("dedupeKey")),
-        "language": _string(inputs.get("language")) or "en",
-        "message": _string(inputs.get("message")),
-        "text": _string(inputs.get("message")),
-        "playLocal": _bool(inputs.get("playLocal"), default=True),
-        "playSpeaker": _bool(inputs.get("playSpeaker"), default=False),
-        "speakerAddress": _string(inputs.get("speakerAddress")),
-        "speakerCode": _string(inputs.get("speakerCode")),
-        "speakerMessageId": _string(inputs.get("speakerMessageId")),
+        "dedupeKey": string_value(inputs.get("dedupeKey")),
+        "language": string_value(inputs.get("language")) or "en",
+        "message": string_value(inputs.get("message")),
+        "text": string_value(inputs.get("message")),
+        "playLocal": bool_value(inputs.get("playLocal"), default=True),
+        "playSpeaker": bool_value(inputs.get("playSpeaker"), default=False),
+        "speakerAddress": string_value(inputs.get("speakerAddress")),
+        "speakerCode": string_value(inputs.get("speakerCode")),
+        "speakerMessageId": string_value(inputs.get("speakerMessageId")),
     }
-    timeout_sec = _float(inputs.get("waitTimeoutSec"), default=5.0)
+    timeout_sec = float_value(inputs.get("waitTimeoutSec"), default=5.0)
     response = service_bridge.request(
         target_service="audio-manager",
         message_type="play-audio",
@@ -76,39 +75,3 @@ def play_audio_message(inputs: NodeInputs) -> NodeOutputs:
         "state": state,
         "jobId": str(job.get("id", "")).strip(),
     }
-
-
-def _string(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="ignore").strip()
-    if isinstance(value, (str, int, float)):
-        return str(value).strip()
-    raise TypeError(f"play-audio-message expected a string-like value, got {type(value).__name__}")
-
-
-def _bool(value: Any, *, default: bool) -> bool:
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"1", "true", "yes", "on"}:
-            return True
-        if normalized in {"0", "false", "no", "off"}:
-            return False
-    raise TypeError(f"play-audio-message expected a boolean-like value, got {type(value).__name__}")
-
-
-def _float(value: Any, *, default: float) -> float:
-    if value is None:
-        return default
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str) and value.strip():
-        return float(value.strip())
-    raise TypeError(f"play-audio-message expected a number-like value, got {type(value).__name__}")

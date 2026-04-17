@@ -102,3 +102,13 @@ class ServiceRequestBridge:
                 self._pending.pop(request_id, None)
 
         raise RuntimeError(f"timed out waiting for {target_service} response to {message_type} ({request_id})")
+
+    def publish(
+        self,
+        *,
+        subtopic: str,
+        message_type: str,
+        payload: dict[str, Any],
+        timeout_sec: float,
+    ) -> None:
+        self._ipc.publish(subtopic, message_type, payload, timeout_sec=timeout_sec)

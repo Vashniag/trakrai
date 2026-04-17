@@ -47,6 +47,7 @@ SERVICE_BUILD_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("roi-config", "Dockerfile", "./cmd/roi-config"),
     ("rtsp-feeder", "Dockerfile.gstreamer", "./cmd/rtsp-feeder"),
     ("runtime-manager", "Dockerfile", "./cmd/runtime-manager"),
+    ("video-recorder", "Dockerfile", "./cmd/video-recorder"),
 )
 
 CONFIG_NAMES: tuple[str, ...] = (
@@ -57,6 +58,7 @@ CONFIG_NAMES: tuple[str, ...] = (
     "ptz-control.json",
     "roi-config.json",
     "rtsp-feeder.json",
+    "video-recorder.json",
     "ai-inference.json",
     "workflow-engine.json",
 )
@@ -496,6 +498,7 @@ def build_runtime_manager_config(options: StageOptions, available_configs: set[s
         ("ptz-control", "PTZ control", "PTZ command service."),
         ("roi-config", "ROI config", "Per-camera PTZ base-location and ROI document service."),
         ("rtsp-feeder", "RTSP feeder", "Camera ingest service."),
+        ("video-recorder", "Video recorder", "Rolling JPEG frame buffer, photo capture, clip recording, and upload orchestration."),
     ]:
         if f"{service_name}.json" not in available_configs:
             continue
@@ -620,7 +623,7 @@ def build_manifest(
     ]
     dynamic_units: list[str] = []
 
-    for service_name in ["cloud-transfer", "live-feed", "ptz-control", "roi-config", "rtsp-feeder"]:
+    for service_name in ["cloud-transfer", "live-feed", "ptz-control", "roi-config", "rtsp-feeder", "video-recorder"]:
         if f"{service_name}.json" not in available_configs:
             continue
         configs.append({"source": f"configs/{service_name}.json", "target": f"configs/{service_name}.json"})
@@ -701,6 +704,7 @@ def build_manifest(
             "ptz-control",
             "roi-config",
             "rtsp-feeder",
+            "video-recorder",
             "serve-device-ui.sh",
             "trakrai-device-ui-current.zip",
             "ui",
@@ -722,10 +726,12 @@ def build_manifest(
             f"{runtime_root}/ptz-control",
             f"{runtime_root}/roi-config",
             f"{runtime_root}/rtsp-feeder",
+            f"{runtime_root}/video-recorder",
             f"{runtime_root}/serve-device-ui.sh",
             runtime_config_path(runtime_root, "audio-manager.json"),
             runtime_config_path(runtime_root, "ai-inference.json"),
             runtime_config_path(runtime_root, "workflow-engine.json"),
+            runtime_config_path(runtime_root, "video-recorder.json"),
         ],
         "stop_units": stop_units,
         "wait_for_units": wait_for_units,

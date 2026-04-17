@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "name": "Violation Service Verification Workflow"
+  },
+  "nodes": [
+    {
+      "id": "violation",
+      "type": "send-violation-to-cloud",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Violation",
+        "configuration": {
+          "frameRate": 8,
+          "includeDetections": true,
+          "localPrefix": "violations",
+          "photoEnabled": true,
+          "postSeconds": 2,
+          "preSeconds": 2,
+          "remotePrefix": "violations",
+          "uploadTimeout": "1h",
+          "videoEnabled": true,
+          "violationType": "local-verification",
+          "waitTimeoutSec": 10
+        }
+      }
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,48 @@
+{
+  "log_level": "info",
+  "device_id": "trakrai-device",
+  "ipc": {
+    "socket_path": "/tmp/trakrai-cloud-comm.sock"
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "key_prefix": "camera"
+  },
+  "storage": {
+    "shared_dir": "/home/hacklab/trakrai-device-runtime/shared"
+  },
+  "buffer": {
+    "duration_sec": 600,
+    "poll_interval_ms": 100,
+    "max_frames_per_camera": 6000,
+    "max_bytes_per_camera": 268435456,
+    "status_report_interval_sec": 5
+  },
+  "queue": {
+    "max_pending": 64,
+    "worker_count": 1
+  },
+  "recording": {
+    "default_frame_rate": 10,
+    "default_pre_sec": 5,
+    "default_post_sec": 5,
+    "max_frame_rate": 25,
+    "write_timeout_sec": 60,
+    "gstreamer_bin": "gst-launch-1.0"
+  },
+  "upload": {
+    "service_name": "cloud-transfer"
+  },
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Camera-1",
+      "width": 640,
+      "height": 480,
+      "enabled": true
+    }
+  ]
+}
