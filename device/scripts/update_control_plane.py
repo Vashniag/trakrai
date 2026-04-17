@@ -225,9 +225,19 @@ def download_package(cloud_api: dict[str, str], artifact: dict[str, Any], destin
 def install_binary(runtime_root: Path, package: str, source: Path, artifact: dict[str, Any]) -> None:
     target = runtime_root / "bin" / package
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, target)
-    target.chmod(0o755)
-    shutil.chown(target, user="hacklab", group="hacklab")
+    # Writing directly to the target path fails with ETXTBSY ("Text file
+    # busy") when the old binary is currently exec'd by the running systemd
+    # unit. Atomic-rename pattern avoids this: the rename swaps the dirent,
+    # the running process keeps its fd on the old inode (which gets unlinked
+    # when the process exits), and the subsequent systemctl restart will pick
+    # up the new file.
+    staged = target.with_suffix(target.suffix + ".new")
+    if staged.exists():
+        staged.unlink()
+    shutil.copy2(source, staged)
+    staged.chmod(0o755)
+    shutil.chown(staged, user="hacklab", group="hacklab")
+    os.replace(staged, target)
 
     version_file = runtime_root / "versions" / f"{package}.txt"
     version_file.parent.mkdir(parents=True, exist_ok=True)
