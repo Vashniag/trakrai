@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
 import sys
 import time
@@ -8,6 +9,21 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .config import InferenceConfig
+
+
+def _tensorrt_available() -> bool:
+    """Return True only when the `tensorrt` python bindings can be imported.
+
+    The device inference backend falls back to the PyTorch `.pt` path if a
+    `.engine` file is present but TensorRT is not installed. Checking via
+    `find_spec` avoids importing tensorrt at service boot for devices that
+    never need it.
+    """
+
+    try:
+        return importlib.util.find_spec("tensorrt") is not None
+    except Exception:  # pragma: no cover - defensive
+        return False
 
 
 @dataclass(frozen=True)
@@ -185,9 +201,17 @@ class InferenceBackend:
         if weights_path.endswith(".pt"):
             engine_path = weights_path[:-3] + ".engine"
             if Path(engine_path).is_file():
-                self._logger.info("TensorRT engine found, using %s instead of %s", engine_path, weights_path)
-                original_pt_path = weights_path
-                resolved_weights_path = engine_path
+                if _tensorrt_available():
+                    self._logger.info("TensorRT engine found, using %s instead of %s", engine_path, weights_path)
+                    original_pt_path = weights_path
+                    resolved_weights_path = engine_path
+                else:
+                    self._logger.warning(
+                        "TensorRT engine present at %s but `tensorrt` python bindings are not installed; "
+                        "falling back to PyTorch weights at %s",
+                        engine_path,
+                        weights_path,
+                    )
 
         device = self._bindings.select_device(str(self.device))
         model = self._bindings.DetectMultiBackend(
