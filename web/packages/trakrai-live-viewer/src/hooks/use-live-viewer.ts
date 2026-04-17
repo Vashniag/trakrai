@@ -58,6 +58,12 @@ type WebRtcIcePayload = Readonly<{
   sessionId?: string;
 }>;
 
+type StopLiveSessionOptions = Readonly<{
+  clearViewerState?: boolean;
+  logMessage?: string;
+  requestStatus?: boolean;
+}>;
+
 export type LiveViewerState = {
   activeCameraName: string | null;
   connectionState: ConnectionState;
@@ -147,6 +153,7 @@ export const useLiveViewer = (): LiveViewerState => {
   const activeRequestIdRef = useRef<string | null>(null);
   const pendingSessionIdRef = useRef<string | null>(null);
   const requestedCameraRef = useRef<string | null>(null);
+  const stopLiveSessionRef = useRef<(options?: StopLiveSessionOptions) => void>(() => {});
 
   useEffect(() => {
     if (deviceId !== '') {
@@ -285,6 +292,51 @@ export const useLiveViewer = (): LiveViewerState => {
     };
   }, [appendLog, subscribeToEvents]);
 
+  useEffect(() => {
+    stopLiveSessionRef.current = (options?: StopLiveSessionOptions) => {
+      const sessionId = currentSessionId ?? pendingSessionIdRef.current;
+      const requestId = activeRequestIdRef.current;
+
+      if (options?.logMessage !== undefined) {
+        appendLog('info', options.logMessage);
+      }
+
+      if (sessionId !== null || requestId !== null) {
+        liveFeedService.notify('stop-live', {
+          requestId: requestId ?? undefined,
+          sessionId: sessionId ?? undefined,
+        });
+      }
+
+      requestedCameraRef.current = null;
+      pendingSessionIdRef.current = null;
+      activeRequestIdRef.current = null;
+      closePeer({ clearSession: true });
+
+      if (options?.clearViewerState !== false) {
+        setViewerState('idle');
+        setViewerError(null);
+        setActiveCameraName(null);
+      }
+
+      if (options?.requestStatus === true) {
+        requestDeviceStatus();
+      }
+    };
+  }, [appendLog, closePeer, currentSessionId, liveFeedService, requestDeviceStatus]);
+
+  useEffect(() => {
+    const stopLiveForPageHide = () => {
+      stopLiveSessionRef.current({ clearViewerState: false });
+    };
+
+    window.addEventListener('pagehide', stopLiveForPageHide);
+    return () => {
+      window.removeEventListener('pagehide', stopLiveForPageHide);
+      stopLiveSessionRef.current({ clearViewerState: false });
+    };
+  }, []);
+
   const startLive = useCallback(
     (selection: LiveLayoutSelection) => {
       const normalizedSelection = normalizeLiveLayoutSelection(selection);
@@ -293,12 +345,12 @@ export const useLiveViewer = (): LiveViewerState => {
         return;
       }
 
-      const previousSessionId = currentSessionId ?? pendingSessionIdRef.current;
-      if (previousSessionId !== null) {
-        liveFeedService.notify('stop-live', {
-          sessionId: previousSessionId,
-        });
-        closePeer({ clearSession: true });
+      if (
+        currentSessionId !== null ||
+        pendingSessionIdRef.current !== null ||
+        activeRequestIdRef.current !== null
+      ) {
+        stopLiveSessionRef.current({ clearViewerState: false });
       }
 
       requestedCameraRef.current = primaryCameraName;
@@ -449,18 +501,12 @@ export const useLiveViewer = (): LiveViewerState => {
   );
 
   const stopLive = useCallback(() => {
-    appendLog('info', 'Stopping live feed');
-    liveFeedService.notify('stop-live', {
-      sessionId: currentSessionId ?? pendingSessionIdRef.current ?? undefined,
+    stopLiveSessionRef.current({
+      clearViewerState: true,
+      logMessage: 'Stopping live feed',
+      requestStatus: true,
     });
-    requestedCameraRef.current = null;
-    pendingSessionIdRef.current = null;
-    activeRequestIdRef.current = null;
-    closePeer({ clearSession: true });
-    setViewerState('idle');
-    setActiveCameraName(null);
-    requestDeviceStatus();
-  }, [appendLog, closePeer, currentSessionId, liveFeedService, requestDeviceStatus]);
+  }, []);
 
   const refreshStatus = useCallback(() => {
     appendLog('info', 'Requesting latest device status');

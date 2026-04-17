@@ -623,7 +623,8 @@ func (s *EdgeWebSocketServer) addClient(client *edgeClient) {
 
 func (s *EdgeWebSocketServer) removeClient(client *edgeClient) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+
+	ownedSessionIDs := make([]string, 0)
 
 	if requestIDs, ok := s.clientRequests[client]; ok {
 		for requestID := range requestIDs {
@@ -633,13 +634,20 @@ func (s *EdgeWebSocketServer) removeClient(client *edgeClient) {
 	}
 
 	if sessionIDs, ok := s.clientSessions[client]; ok {
+		ownedSessionIDs = make([]string, 0, len(sessionIDs))
 		for sessionID := range sessionIDs {
+			ownedSessionIDs = append(ownedSessionIDs, sessionID)
 			delete(s.sessionOwners, sessionID)
 		}
 		delete(s.clientSessions, client)
 	}
 
 	delete(s.clients, client)
+	s.mu.Unlock()
+
+	for _, sessionID := range ownedSessionIDs {
+		s.stopOwnedLiveFeedSession(sessionID)
+	}
 }
 
 func (s *EdgeWebSocketServer) snapshotClients() []*edgeClient {
@@ -720,6 +728,22 @@ func (s *EdgeWebSocketServer) bindSessionOwnerLocked(client *edgeClient, session
 	}
 	s.sessionOwners[sessionID] = client
 	s.clientSessions[client][sessionID] = struct{}{}
+}
+
+func (s *EdgeWebSocketServer) stopOwnedLiveFeedSession(sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return
+	}
+
+	if err := s.dispatch(topicRoute{
+		service:  "live-feed",
+		subtopic: "command",
+	}, buildEnvelope("stop-live", marshalPayload(map[string]interface{}{
+		"sessionId": sessionID,
+	}))); err != nil {
+		s.log.Warn("failed to stop live-feed session for disconnected websocket client", "session_id", sessionID, "error", err)
+	}
 }
 
 func normalizeEdgeEnvelope(env ipc.MQTTEnvelope) (ipc.MQTTEnvelope, error) {

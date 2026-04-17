@@ -61,31 +61,34 @@ func (p *TransportPublisher) Publish(req ipc.PublishMessageRequest) error {
 		websocketDeliveries = p.edge.Broadcast(req.Service, req.Subtopic, env)
 	}
 
-	var mqttErr error
-	mqttDelivered := false
-	if p.mqtt != nil {
-		if err := p.mqtt.PublishEnvelope(req.Service, req.Subtopic, env); err != nil {
-			mqttErr = err
-		} else {
-			mqttDelivered = true
-		}
-	}
-
-	if mqttDelivered || websocketDeliveries > 0 {
-		if mqttErr != nil {
-			p.log.Warn("MQTT publish failed while edge delivery succeeded",
-				"service", req.Service,
-				"subtopic", req.Subtopic,
-				"type", req.Type,
-				"error", mqttErr,
-			)
+	if websocketDeliveries > 0 {
+		if p.mqtt != nil {
+			go p.publishMQTTBestEffort(req, env)
 		}
 		return nil
 	}
 
-	if mqttErr != nil {
-		return mqttErr
+	if p.mqtt == nil {
+		return nil
+	}
+
+	if err := p.mqtt.PublishEnvelope(req.Service, req.Subtopic, env); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func (p *TransportPublisher) publishMQTTBestEffort(
+	req ipc.PublishMessageRequest,
+	env ipc.MQTTEnvelope,
+) {
+	if err := p.mqtt.PublishEnvelope(req.Service, req.Subtopic, env); err != nil {
+		p.log.Warn("MQTT publish failed while edge delivery succeeded",
+			"service", req.Service,
+			"subtopic", req.Subtopic,
+			"type", req.Type,
+			"error", err,
+		)
+	}
 }

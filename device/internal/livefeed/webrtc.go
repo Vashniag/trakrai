@@ -585,6 +585,31 @@ func (sm *SessionManager) StopSession(sessionID string) {
 	})
 }
 
+func (sm *SessionManager) StopSessionByRequestID(requestID string) {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return
+	}
+
+	sm.mu.Lock()
+	sessionIDs := make([]string, 0, len(sm.sessions))
+	for sessionID, session := range sm.sessions {
+		if session == nil || strings.TrimSpace(session.requestID) != requestID {
+			continue
+		}
+		sessionIDs = append(sessionIDs, sessionID)
+	}
+	sm.mu.Unlock()
+
+	for _, sessionID := range sessionIDs {
+		sm.stopSessionWithDetails(sessionID, map[string]interface{}{
+			"reason":    "stop-request",
+			"requestId": requestID,
+			"sessionId": sessionID,
+		})
+	}
+}
+
 func (sm *SessionManager) stopAllSessions(extra map[string]interface{}) {
 	sm.mu.Lock()
 	sessions := make([]*liveSession, 0, len(sm.sessions))

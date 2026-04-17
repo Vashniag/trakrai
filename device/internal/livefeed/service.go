@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/trakrai/device-services/internal/ipc"
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
@@ -141,6 +142,7 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 	case "stop-live", "stop":
 		var payload struct {
 			SessionID string `json:"sessionId"`
+			RequestID string `json:"requestId"`
 		}
 		if len(env.Payload) > 0 {
 			if err := json.Unmarshal(env.Payload, &payload); err != nil {
@@ -148,7 +150,14 @@ func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTT
 			}
 		}
 
-		sessions.StopSession(payload.SessionID)
+		switch {
+		case strings.TrimSpace(payload.SessionID) != "":
+			sessions.StopSession(payload.SessionID)
+		case strings.TrimSpace(payload.RequestID) != "":
+			sessions.StopSessionByRequestID(payload.RequestID)
+		default:
+			sessions.StopSession("")
+		}
 
 	default:
 		slog.Warn("unknown live-feed command", "type", env.Type)

@@ -494,6 +494,128 @@ func TestEdgeWebSocketServerRoutesSessionPacketsToOwningClient(t *testing.T) {
 	}
 }
 
+func TestEdgeWebSocketServerStopsOwnedLiveSessionWhenOwnerDisconnects(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		DeviceID: "edge-device-1",
+		Edge: EdgeWebSocketConfig{
+			Enabled:    true,
+			ListenAddr: ":0",
+			Path:       "/ws",
+		},
+	}
+
+	routeEvents := make(chan struct {
+		env   ipc.MQTTEnvelope
+		route topicRoute
+	}, 2)
+	server := NewEdgeWebSocketServer(
+		cfg,
+		func(route topicRoute, env ipc.MQTTEnvelope) error {
+			routeEvents <- struct {
+				env   ipc.MQTTEnvelope
+				route topicRoute
+			}{
+				env:   env,
+				route: route,
+			}
+			return nil
+		},
+		func() ipc.MQTTEnvelope {
+			return buildEnvelope("status", marshalPayload(map[string]interface{}{"deviceId": cfg.DeviceID}))
+		},
+	)
+
+	httpServer := httptest.NewServer(httpTestMux(server))
+	defer httpServer.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/ws?deviceId=edge-device-1"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket failed: %v", err)
+	}
+	defer conn.Close()
+
+	for i := 0; i < 2; i++ {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			t.Fatalf("failed to read initial websocket message: %v", err)
+		}
+	}
+
+	requestID := "req-1"
+	if err := conn.WriteJSON(map[string]interface{}{
+		"envelope": map[string]interface{}{
+			"payload": map[string]interface{}{
+				"cameraName": "LP1-Main",
+				"requestId":  requestID,
+			},
+			"type": "start-live",
+		},
+		"kind":     "packet",
+		"service":  "live-feed",
+		"subtopic": "command",
+	}); err != nil {
+		t.Fatalf("failed to send start-live packet: %v", err)
+	}
+
+	select {
+	case <-routeEvents:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for start-live dispatch")
+	}
+
+	server.Broadcast("live-feed", "response", buildEnvelope("start-live-ack", marshalPayload(map[string]interface{}{
+		"cameraName": "LP1-Main",
+		"ok":         true,
+		"requestId":  requestID,
+		"sessionId":  "session-1",
+	})))
+
+	type outbound struct {
+		Envelope ipc.MQTTEnvelope `json:"envelope"`
+		Service  *string          `json:"service"`
+		Subtopic string           `json:"subtopic"`
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var ack outbound
+	if err := conn.ReadJSON(&ack); err != nil {
+		t.Fatalf("failed to read start-live-ack packet: %v", err)
+	}
+
+	if err := conn.Close(); err != nil {
+		t.Fatalf("failed to close websocket client: %v", err)
+	}
+
+	var dispatched struct {
+		env   ipc.MQTTEnvelope
+		route topicRoute
+	}
+	select {
+	case dispatched = <-routeEvents:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for disconnect stop-live dispatch")
+	}
+
+	if dispatched.route.service != "live-feed" || dispatched.route.subtopic != "command" {
+		t.Fatalf("unexpected route %#v", dispatched.route)
+	}
+	if dispatched.env.Type != "stop-live" {
+		t.Fatalf("expected stop-live envelope, got %q", dispatched.env.Type)
+	}
+
+	var payload struct {
+		SessionID string `json:"sessionId"`
+	}
+	if err := json.Unmarshal(dispatched.env.Payload, &payload); err != nil {
+		t.Fatalf("failed to decode stop-live payload: %v", err)
+	}
+	if payload.SessionID != "session-1" {
+		t.Fatalf("expected session-1 in stop-live payload, got %q", payload.SessionID)
+	}
+}
+
 func TestEdgeWebSocketServerDoesNotBroadcastBrowserOriginIce(t *testing.T) {
 	t.Parallel()
 
