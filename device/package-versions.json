@@ -116,16 +116,16 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.1.zip",
-          "remotePath": "edge-ui/0.1.1/universal/edge-ui-v0.1.1.zip",
-          "sha256": "b538cf0a926a103081c51d0f56a34786a34ea074014aa4c8d9797c61918638df",
-          "updatedAt": "2026-04-17T04:09:10Z"
+          "fileName": "edge-ui-v0.1.2.zip",
+          "remotePath": "edge-ui/0.1.2/universal/edge-ui-v0.1.2.zip",
+          "sha256": "56ab26868d100f643d49a3e7a97e7beaa1dbe1c88a0ea672cdb6753538f2f5d9",
+          "updatedAt": "2026-04-17T11:59:42Z"
         }
       },
       "buildTarget": "ui-bundle",
       "kind": "zip",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:3328a670cb45cd8595435a76b80effda148fa5f04f7b74a7a9ce61485874285f",
+      "sourceHash": "sha256:48b78b6b11c84ebcece13c373b2734cb8b4cf6e07a1238bd9df8711922187061",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/eslint.config.mjs",
@@ -270,7 +270,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "live-feed": {
       "artifacts": {
@@ -411,16 +411,16 @@
     "runtime-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "runtime-manager-linux-arm64-v0.1.1",
-          "remotePath": "runtime-manager/0.1.1/linux-arm64/runtime-manager-linux-arm64-v0.1.1",
-          "sha256": "a308b4afa262e0fcc7ee1223f24af108bae444f5730acf86a1ebca63dee8758d",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "runtime-manager-linux-arm64-v0.1.2",
+          "remotePath": "runtime-manager/0.1.2/linux-arm64/runtime-manager-linux-arm64-v0.1.2",
+          "sha256": "6cce28d93ba73e7727c15cfa22c6fefb3405603e0d203d47ae90f7d1a5e31d13",
+          "updatedAt": "2026-04-17T11:59:42Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "runtime-manager",
-      "sourceHash": "sha256:ad7fe8faa1e5f64e3d00910073e21bcc9db2d90f5e94963a43df01ad2b924446",
+      "sourceHash": "sha256:58c9d4ccbfa51df5990158d0211c760377500997683db2f27dc7cb3cb424c72b",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/runtime-manager/main.go",
@@ -439,6 +439,7 @@
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/runtimemanager/config.go",
+        "device/internal/runtimemanager/host_metrics.go",
         "device/internal/runtimemanager/models.go",
         "device/internal/runtimemanager/service.go",
         "device/internal/runtimemanager/tail.go",
@@ -446,7 +447,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "trakrai-ai-inference": {
       "artifacts": {
@@ -650,5 +651,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T09:36:33Z"
+  "updatedAt": "2026-04-17T11:59:42Z"
 }
