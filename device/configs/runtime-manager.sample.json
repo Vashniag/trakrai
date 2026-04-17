@@ -92,7 +92,7 @@
       "exec_start": [
         "python3",
         "-m",
-        "trakrai_audio_manager",
+        "audio_manager",
         "--config",
         "/home/hacklab/trakrai-device-runtime/configs/audio-manager.json"
       ],
@@ -112,7 +112,7 @@
       "version_command": [
         "python3",
         "-m",
-        "trakrai_audio_manager",
+        "audio_manager",
         "--version"
       ],
       "systemd_unit": "trakrai-audio-manager.service"
@@ -264,7 +264,7 @@
       "exec_start": [
         "python3",
         "-m",
-        "trakrai_workflow_engine",
+        "workflow_engine",
         "--config",
         "/home/hacklab/trakrai-device-runtime/configs/workflow-engine.json"
       ],
@@ -284,7 +284,7 @@
       "version_command": [
         "python3",
         "-m",
-        "trakrai_workflow_engine",
+        "workflow_engine",
         "--version"
       ],
       "systemd_unit": "trakrai-workflow-engine.service"

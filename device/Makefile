@@ -26,7 +26,7 @@ build-runtime-manager:
 	@echo "Binary: out/runtime-manager/runtime-manager"
 
 build-ai-inference-wheel:
-	docker buildx build --output type=local,dest=./out/ai-inference-wheel -f python/ai_inference/Dockerfile.wheel --build-arg PACKAGE_VERSION="$(AI_INFERENCE_VERSION)" ./python/ai_inference
+	docker buildx build --output type=local,dest=./out/ai-inference-wheel -f python/Dockerfile.wheel --build-arg PACKAGE_DIR=ai_inference --build-arg BUILD_WHEELHOUSE=0 --build-arg PACKAGE_VERSION="$(AI_INFERENCE_VERSION)" ./python
 	@echo "Wheel: out/ai-inference-wheel/"
 
 clean:

@@ -50,7 +50,7 @@ def main() -> int:
         "device-emulator",
         "python3.8",
         "-m",
-        "trakrai_workflow_engine.mock_feed",
+        "workflow_engine.mock_feed",
         "--config",
         RUNTIME_CONFIG_PATH,
         "--input",

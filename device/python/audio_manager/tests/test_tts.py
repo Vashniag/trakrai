@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from trakrai_audio_manager.config import TTSConfig
-from trakrai_audio_manager import tts
-from trakrai_audio_manager.tts import TTSGenerator
+from audio_manager.config import TTSConfig
+from audio_manager import tts
+from audio_manager.tts import TTSGenerator
 
 
 class _FakeGTTS:

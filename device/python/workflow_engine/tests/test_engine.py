@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from trakrai_workflow_engine.engine import WorkflowEngine
-from trakrai_workflow_engine import nodes  # noqa: F401
-from trakrai_workflow_engine.payloads import normalize_detection_request
+from workflow_engine.engine import WorkflowEngine
+from workflow_engine import nodes  # noqa: F401
+from workflow_engine.payloads import normalize_detection_request
 
 
 class _FakeServiceBridge:

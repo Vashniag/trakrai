@@ -33,7 +33,7 @@ def run_service_main(
     load_config: Callable[[str], ConfigT],
     build_service: Callable[[ConfigT, logging.Logger], RunnableService],
 ) -> int:
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(prog=logger_name, description=description)
     parser.add_argument("-config", "--config", default="config.json", help="path to the JSON config file")
     parser.add_argument("--version", action="version", version=f"%(prog)s {version}")
     args = parser.parse_args(argv)

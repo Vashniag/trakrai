@@ -14,7 +14,7 @@ from .registry import NodeRegistry, registry as default_registry
 from .types import WorkflowPayload
 from .validator import WorkflowValidator
 
-logger = logging.getLogger("trakrai_workflow_engine.engine")
+logger = logging.getLogger("workflow_engine.engine")
 
 
 @dataclass

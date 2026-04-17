@@ -7,7 +7,7 @@ from .exceptions import NodeNotFoundError
 from .models import NodeCategory, NodeDefinition, PortDefinition
 from .types import NodeFunction
 
-logger = logging.getLogger("trakrai_workflow_engine.registry")
+logger = logging.getLogger("workflow_engine.registry")
 
 
 class _NodeEntry:

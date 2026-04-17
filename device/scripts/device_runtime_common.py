@@ -18,7 +18,7 @@ DEVICE_ROOT = REPO_ROOT / "device"
 DEVICE_PYTHON_ROOT = DEVICE_ROOT / "python"
 WEB_DEVICE_APP_ROOT = WEB_ROOT / "apps" / "trakrai-device"
 SHARED_PYTHON_PACKAGE_NAME = "trakrai_service_runtime"
-SHARED_PYTHON_PACKAGE_SOURCE_DIR = DEVICE_PYTHON_ROOT / SHARED_PYTHON_PACKAGE_NAME / "src" / SHARED_PYTHON_PACKAGE_NAME
+SHARED_PYTHON_PACKAGE_SOURCE_DIR = DEVICE_PYTHON_ROOT / SHARED_PYTHON_PACKAGE_NAME
 DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
 DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
@@ -102,6 +102,8 @@ class PythonWheelTarget:
     artifact_key: str
     config_name: str
     context_dir: Path
+    package_dir: str
+    build_wheelhouse: bool
     default_version: str
     description: str
     display_name: str
@@ -113,17 +115,21 @@ PYTHON_WHEEL_TARGETS: tuple[PythonWheelTarget, ...] = (
     PythonWheelTarget(
         artifact_key="audio-manager-wheel",
         config_name="audio-manager.json",
-        context_dir=DEVICE_ROOT / "python" / "audio_manager",
+        context_dir=DEVICE_PYTHON_ROOT,
+        package_dir="audio_manager",
+        build_wheelhouse=True,
         default_version=DEFAULT_AUDIO_MANAGER_VERSION,
         description="Queued audio generation, local playback, and network-speaker delivery service.",
         display_name="Audio manager",
-        module_name="trakrai_audio_manager",
+        module_name="audio_manager",
         service_name="audio-manager",
     ),
     PythonWheelTarget(
         artifact_key="ai-wheel",
         config_name="ai-inference.json",
-        context_dir=DEVICE_ROOT / "python" / "ai_inference",
+        context_dir=DEVICE_PYTHON_ROOT,
+        package_dir="ai_inference",
+        build_wheelhouse=False,
         default_version=DEFAULT_AI_INFERENCE_VERSION,
         description="Wheel-installed Redis-driven AI inference worker.",
         display_name="AI inference",
@@ -133,11 +139,13 @@ PYTHON_WHEEL_TARGETS: tuple[PythonWheelTarget, ...] = (
     PythonWheelTarget(
         artifact_key="workflow-engine-wheel",
         config_name="workflow-engine.json",
-        context_dir=DEVICE_ROOT / "python" / "workflow_engine",
+        context_dir=DEVICE_PYTHON_ROOT,
+        package_dir="workflow_engine",
+        build_wheelhouse=False,
         default_version=DEFAULT_WORKFLOW_ENGINE_VERSION,
         description="Queued workflow execution service with hot-reloaded workflow JSON.",
         display_name="Workflow engine",
-        module_name="trakrai_workflow_engine",
+        module_name="workflow_engine",
         service_name="workflow-engine",
     ),
 )
@@ -269,6 +277,8 @@ def build_device_artifacts(*, platform: str, include_python_wheels: set[str]) ->
             output_dir=DEVICE_ROOT / "out" / target.artifact_key,
             dockerfile="Dockerfile.wheel",
             build_args={
+                "PACKAGE_DIR": target.package_dir,
+                "BUILD_WHEELHOUSE": "1" if target.build_wheelhouse else "0",
                 "PACKAGE_VERSION": target.default_version,
             },
             context_dir=target.context_dir,

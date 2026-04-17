@@ -8,7 +8,7 @@ from typing import Any
 from .exceptions import CyclicDependencyError
 from .models import WorkflowDefinition
 
-logger = logging.getLogger("trakrai_workflow_engine.dag")
+logger = logging.getLogger("workflow_engine.dag")
 
 
 @dataclass(frozen=True)

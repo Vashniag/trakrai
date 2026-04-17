@@ -4,10 +4,17 @@ import json
 import logging
 import queue
 import threading
-from pathlib import Path
 from typing import Any
 
-from trakrai_service_runtime import IPCClient
+from trakrai_service_runtime import (
+    IPCClient,
+    append_jsonl,
+    publish_error,
+    publish_reply,
+    report_status,
+    run_command_loop,
+    run_periodic_loop,
+)
 
 from .config import ServiceConfig
 from .models import AudioJob, parse_audio_request, utc_timestamp
@@ -43,7 +50,16 @@ class AudioService:
 
         threads = [
             threading.Thread(target=self._worker_loop, name="audio-manager-worker", daemon=True),
-            threading.Thread(target=self._status_loop, name="audio-manager-status", daemon=True),
+            threading.Thread(
+                target=run_periodic_loop,
+                args=(
+                    self._stop_event,
+                    float(self._config.queue.status_report_interval_sec),
+                    self._report_status,
+                ),
+                name="audio-manager-status",
+                daemon=True,
+            ),
         ]
         for thread in threads:
             thread.start()
@@ -67,30 +83,12 @@ class AudioService:
                 break
 
     def _handle_notifications(self) -> None:
-        while not self._stop_event.is_set():
-            notification = self._ipc.read_notification(timeout_sec=1.0)
-            if notification is None:
-                if self._ipc.is_closed:
-                    raise RuntimeError("audio-manager IPC connection closed")
-                continue
-
-            method = str(notification.get("method", "")).strip()
-            params = notification.get("params", {})
-            if not isinstance(params, dict):
-                continue
-
-            if method == "mqtt-message":
-                if str(params.get("subtopic", "")).strip() != "command":
-                    continue
-                envelope = params.get("envelope")
-                if isinstance(envelope, dict):
-                    self._handle_command("", envelope)
-            elif method == "service-message":
-                if str(params.get("subtopic", "")).strip() != "command":
-                    continue
-                envelope = params.get("envelope")
-                if isinstance(envelope, dict):
-                    self._handle_command(str(params.get("sourceService", "")).strip(), envelope)
+        run_command_loop(
+            self._ipc,
+            self._stop_event,
+            self._handle_command,
+            closed_error_message="audio-manager IPC connection closed",
+        )
 
     def _handle_command(self, source_service: str, envelope: dict[str, Any]) -> None:
         message_type = str(envelope.get("type", "")).strip()
@@ -321,11 +319,6 @@ class AudioService:
                 self._queue.task_done()
                 self._report_status()
 
-    def _status_loop(self) -> None:
-        interval_sec = float(self._config.queue.status_report_interval_sec)
-        while not self._stop_event.wait(interval_sec):
-            self._report_status()
-
     def _build_status_payload(self, *, request_id: str = "") -> dict[str, Any]:
         return {
             "requestId": request_id,
@@ -356,37 +349,36 @@ class AudioService:
         )
 
     def _publish_reply(self, target_service: str, message_type: str, payload: dict[str, Any]) -> None:
-        target_service = target_service.strip()
-        try:
-            if target_service != "":
-                self._ipc.send_service_message(target_service, "response", message_type, payload)
-            else:
-                self._ipc.publish("response", message_type, payload)
-        except Exception as exc:
-            self._logger.warning("failed to publish audio-manager reply", extra={"error": str(exc)})
+        publish_reply(
+            self._ipc,
+            self._logger,
+            target_service,
+            message_type,
+            payload,
+            warning_message="failed to publish audio-manager reply",
+        )
 
     def _publish_error(self, target_service: str, *, request_id: str, request_type: str, error: str) -> None:
-        payload = {
-            "error": error,
-            "requestId": request_id.strip(),
-            "requestType": request_type.strip(),
-        }
-        self._publish_reply(target_service, ERROR_MESSAGE_TYPE, payload)
-        try:
-            self._ipc.report_error(error, fatal=False)
-        except Exception:
-            self._logger.debug("audio-manager error report failed", exc_info=True)
+        publish_error(
+            self._ipc,
+            self._logger,
+            target_service,
+            ERROR_MESSAGE_TYPE,
+            request_id=request_id,
+            request_type=request_type,
+            error=error,
+            warning_message="failed to publish audio-manager reply",
+            debug_message="audio-manager error report failed",
+        )
 
     def _report_status(self, status_override: str | None = None) -> None:
-        payload = self._build_status_payload()
-        status = status_override or "running"
-        try:
-            self._ipc.report_status(status, payload)
-        except Exception:
-            self._logger.debug("audio-manager status report failed", exc_info=True)
+        report_status(
+            self._ipc,
+            self._logger,
+            status_override or "running",
+            self._build_status_payload(),
+            debug_message="audio-manager status report failed",
+        )
 
     def _append_event(self, event: dict[str, Any]) -> None:
-        path = Path(self._config.storage.event_log_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, sort_keys=True) + "\n")
+        append_jsonl(self._config.storage.event_log_path, event)

@@ -7,7 +7,7 @@ from .exceptions import ValidationError
 from .models import NodeDefinition, WorkflowDefinition, WorkflowEdge, WorkflowNode
 from .registry import NodeRegistry, registry as default_registry
 
-logger = logging.getLogger("trakrai_workflow_engine.validator")
+logger = logging.getLogger("workflow_engine.validator")
 
 _TYPE_COMPAT: dict[str, set[str]] = {
     "any": {"any", "number", "string", "boolean", "array", "object"},

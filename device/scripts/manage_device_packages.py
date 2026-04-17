@@ -97,7 +97,12 @@ def package_targets() -> tuple[PackageTarget, ...]:
             kind="wheel",
             platform_strategy="platform",
             service_name=target.service_name,
-            source_roots=(target.context_dir,),
+            source_roots=(
+                common.DEVICE_PYTHON_ROOT / "Dockerfile.wheel",
+                common.DEVICE_PYTHON_ROOT / "conftest.py",
+                common.DEVICE_PYTHON_ROOT / "trakrai_service_runtime",
+                common.DEVICE_PYTHON_ROOT / target.package_dir,
+            ),
             target_type="python-wheel",
             wheel_target=target,
         )
@@ -327,7 +332,11 @@ def build_python_wheel(target: PackageTarget, version: str, platform: str, platf
     common.docker_buildx(
         output_dir=output_dir,
         dockerfile="Dockerfile.wheel",
-        build_args={"PACKAGE_VERSION": version},
+        build_args={
+            "PACKAGE_DIR": target.wheel_target.package_dir,
+            "BUILD_WHEELHOUSE": "1" if target.wheel_target.build_wheelhouse else "0",
+            "PACKAGE_VERSION": version,
+        },
         context_dir=target.wheel_target.context_dir,
         platform=platform,
     )

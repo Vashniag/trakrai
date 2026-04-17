@@ -23,6 +23,22 @@ class ServiceRequestBridge:
         self._pending: dict[str, "queue.Queue[ServiceResponse]"] = {}
         self._lock = threading.Lock()
 
+    def handle_notification(self, notification: dict[str, Any]) -> bool:
+        method = str(notification.get("method", "")).strip()
+        if method != "service-message":
+            return False
+        params = notification.get("params", {})
+        if not isinstance(params, dict):
+            return False
+        envelope = params.get("envelope")
+        if not isinstance(envelope, dict):
+            return False
+        return self.handle_service_notification(
+            str(params.get("sourceService", "")).strip(),
+            str(params.get("subtopic", "")).strip(),
+            envelope,
+        )
+
     def handle_service_notification(self, source_service: str, subtopic: str, envelope: dict[str, Any]) -> bool:
         if subtopic.strip() != "response":
             return False

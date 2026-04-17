@@ -48,7 +48,7 @@ Notes:
 - No Python libraries are installed or changed by this service.
 - `requirements.txt` pins the validated Jetson package versions for this worker and the legacy PyTorch inference path it imports.
 - The wheel intentionally assumes a pre-provisioned runtime and should be installed with `--no-deps` on the Jetson so the working device libraries stay untouched.
-- Package code lives under `src/ai_inference/`, and the repo-root `main.py` is only a thin local-development wrapper.
+- Functional package code lives under `src/`, and the package-root files (`main.py`, `__main__.py`, `_version.py`, `__init__.py`) stay outside `src/`.
 - The service expects the legacy AI repo path through `inference.legacy_code_root`.
 - Model paths are configured in JSON under `inference.models`.
 - The current recommended Jetson profile is `yolov5s.pt`, `fp16_inference=true`, `inference_image_size=[512, 512]`, `poll_interval_ms=5`, and `idle_sleep_ms=40`.

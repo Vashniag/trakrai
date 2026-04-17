@@ -114,9 +114,9 @@ flowchart TD
 
 ## Files To Inspect
 
-- Service loop: `device/python/audio_manager/src/trakrai_audio_manager/service.py`
-- TTS backend selection: `device/python/audio_manager/src/trakrai_audio_manager/tts.py`
-- Playback backend selection: `device/python/audio_manager/src/trakrai_audio_manager/playback.py`
-- Network speaker delivery: `device/python/audio_manager/src/trakrai_audio_manager/speaker.py`
+- Service loop: `device/python/audio_manager/src/service.py`
+- TTS backend selection: `device/python/audio_manager/src/tts.py`
+- Playback backend selection: `device/python/audio_manager/src/playback.py`
+- Network speaker delivery: `device/python/audio_manager/src/speaker.py`
 - Local host relay: `device/localdev/host-audio-player/server.py`
 - Local verifier: `device/scripts/verify_audio_service_local.py`

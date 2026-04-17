@@ -11,7 +11,15 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from trakrai_service_runtime import IPCClient, ServiceRequestBridge
+from trakrai_service_runtime import (
+    IPCClient,
+    ServiceRequestBridge,
+    publish_error,
+    publish_reply,
+    report_status,
+    run_command_loop,
+    run_periodic_loop,
+)
 
 from .config import ServiceConfig
 from .engine import WorkflowEngine, WorkflowExecutionResult
@@ -65,7 +73,16 @@ class WorkflowService:
         threads = [
             threading.Thread(target=self._worker_loop, name="workflow-worker", daemon=True),
             threading.Thread(target=self._watcher_loop, name="workflow-watcher", daemon=True),
-            threading.Thread(target=self._status_loop, name="workflow-status", daemon=True),
+            threading.Thread(
+                target=run_periodic_loop,
+                args=(
+                    self._stop_event,
+                    float(self._config.queue.status_report_interval_sec),
+                    self._report_status,
+                ),
+                name="workflow-status",
+                daemon=True,
+            ),
         ]
         for thread in threads:
             thread.start()
@@ -80,38 +97,13 @@ class WorkflowService:
             self._ipc.close()
 
     def _handle_notifications(self) -> None:
-        while not self._stop_event.is_set():
-            notification = self._ipc.read_notification(timeout_sec=1.0)
-            if notification is None:
-                if self._ipc.is_closed:
-                    raise RuntimeError("workflow-engine IPC connection closed")
-                continue
-
-            method = str(notification.get("method", "")).strip()
-            params = notification.get("params", {})
-            if not isinstance(params, dict):
-                continue
-
-            if method == "mqtt-message":
-                if str(params.get("subtopic", "")).strip() != "command":
-                    continue
-                envelope = params.get("envelope")
-                if isinstance(envelope, dict):
-                    self._handle_command("", envelope)
-            elif method == "service-message":
-                subtopic = str(params.get("subtopic", "")).strip()
-                envelope = params.get("envelope")
-                source_service = str(params.get("sourceService", "")).strip()
-                if isinstance(envelope, dict) and self._service_bridge.handle_service_notification(
-                    source_service,
-                    subtopic,
-                    envelope,
-                ):
-                    continue
-                if subtopic != "command":
-                    continue
-                if isinstance(envelope, dict):
-                    self._handle_command(source_service, envelope)
+        run_command_loop(
+            self._ipc,
+            self._stop_event,
+            self._handle_command,
+            notification_interceptor=self._service_bridge.handle_notification,
+            closed_error_message="workflow-engine IPC connection closed",
+        )
 
     def _handle_command(self, source_service: str, envelope: dict[str, Any]) -> None:
         message_type = str(envelope.get("type", "")).strip()
@@ -258,11 +250,6 @@ class WorkflowService:
         interval_sec = self._config.workflow.reload_poll_interval_ms / 1000.0
         while not self._stop_event.wait(interval_sec):
             self._reload_workflow(force=False)
-
-    def _status_loop(self) -> None:
-        interval_sec = float(self._config.queue.status_report_interval_sec)
-        while not self._stop_event.wait(interval_sec):
-            self._report_status()
 
     def _reload_workflow(self, force: bool) -> None:
         workflow_path = Path(self._config.workflow.file_path)
@@ -415,34 +402,39 @@ class WorkflowService:
         return payload
 
     def _publish_reply(self, target_service: str, message_type: str, payload: dict[str, Any]) -> None:
-        try:
-            if target_service:
-                self._ipc.send_service_message(target_service, "response", message_type, payload)
-            else:
-                self._ipc.publish("response", message_type, payload)
-        except Exception as exc:
-            self._logger.warning("Failed to publish workflow response: %s", exc)
+        publish_reply(
+            self._ipc,
+            self._logger,
+            target_service,
+            message_type,
+            payload,
+            warning_message="Failed to publish workflow response",
+        )
 
     def _publish_error(self, target_service: str, request_id: str, request_type: str, error: str) -> None:
-        payload = {
-            "requestId": request_id,
-            "requestType": request_type,
-            "error": error,
-        }
-        try:
-            self._ipc.report_error(error, fatal=False)
-        except Exception:
-            pass
-        self._publish_reply(target_service, WORKFLOW_ENGINE_ERROR_TYPE, payload)
+        publish_error(
+            self._ipc,
+            self._logger,
+            target_service,
+            WORKFLOW_ENGINE_ERROR_TYPE,
+            request_id=request_id,
+            request_type=request_type,
+            error=error,
+            warning_message="Failed to publish workflow response",
+            debug_message="Failed to report workflow-engine error",
+        )
 
     def _report_status(self, status_override: str | None = None) -> None:
         status = status_override or ("running" if self._workflow_loaded else "degraded")
         details = self._build_status_payload()
         details.pop("requestId", None)
-        try:
-            self._ipc.report_status(status, details)
-        except Exception as exc:
-            self._logger.debug("Failed to report workflow-engine status: %s", exc)
+        report_status(
+            self._ipc,
+            self._logger,
+            status,
+            details,
+            debug_message="Failed to report workflow-engine status",
+        )
 
 
 def _make_serializable(value: Any) -> Any:

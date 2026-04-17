@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+
+from trakrai_service_runtime import (
+    bool_value,
+    float_value,
+    int_value,
+    load_json_object,
+    require_object,
+    resolve_path,
+    string_value,
+)
 
 
 @dataclass(frozen=True)
@@ -52,27 +60,32 @@ class ServiceConfig:
 
 
 def load_config(path: str | Path) -> ServiceConfig:
-    config_path = Path(path).expanduser().resolve()
+    config_path, raw = load_json_object(path, label="ai-inference config")
     config_dir = config_path.parent
-    raw = json.loads(config_path.read_text(encoding="utf-8"))
 
-    log_level = str(raw.get("log_level", "info")).strip() or "info"
+    log_level = string_value(raw.get("log_level"), default="info", field="log_level") or "info"
 
-    redis_raw = _as_dict(raw.get("redis"), "redis")
+    redis_raw = require_object(raw.get("redis"), "redis")
     redis_cfg = RedisConfig(
-        host=str(redis_raw.get("host", "localhost")).strip() or "localhost",
-        port=_as_int(redis_raw.get("port", 6379), "redis.port", minimum=1),
-        password=str(redis_raw.get("password", "")),
-        db=_as_int(redis_raw.get("db", 0), "redis.db", minimum=0),
-        key_prefix=str(redis_raw.get("key_prefix", "camera")).strip() or "camera",
+        host=string_value(redis_raw.get("host"), default="localhost", field="redis.host") or "localhost",
+        port=int_value(redis_raw.get("port"), default=6379, field="redis.port", minimum=1),
+        password=string_value(redis_raw.get("password"), default="", field="redis.password"),
+        db=int_value(redis_raw.get("db"), default=0, field="redis.db", minimum=0),
+        key_prefix=string_value(redis_raw.get("key_prefix"), default="camera", field="redis.key_prefix") or "camera",
     )
 
-    inference_raw = _as_dict(raw.get("inference"), "inference")
-    legacy_code_root = str(inference_raw.get("legacy_code_root", "")).strip()
+    inference_raw = require_object(raw.get("inference"), "inference")
+    legacy_code_root = string_value(inference_raw.get("legacy_code_root"), field="inference.legacy_code_root")
     if not legacy_code_root:
         raise ValueError("inference.legacy_code_root is required")
 
-    legacy_path = _resolve_path(config_dir, legacy_code_root)
+    legacy_path = resolve_path(
+        config_dir,
+        legacy_code_root,
+        field="inference.legacy_code_root",
+        required=True,
+    )
+    assert legacy_path is not None
     if not legacy_path.exists():
         raise ValueError(f"inference.legacy_code_root does not exist: {legacy_path}")
     if not (legacy_path / "server_batch.py").exists():
@@ -88,8 +101,8 @@ def load_config(path: str | Path) -> ServiceConfig:
 
     models: list[ModelConfig] = []
     for index, model_raw in enumerate(models_raw):
-        model_dict = _as_dict(model_raw, f"inference.models[{index}]")
-        weights_path = str(model_dict.get("weights_path", "")).strip()
+        model_dict = require_object(model_raw, f"inference.models[{index}]")
+        weights_path = string_value(model_dict.get("weights_path"), field=f"inference.models[{index}].weights_path")
         if not weights_path:
             raise ValueError(f"inference.models[{index}].weights_path is required")
         allowed = model_dict.get("allowed_detections", "*")
@@ -105,7 +118,7 @@ def load_config(path: str | Path) -> ServiceConfig:
             raise ValueError(f"inference.models[{index}].allowed_detections must be a string or string array")
         models.append(
             ModelConfig(
-                weights_path=str(_resolve_path(config_dir, weights_path)),
+                weights_path=str(resolve_path(config_dir, weights_path, field=f"inference.models[{index}].weights_path", required=True)),
                 allowed_detections=allowed,
             )
         )
@@ -114,35 +127,57 @@ def load_config(path: str | Path) -> ServiceConfig:
     if not isinstance(image_size_raw, list) or len(image_size_raw) != 2:
         raise ValueError("inference.inference_image_size must be a 2-item array")
     image_size = (
-        _as_int(image_size_raw[0], "inference.inference_image_size[0]", minimum=1),
-        _as_int(image_size_raw[1], "inference.inference_image_size[1]", minimum=1),
+        int_value(image_size_raw[0], field="inference.inference_image_size[0]", minimum=1),
+        int_value(image_size_raw[1], field="inference.inference_image_size[1]", minimum=1),
     )
 
     inference_cfg = InferenceConfig(
         legacy_code_root=str(legacy_path.resolve()),
-        device=str(inference_raw.get("device", "0")).strip() or "0",
-        poll_interval_ms=_as_int(inference_raw.get("poll_interval_ms", 35), "inference.poll_interval_ms", minimum=1),
-        idle_sleep_ms=_as_int(inference_raw.get("idle_sleep_ms", 125), "inference.idle_sleep_ms", minimum=1),
-        min_brightness=_as_float(inference_raw.get("min_brightness", 25.0), "inference.min_brightness", minimum=0.0),
-        processed_images_maxlen=_as_int(
-            inference_raw.get("processed_images_maxlen", 10),
-            "inference.processed_images_maxlen",
+        device=string_value(inference_raw.get("device"), default="0", field="inference.device") or "0",
+        poll_interval_ms=int_value(
+            inference_raw.get("poll_interval_ms"),
+            default=35,
+            field="inference.poll_interval_ms",
+            minimum=1,
+        ),
+        idle_sleep_ms=int_value(
+            inference_raw.get("idle_sleep_ms"),
+            default=125,
+            field="inference.idle_sleep_ms",
+            minimum=1,
+        ),
+        min_brightness=float_value(
+            inference_raw.get("min_brightness"),
+            default=25.0,
+            field="inference.min_brightness",
+            minimum=0.0,
+        ),
+        processed_images_maxlen=int_value(
+            inference_raw.get("processed_images_maxlen"),
+            default=10,
+            field="inference.processed_images_maxlen",
             minimum=1,
         ),
         inference_image_size=image_size,
-        confidence_threshold=_as_float(
-            inference_raw.get("confidence_threshold", 0.5),
-            "inference.confidence_threshold",
+        confidence_threshold=float_value(
+            inference_raw.get("confidence_threshold"),
+            default=0.5,
+            field="inference.confidence_threshold",
             minimum=0.0,
             maximum=1.0,
         ),
-        iou_threshold=_as_float(
-            inference_raw.get("iou_threshold", 0.75),
-            "inference.iou_threshold",
+        iou_threshold=float_value(
+            inference_raw.get("iou_threshold"),
+            default=0.75,
+            field="inference.iou_threshold",
             minimum=0.0,
             maximum=1.0,
         ),
-        fp16_inference=bool(inference_raw.get("fp16_inference", False)),
+        fp16_inference=bool_value(
+            inference_raw.get("fp16_inference"),
+            default=False,
+            field="inference.fp16_inference",
+        ),
         models=tuple(models),
     )
 
@@ -154,11 +189,11 @@ def load_config(path: str | Path) -> ServiceConfig:
     seen_ids: set[int] = set()
     seen_names: set[str] = set()
     for index, camera_raw in enumerate(cameras_raw):
-        camera_dict = _as_dict(camera_raw, f"cameras[{index}]")
+        camera_dict = require_object(camera_raw, f"cameras[{index}]")
         camera = CameraConfig(
-            id=_as_int(camera_dict.get("id"), f"cameras[{index}].id"),
-            name=str(camera_dict.get("name", "")).strip(),
-            enabled=bool(camera_dict.get("enabled", True)),
+            id=int_value(camera_dict.get("id"), field=f"cameras[{index}].id"),
+            name=string_value(camera_dict.get("name"), field=f"cameras[{index}].name"),
+            enabled=bool_value(camera_dict.get("enabled"), default=True, field=f"cameras[{index}].enabled"),
         )
         if not camera.name:
             raise ValueError(f"cameras[{index}].name is required")
@@ -180,38 +215,3 @@ def load_config(path: str | Path) -> ServiceConfig:
         inference=inference_cfg,
         cameras=tuple(cameras),
     )
-
-
-def _as_dict(value: Any, path: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} must be an object")
-    return value
-
-
-def _as_int(value: Any, path: str, minimum: int | None = None) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{path} must be an integer") from exc
-    if minimum is not None and parsed < minimum:
-        raise ValueError(f"{path} must be >= {minimum}")
-    return parsed
-
-
-def _as_float(value: Any, path: str, minimum: float | None = None, maximum: float | None = None) -> float:
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{path} must be a number") from exc
-    if minimum is not None and parsed < minimum:
-        raise ValueError(f"{path} must be >= {minimum}")
-    if maximum is not None and parsed > maximum:
-        raise ValueError(f"{path} must be <= {maximum}")
-    return parsed
-
-
-def _resolve_path(base_dir: Path, raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if path.is_absolute():
-        return path
-    return base_dir / path

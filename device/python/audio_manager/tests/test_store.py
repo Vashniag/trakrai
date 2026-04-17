@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from trakrai_audio_manager.models import JOB_STATE_COMPLETED, JOB_STATE_DEDUPED, parse_audio_request, utc_timestamp
-from trakrai_audio_manager.store import AudioJobStore
+from audio_manager.models import JOB_STATE_COMPLETED, JOB_STATE_DEDUPED, parse_audio_request, utc_timestamp
+from audio_manager.store import AudioJobStore
 
 
 def test_store_tracks_job_lifecycle(tmp_path: Path) -> None:

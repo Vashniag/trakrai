@@ -22,14 +22,17 @@ dependencies = [
 ]
 
 [project.scripts]
-trakrai-audio-manager = "trakrai_audio_manager.main:main"
+trakrai-audio-manager = "audio_manager.main:main"
 
 [tool.setuptools]
-package-dir = { "" = "src" }
+packages = ["audio_manager"]
 include-package-data = false
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools.package-dir]
+audio_manager = "."
+
+[tool.setuptools.package-data]
+audio_manager = ["src/*.py"]
 
 [tool.setuptools.dynamic]
-version = { attr = "trakrai_audio_manager._version.__version__" }
+version = { attr = "audio_manager._version.__version__" }

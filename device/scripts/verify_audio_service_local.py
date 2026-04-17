@@ -206,7 +206,23 @@ def verify_workflow_audio_request(timeout_sec: int) -> dict[str, Any]:
 
     workflow = json.loads(LOCAL_AUDIO_WORKFLOW_TEMPLATE.read_text(encoding="utf-8"))
     workflow["metadata"]["name"] = f"Audio Service Verification Workflow {uuid4().hex[:6]}"
-    workflow["nodes"][1]["data"]["configuration"]["message"] = f"Workflow audio verification {uuid4().hex[:6]}"
+    audio_node = next(
+        (
+            node
+            for node in workflow.get("nodes", [])
+            if isinstance(node, dict) and str(node.get("type", "")).strip() == "play-audio-message"
+        ),
+        None,
+    )
+    if not isinstance(audio_node, dict):
+        raise SystemExit("audio verification workflow template is missing the play-audio-message node")
+    data = audio_node.setdefault("data", {})
+    if not isinstance(data, dict):
+        raise SystemExit("audio verification workflow template has invalid node data")
+    configuration = data.setdefault("configuration", {})
+    if not isinstance(configuration, dict):
+        raise SystemExit("audio verification workflow template has invalid node configuration")
+    configuration["message"] = f"Workflow audio verification {uuid4().hex[:6]}"
     workflow_path.write_text(json.dumps(workflow, indent=2) + "\n", encoding="utf-8")
     before_host_audio_mtime = HOST_AUDIO_LAST_REQUEST.stat().st_mtime if HOST_AUDIO_LAST_REQUEST.exists() else 0.0
 

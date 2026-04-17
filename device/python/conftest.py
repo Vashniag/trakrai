@@ -6,7 +6,6 @@ from pathlib import Path
 
 PYTHON_ROOT = Path(__file__).resolve().parent
 
-for candidate in sorted(PYTHON_ROOT.glob("*/src")):
-    candidate_str = str(candidate)
-    if candidate_str not in sys.path:
-        sys.path.insert(0, candidate_str)
+python_root_str = str(PYTHON_ROOT)
+if python_root_str not in sys.path:
+    sys.path.insert(0, python_root_str)
