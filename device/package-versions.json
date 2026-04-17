@@ -411,16 +411,16 @@
     "runtime-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "runtime-manager-linux-arm64-v0.1.2",
-          "remotePath": "runtime-manager/0.1.2/linux-arm64/runtime-manager-linux-arm64-v0.1.2",
-          "sha256": "6cce28d93ba73e7727c15cfa22c6fefb3405603e0d203d47ae90f7d1a5e31d13",
-          "updatedAt": "2026-04-17T11:59:42Z"
+          "fileName": "runtime-manager-linux-arm64-v0.1.3",
+          "remotePath": "runtime-manager/0.1.3/linux-arm64/runtime-manager-linux-arm64-v0.1.3",
+          "sha256": "62b5657c85b3258b8fc20e194d161d67ec72a5f8545a2be649c7aa41d4002a44",
+          "updatedAt": "2026-04-17T14:58:15Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "runtime-manager",
-      "sourceHash": "sha256:58c9d4ccbfa51df5990158d0211c760377500997683db2f27dc7cb3cb424c72b",
+      "sourceHash": "sha256:0c52cf90f0d87b75033780cefbc5a58801b70676b5e3fc9f0e7c8cd8f4b2e90c",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/runtime-manager/main.go",
@@ -447,7 +447,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "trakrai-ai-inference": {
       "artifacts": {
@@ -651,5 +651,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T14:15:23Z"
+  "updatedAt": "2026-04-17T14:58:15Z"
 }
