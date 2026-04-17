@@ -41,16 +41,16 @@
     "cloud-comm": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-comm-linux-arm64-v0.1.0",
-          "remotePath": "cloud-comm/0.1.0/linux-arm64/cloud-comm-linux-arm64-v0.1.0",
-          "sha256": "41e2ec14ab4cac242cf9303c3ef9413feea559daea7139b290e20bb18639e57f",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "cloud-comm-linux-arm64-v0.1.1",
+          "remotePath": "cloud-comm/0.1.1/linux-arm64/cloud-comm-linux-arm64-v0.1.1",
+          "sha256": "5f6551ddc678e4f70c0a4d848dfeb2be3bd353dab79340d7fe3cd6de11ed136b",
+          "updatedAt": "2026-04-17T04:09:10Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "cloud-comm",
-      "sourceHash": "sha256:6c408d38bb691f90e6c6837e1de562b5b89238550930601e437ad21e8e46f097",
+      "sourceHash": "sha256:4c08eea6dc81338bd38144180ddc654340ff1687d698aba4a453a10b0691dedc",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-comm/main.go",
@@ -69,7 +69,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "cloud-transfer": {
       "artifacts": {
@@ -108,16 +108,16 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.0.zip",
-          "remotePath": "edge-ui/0.1.0/universal/edge-ui-v0.1.0.zip",
-          "sha256": "cc564e031226d0d0fb80a1e7f56478e5d32a99ed19612ede291d251d5063c7a5",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "edge-ui-v0.1.1.zip",
+          "remotePath": "edge-ui/0.1.1/universal/edge-ui-v0.1.1.zip",
+          "sha256": "b538cf0a926a103081c51d0f56a34786a34ea074014aa4c8d9797c61918638df",
+          "updatedAt": "2026-04-17T04:09:10Z"
         }
       },
       "buildTarget": "ui-bundle",
       "kind": "zip",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:bed9b840bd14fb91e50ee8681bc7f0243c2a832af3bbc2085976ff42aabc075a",
+      "sourceHash": "sha256:3328a670cb45cd8595435a76b80effda148fa5f04f7b74a7a9ce61485874285f",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/eslint.config.mjs",
@@ -262,21 +262,21 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "live-feed": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "live-feed-linux-arm64-v0.1.1",
-          "remotePath": "live-feed/0.1.1/linux-arm64/live-feed-linux-arm64-v0.1.1",
-          "sha256": "df819711494e6f56d57d10ffa26a0696fad58c9a7c158b9359605a77c93ca2a6",
-          "updatedAt": "2026-04-16T16:06:31Z"
+          "fileName": "live-feed-linux-arm64-v0.1.2",
+          "remotePath": "live-feed/0.1.2/linux-arm64/live-feed-linux-arm64-v0.1.2",
+          "sha256": "b20904c7352c1b5bd233ab5a7d5f0ad0dba29db791d91d485f5bf8c5407b8774",
+          "updatedAt": "2026-04-17T04:09:10Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "live-feed",
-      "sourceHash": "sha256:563bd6644b4ed695a9effe6e537000fe01c2eb5728b8b16ce668deea17f29e14",
+      "sourceHash": "sha256:e142d63059a354005ef3f52c9d5d19b4aef56d276717796ea9457f0a2ac4b47a",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/live-feed/main.go",
@@ -300,7 +300,7 @@
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "ptz-control": {
       "artifacts": {
@@ -509,5 +509,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-16T16:06:31Z"
+  "updatedAt": "2026-04-17T04:09:10Z"
 }
