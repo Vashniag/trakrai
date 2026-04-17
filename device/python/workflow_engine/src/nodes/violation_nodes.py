@@ -28,6 +28,7 @@ from ..types import (
         PortDefinition(name="preSeconds", type_schema=t_number(), default=5, required=False, port_type="config"),
         PortDefinition(name="postSeconds", type_schema=t_number(), default=5, required=False, port_type="config"),
         PortDefinition(name="frameRate", type_schema=t_number(), default=10, required=False, port_type="config"),
+        PortDefinition(name="videoCodec", type_schema=t_string(), default="h264", required=False, port_type="config"),
         PortDefinition(name="remotePrefix", type_schema=t_string(), default="violations", required=False, port_type="config"),
         PortDefinition(name="localPrefix", type_schema=t_string(), default="violations", required=False, port_type="config"),
         PortDefinition(name="uploadTimeout", type_schema=t_string(), default="", required=False, port_type="config"),
@@ -62,6 +63,7 @@ def send_violation_to_cloud(inputs: NodeInputs) -> NodeOutputs:
     pre_seconds = max(0.0, float_value(inputs.get("preSeconds"), default=5.0))
     post_seconds = max(0.0, float_value(inputs.get("postSeconds"), default=5.0))
     frame_rate = max(1, int_value(inputs.get("frameRate"), default=10))
+    video_codec = _normalize_video_codec(string_value(inputs.get("videoCodec")) or "h264")
     wait_timeout_sec = max(1.0, float_value(inputs.get("waitTimeoutSec"), default=5.0))
     upload_timeout = string_value(inputs.get("uploadTimeout"))
     violation_type = string_value(inputs.get("violationType")) or "workflow-violation"
@@ -89,6 +91,7 @@ def send_violation_to_cloud(inputs: NodeInputs) -> NodeOutputs:
         "imageId": image_id,
         "photo": {"enabled": photo_enabled, "remotePath": photo_remote_path},
         "video": {
+            "codec": video_codec,
             "enabled": video_enabled,
             "frameRate": frame_rate,
             "postSeconds": post_seconds,
@@ -168,6 +171,7 @@ def send_violation_to_cloud(inputs: NodeInputs) -> NodeOutputs:
             payload={
                 "cameraId": camera_id,
                 "cameraName": camera_name,
+                "codec": video_codec,
                 "contentType": "video/mp4",
                 "frameRate": frame_rate,
                 "imageId": image_id,
@@ -220,3 +224,10 @@ def _normalize_prefix(value: str) -> str:
         return "violations"
     parts = [sanitize_path_component(part, fallback="segment") for part in stripped.split("/") if part.strip()]
     return "/".join(parts) or "violations"
+
+
+def _normalize_video_codec(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"h265", "hevc"}:
+        return "h265"
+    return "h264"

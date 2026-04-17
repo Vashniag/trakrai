@@ -13,7 +13,7 @@ import (
 )
 
 type clipWriter interface {
-	WriteJPEGSequence(ctx context.Context, outputPath string, width int, height int, fps int, frames [][]byte) error
+	WriteJPEGSequence(ctx context.Context, outputPath string, width int, height int, fps int, codec gstcodec.VideoCodec, frames [][]byte) error
 }
 
 type gstreamerWriter struct {
@@ -34,6 +34,7 @@ func (w *gstreamerWriter) WriteJPEGSequence(
 	width int,
 	height int,
 	fps int,
+	codec gstcodec.VideoCodec,
 	frames [][]byte,
 ) error {
 	if len(frames) == 0 {
@@ -74,7 +75,7 @@ func (w *gstreamerWriter) WriteJPEGSequence(
 
 	framePattern := filepath.Join(tempDir, "frame-%06d.jpg")
 	var lastErr error
-	for index, candidate := range gstcodec.JPEGMultiFileCandidates(framePattern, tempOutputPath, width, height, fps) {
+	for index, candidate := range gstcodec.JPEGMultiFileCandidatesForCodec(codec, framePattern, tempOutputPath, width, height, fps) {
 		command := exec.CommandContext(ctx, w.bin, candidate.Args...)
 		output, err := command.CombinedOutput()
 		if err == nil {

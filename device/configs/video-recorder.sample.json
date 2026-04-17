@@ -28,6 +28,7 @@
     "worker_count": 1
   },
   "recording": {
+    "default_codec": "h264",
     "default_frame_rate": 10,
     "default_pre_sec": 5,
     "default_post_sec": 5,

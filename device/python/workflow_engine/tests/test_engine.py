@@ -221,14 +221,15 @@ def test_engine_executes_violation_action_node_through_service_bridge() -> None:
                 "position": {"x": 0, "y": 0},
                 "data": {
                     "label": "Violation",
-                    "configuration": {
-                        "frameRate": 8,
-                        "localPrefix": "violations",
-                        "postSeconds": 3,
-                        "preSeconds": 2,
-                        "remotePrefix": "violations",
-                    },
-                },
+	                "configuration": {
+	                    "frameRate": 8,
+	                    "localPrefix": "violations",
+	                    "postSeconds": 3,
+	                    "preSeconds": 2,
+	                    "remotePrefix": "violations",
+	                    "videoCodec": "h265",
+	                },
+	            },
             },
         ],
         "edges": [],
@@ -256,3 +257,5 @@ def test_engine_executes_violation_action_node_through_service_bridge() -> None:
     assert bridge.calls[0]["targetService"] == "video-recorder"
     assert bridge.calls[1]["targetService"] == "cloud-transfer"
     assert bridge.calls[2]["targetService"] == "video-recorder"
+    assert bridge.publishes[0]["payload"]["video"]["codec"] == "h265"
+    assert bridge.calls[2]["payload"]["codec"] == "h265"

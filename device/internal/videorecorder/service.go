@@ -18,6 +18,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/trakrai/device-services/internal/cloudtransfer"
+	"github.com/trakrai/device-services/internal/gstcodec"
 	"github.com/trakrai/device-services/internal/ipc"
 )
 
@@ -376,6 +377,10 @@ func (s *Service) handleRecordClip(sourceService string, env ipc.MQTTEnvelope) {
 	if contentType == "" {
 		contentType = "video/mp4"
 	}
+	codec := string(gstcodec.NormalizeVideoCodec(request.Codec))
+	if strings.TrimSpace(request.Codec) == "" {
+		codec = s.cfg.Recording.DefaultCodec
+	}
 	scope := request.Scope
 	if scope == "" {
 		scope = cloudtransfer.ScopeDevice
@@ -390,6 +395,7 @@ func (s *Service) handleRecordClip(sourceService string, env ipc.MQTTEnvelope) {
 	job := RecordingJob{
 		CameraID:    cameraBuffer.camera.ID,
 		CameraName:  cameraBuffer.camera.Name,
+		Codec:       codec,
 		ContentType: contentType,
 		CreatedAt:   now,
 		EventAt:     eventTime.UTC(),
@@ -542,6 +548,7 @@ func (s *Service) processJob(ctx context.Context, job RecordingJob, workerID int
 		cameraBuffer.camera.Width,
 		cameraBuffer.camera.Height,
 		job.FrameRate,
+		gstcodec.NormalizeVideoCodec(job.Codec),
 		selectedJPEGs,
 	)
 	cancel()

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/trakrai/device-services/internal/gstcodec"
 	"github.com/trakrai/device-services/internal/shared/configjson"
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
 )
@@ -35,6 +36,7 @@ type QueueConfig struct {
 }
 
 type RecordingConfig struct {
+	DefaultCodec     string `json:"default_codec"`
 	DefaultFrameRate int    `json:"default_frame_rate"`
 	DefaultPostSec   int    `json:"default_post_sec"`
 	DefaultPreSec    int    `json:"default_pre_sec"`
@@ -109,6 +111,7 @@ func LoadConfig(path string) (*Config, error) {
 			WorkerCount: 1,
 		},
 		Recording: RecordingConfig{
+			DefaultCodec:     string(gstcodec.VideoCodecH264),
 			DefaultFrameRate: 10,
 			DefaultPostSec:   5,
 			DefaultPreSec:    5,
@@ -185,6 +188,7 @@ func LoadConfig(path string) (*Config, error) {
 	if cfg.Recording.DefaultFrameRate <= 0 {
 		return nil, fmt.Errorf("recording.default_frame_rate must be greater than 0")
 	}
+	cfg.Recording.DefaultCodec = string(gstcodec.NormalizeVideoCodec(cfg.Recording.DefaultCodec))
 	if cfg.Recording.MaxFrameRate < cfg.Recording.DefaultFrameRate {
 		cfg.Recording.MaxFrameRate = cfg.Recording.DefaultFrameRate
 	}

@@ -36,6 +36,7 @@ type CapturePhotoRequest struct {
 type RecordClipRequest struct {
 	CameraID    string                     `json:"cameraId,omitempty"`
 	CameraName  string                     `json:"cameraName,omitempty"`
+	Codec       string                     `json:"codec,omitempty"`
 	ContentType string                     `json:"contentType,omitempty"`
 	FrameRate   int                        `json:"frameRate,omitempty"`
 	ImageID     string                     `json:"imageId,omitempty"`
@@ -76,6 +77,7 @@ type RecordingJob struct {
 	CameraID    string                     `json:"cameraId"`
 	CameraName  string                     `json:"cameraName"`
 	CompletedAt *time.Time                 `json:"completedAt,omitempty"`
+	Codec       string                     `json:"codec,omitempty"`
 	ContentType string                     `json:"contentType,omitempty"`
 	CreatedAt   time.Time                  `json:"createdAt"`
 	Error       string                     `json:"error,omitempty"`
