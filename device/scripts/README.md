@@ -239,7 +239,9 @@ The host-backed shared directory is especially important for `cloud-transfer`, b
 2. Load configs:
    - from `--config-dir` if provided
    - otherwise by fetching JSON config files from the current remote runtime root over SFTP
-3. Build or reuse local artifacts via `device_runtime_common.ensure_local_artifacts(...)`.
+3. Resolve artifacts:
+   - by default, build or reuse local artifacts via `device_runtime_common.ensure_local_artifacts(...)`
+   - with `--artifact-source cloud`, download published artifacts from the cloud package repository using the device credentials from `cloud-transfer.json` (or explicit CLI overrides)
 4. Create a temporary local stage directory and call `prepare_stage(...)`.
 5. Open SSH to the target device.
 6. Create a remote stage directory such as `/tmp/trakrai-bootstrap-<timestamp>`.
@@ -258,6 +260,23 @@ echo <password> | sudo -S python3 <remote-stage>/bootstrap_device_runtime.py --s
 
 If `--config-dir` is omitted, the deploy script treats the device’s current runtime config as the source of truth and reuses it. That keeps deploys aligned with whatever service mix and config values already exist on the target device.
 
+### Cloud artifact mode
+
+When `--artifact-source cloud` is used, the deploy script does not require prebuilt `device/out/*` binaries or a fresh UI export. Instead it:
+
+- determines the required package set from the loaded device configs
+- reads package versions from `device/package-versions.json`
+- requests package download sessions from the real cloud API using the device `cloud-transfer` credentials
+- downloads those published artifacts locally and stages them for the same bootstrap flow
+
+This is intended for the fast path where CI has already built and published the release packages and the controller machine only needs to fetch and deploy them.
+
+Notes on the cloud path:
+
+- `download_release_artifacts` returns a `{package-name: Path}` map. Package names for wheels are the `service_name` (e.g. `audio-manager`, `trakrai-ai-inference`, `workflow-engine`). `prepare_stage` looks wheels up by `PythonWheelTarget.artifact_key` (e.g. `audio-manager-wheel`, `ai-wheel`, `workflow-engine-wheel`), so the deploy script mirrors each wheel entry under its `artifact_key` before calling `prepare_stage`.
+- Wheelhouse deps for services that set `build_wheelhouse=True` are resolved on the controller with `pip download --only-binary=:all: --platform manylinux*/linux_aarch64 --python-version 38 --implementation cp`, so the downloaded dependency wheels are valid for the target device (linux/arm64 by default), not the controller's own architecture.
+- `--cloud-bridge-url` defaults to empty. When empty, the edge UI's `cloud_bridge_url` is preserved from the existing runtime-config on the device (or generated as `ws://<host>:<http-port>/ws` on a fresh install), so deploys do not silently overwrite the cloud bridge with the old hard-coded VPN host.
+
 ### Remote verification behavior
 
 After bootstrap completes, the script checks:
@@ -270,6 +289,8 @@ After bootstrap completes, the script checks:
 - generated unit files in `/etc/systemd/system`
 
 This is a coarse post-deploy sanity check, not a functional acceptance test.
+
+`bootstrap_device_runtime.verify_units` waits up to 20 seconds for any unit that reports `activating` or `reloading` to settle into `active` before declaring failure. That avoids spurious "unit verification failed" errors when a service depends on a slow IPC peer during cold start (e.g. `ptz-control` probing ONVIF cameras on a fresh power-up).
 
 ## What `bootstrap_device_runtime.py` Does
 

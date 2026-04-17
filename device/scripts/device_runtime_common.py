@@ -373,7 +373,11 @@ def prepare_stage(
     )
 
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
-    create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
+    edge_ui_artifact = artifact_paths.get("edge-ui")
+    if edge_ui_artifact is not None:
+        shutil.copy2(edge_ui_artifact, ui_zip_path)
+    else:
+        create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
 
     runtime_manager_config = build_runtime_manager_config(options, set(config_map))
     config_map["runtime-manager.json"] = runtime_manager_config
@@ -451,7 +455,13 @@ def patch_cloud_comm_config(config: dict[str, Any], options: StageOptions) -> No
     ui["static_dir"] = f"{options.runtime_root}/ui"
     ui["diagnostics_enabled"] = True
     ui["transport_mode"] = options.transport_mode
-    ui["cloud_bridge_url"] = options.cloud_bridge_url
+    if options.cloud_bridge_url:
+        ui["cloud_bridge_url"] = options.cloud_bridge_url
+    else:
+        ui.setdefault(
+            "cloud_bridge_url",
+            f"ws://{options.edge_host}:{options.http_port}{edge.get('path', '/ws')}",
+        )
     ui["management_service"] = "runtime-manager"
     edge["ui"] = ui
 

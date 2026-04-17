@@ -25,6 +25,7 @@ METADATA_SCHEMA_VERSION = 1
 INITIAL_VERSION = "0.1.0"
 PACKAGE_METADATA_PATH = common.DEVICE_ROOT / "package-versions.json"
 DEFAULT_PACKAGE_PREFIX = "device-packages"
+CLOUD_API_PACKAGE_DOWNLOAD_PATH = "/api/external/storage/packages/download-session"
 CLOUD_API_PACKAGE_UPLOAD_PATH = "/api/external/storage/packages/upload-session"
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 PACKAGE_FILE_FIELDS = (
@@ -465,6 +466,170 @@ def publish_via_cloud_api(
         ) from exc
 
 
+def download_via_cloud_api(
+    base_url: str,
+    remote_path: str,
+    destination_path: Path,
+    *,
+    auth_token: str,
+    device_id: str,
+    request_path: str = CLOUD_API_PACKAGE_DOWNLOAD_PATH,
+    expected_sha256: str = "",
+) -> Path:
+    if base_url.strip() == "":
+        raise SystemExit("cloud API base URL is required for cloud artifact downloads")
+    if device_id.strip() == "":
+        raise SystemExit("device ID is required for cloud artifact downloads")
+
+    presigned = cloud_api_request_json(
+        base_url,
+        request_path,
+        {"deviceId": device_id, "path": remote_path},
+        auth_token=auth_token,
+    )
+    request = urllib.request.Request(
+        presigned["url"],
+        method=str(presigned.get("method", "GET")).upper(),
+        headers=presigned.get("headers", {}),
+    )
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            if response.status >= 300:
+                raise SystemExit(
+                    f"cloud package download failed for {remote_path}: HTTP {response.status}",
+                )
+            with destination_path.open("wb") as handle:
+                shutil.copyfileobj(response, handle)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise SystemExit(
+            f"cloud package download failed for {remote_path}: HTTP {exc.code}: {detail}",
+        ) from exc
+
+    if expected_sha256.strip():
+        actual_sha256 = compute_sha256(destination_path)
+        if actual_sha256.lower() != expected_sha256.strip().lower():
+            destination_path.unlink(missing_ok=True)
+            raise SystemExit(
+                f"cloud package download SHA-256 mismatch for {remote_path}: "
+                f"expected {expected_sha256}, got {actual_sha256}"
+            )
+    return destination_path
+
+
+def artifact_record_for_package(metadata: dict[str, Any], package_name: str, platform: str) -> tuple[PackageTarget, dict[str, Any], dict[str, Any]]:
+    target = TARGETS_BY_NAME[package_name]
+    package_record = metadata.get("packages", {}).get(package_name)
+    if not isinstance(package_record, dict):
+        raise SystemExit(f"package metadata is missing for {package_name}")
+    artifacts = package_record.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        raise SystemExit(f"package metadata artifacts are missing for {package_name}")
+    artifact_record = artifacts.get(platform)
+    if not isinstance(artifact_record, dict):
+        raise SystemExit(f"no published {platform} artifact recorded for {package_name}")
+    remote_path = str(artifact_record.get("remotePath", "")).strip()
+    file_name = str(artifact_record.get("fileName", "")).strip()
+    if remote_path == "" or file_name == "":
+        raise SystemExit(f"incomplete artifact metadata for {package_name} on {platform}")
+    return target, package_record, artifact_record
+
+
+def requirements_file_for_target(target: PackageTarget) -> Path | None:
+    if target.wheel_target is None:
+        return None
+    requirements_path = target.wheel_target.context_dir / target.wheel_target.package_dir / "requirements.txt"
+    if not requirements_path.exists():
+        return None
+    if requirements_path.read_text(encoding="utf-8").strip() == "":
+        return None
+    return requirements_path
+
+
+PIP_PLATFORM_TAGS: dict[str, tuple[str, ...]] = {
+    "linux/arm64": ("manylinux2014_aarch64", "manylinux_2_17_aarch64", "linux_aarch64"),
+    "linux/amd64": ("manylinux2014_x86_64", "manylinux_2_17_x86_64", "linux_x86_64"),
+}
+
+
+def ensure_downloaded_wheel_dependencies(
+    target: PackageTarget,
+    wheel_path: Path,
+    *,
+    platform: str = DEFAULT_ARM64_PLATFORM,
+    python_version: str = "38",
+) -> list[Path]:
+    if target.wheel_target is None or not target.wheel_target.build_wheelhouse:
+        return []
+
+    requirements_path = requirements_file_for_target(target)
+    if requirements_path is None:
+        return []
+
+    wheelhouse_dir = wheel_path.parent / "wheelhouse"
+    if wheelhouse_dir.exists():
+        shutil.rmtree(wheelhouse_dir)
+    wheelhouse_dir.mkdir(parents=True, exist_ok=True)
+
+    platform_tags = PIP_PLATFORM_TAGS.get(platform)
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "download",
+        "--dest",
+        str(wheelhouse_dir),
+        "-r",
+        str(requirements_path),
+    ]
+    if platform_tags:
+        command += ["--only-binary=:all:", "--python-version", python_version, "--implementation", "cp"]
+        for tag in platform_tags:
+            command += ["--platform", tag]
+    subprocess.run(command, check=True, cwd=common.REPO_ROOT)
+    return sorted(wheelhouse_dir.glob("*.whl"))
+
+
+def download_release_artifacts(
+    *,
+    metadata_path: Path,
+    package_names: list[str],
+    platform: str,
+    cloud_api_base_url: str,
+    cloud_api_token: str,
+    device_id: str,
+    package_download_path: str = CLOUD_API_PACKAGE_DOWNLOAD_PATH,
+    output_root: Path | None = None,
+) -> dict[str, Path]:
+    metadata = load_metadata(metadata_path)
+    selected_names = target_names_from_args(package_names)
+    download_root = (output_root or (common.DEVICE_ROOT / "out" / "package-downloads" / normalize_platform_tag(platform, "platform"))).resolve()
+    resolved_paths: dict[str, Path] = {}
+
+    for name in selected_names:
+        target, _package_record, artifact_record = artifact_record_for_package(metadata, name, platform)
+        remote_path = str(artifact_record["remotePath"])
+        file_name = str(artifact_record["fileName"])
+        expected_sha256 = str(artifact_record.get("sha256", "")).strip()
+        destination_dir = download_root / name
+        destination_path = destination_dir / file_name
+        downloaded_path = download_via_cloud_api(
+            cloud_api_base_url,
+            remote_path,
+            destination_path,
+            auth_token=cloud_api_token,
+            device_id=device_id,
+            request_path=package_download_path,
+            expected_sha256=expected_sha256,
+        )
+        if target.target_type == "python-wheel":
+            ensure_downloaded_wheel_dependencies(target, downloaded_path, platform=platform)
+        resolved_paths[name] = downloaded_path
+
+    return resolved_paths
+
+
 def upload_s3_object(bucket: str, key: str, artifact_path: Path, region: str) -> None:
     if importlib.util.find_spec("boto3") is None:
         raise SystemExit("publish-target s3 requires boto3 to be installed in the current Python environment")
@@ -678,6 +843,35 @@ def cmd_release(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_download(args: argparse.Namespace) -> int:
+    metadata_path = Path(args.metadata).resolve()
+    resolved_paths = download_release_artifacts(
+        metadata_path=metadata_path,
+        package_names=args.package or [],
+        platform=args.platform,
+        cloud_api_base_url=args.cloud_api_base_url,
+        cloud_api_token=args.cloud_api_token,
+        device_id=args.device_id,
+        package_download_path=args.package_download_path,
+        output_root=Path(args.output_root).resolve() if args.output_root else None,
+    )
+    payload = {
+        "downloaded": {
+            name: {
+                "path": str(path),
+                "sha256": compute_sha256(path),
+            }
+            for name, path in sorted(resolved_paths.items())
+        },
+        "metadataPath": str(metadata_path),
+        "platform": args.platform,
+    }
+    if args.json_out:
+        Path(args.json_out).resolve().write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build, version, and publish device update packages.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -702,6 +896,20 @@ def build_parser() -> argparse.ArgumentParser:
     release_parser.add_argument("--s3-bucket", default=os.environ.get("TRAKRAI_PACKAGE_S3_BUCKET", ""))
     release_parser.add_argument("--s3-region", default=os.environ.get("AWS_REGION", ""))
     release_parser.set_defaults(func=cmd_release, write_metadata=True)
+
+    download_parser = subparsers.add_parser(
+        "download",
+        parents=[common_parent],
+        help="download published packages from the cloud artifact repo using device credentials",
+    )
+    download_parser.add_argument("--platform", default=common.DEFAULT_ARM64_PLATFORM)
+    download_parser.add_argument("--cloud-api-base-url", required=True)
+    download_parser.add_argument("--cloud-api-token", default="")
+    download_parser.add_argument("--device-id", required=True)
+    download_parser.add_argument("--package-download-path", default=CLOUD_API_PACKAGE_DOWNLOAD_PATH)
+    download_parser.add_argument("--output-root", default="")
+    download_parser.add_argument("--json-out", default="")
+    download_parser.set_defaults(func=cmd_download)
 
     return parser
 

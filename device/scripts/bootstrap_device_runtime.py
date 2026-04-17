@@ -287,12 +287,28 @@ def start_units(units: list[str]) -> None:
         run(["systemctl", "restart", unit])
 
 
-def verify_units(units: list[str]) -> None:
-    failed: list[str] = []
-    for unit in units:
-        result = run(["systemctl", "is-active", unit], capture_output=True, check=False)
-        if result.stdout.strip() != "active":
-            failed.append(f"{unit}={result.stdout.strip() or result.stderr.strip() or 'unknown'}")
+def verify_units(units: list[str], *, settle_timeout: float = 20.0) -> None:
+    """Verify each unit reaches `active`. Give services still in `activating` a chance to settle."""
+    pending = list(units)
+    deadline = time.time() + settle_timeout
+    last_state: dict[str, str] = {}
+    while pending and time.time() < deadline:
+        still_pending: list[str] = []
+        for unit in pending:
+            result = run(["systemctl", "is-active", unit], capture_output=True, check=False)
+            state = result.stdout.strip() or result.stderr.strip() or "unknown"
+            last_state[unit] = state
+            if state == "active":
+                continue
+            if state in {"activating", "reloading"}:
+                still_pending.append(unit)
+                continue
+            # Anything else (failed, inactive, ...) we record immediately.
+        pending = still_pending
+        if pending:
+            time.sleep(1)
+
+    failed = [f"{unit}={last_state.get(unit, 'unknown')}" for unit in units if last_state.get(unit) != "active"]
     if failed:
         raise SystemExit("Unit verification failed: " + ", ".join(failed))
 

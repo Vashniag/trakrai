@@ -1,5 +1,6 @@
 out/
 .localdev/
+.deploy-*/
 __pycache__/
 *.pyc
 *.exe
