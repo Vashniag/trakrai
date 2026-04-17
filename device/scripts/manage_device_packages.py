@@ -557,7 +557,7 @@ def ensure_downloaded_wheel_dependencies(
     target: PackageTarget,
     wheel_path: Path,
     *,
-    platform: str = DEFAULT_ARM64_PLATFORM,
+    platform: str = common.DEFAULT_ARM64_PLATFORM,
     python_version: str = "38",
 ) -> list[Path]:
     if target.wheel_target is None or not target.wheel_target.build_wheelhouse:
