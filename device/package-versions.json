@@ -275,22 +275,23 @@
     "live-feed": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "live-feed-linux-arm64-v0.1.3",
-          "remotePath": "live-feed/0.1.3/linux-arm64/live-feed-linux-arm64-v0.1.3",
-          "sha256": "80297ea89082162ba66fd25ffd9021e52b0f54c5dd35a6b18a4e1a349d00526d",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "live-feed-linux-arm64-v0.1.4",
+          "remotePath": "live-feed/0.1.4/linux-arm64/live-feed-linux-arm64-v0.1.4",
+          "sha256": "4e0ad09fd18f8b18de79fd9d47fa867056ac8b37d3317a26c9fe857d8b6eb5e6",
+          "updatedAt": "2026-04-17T08:12:36Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "live-feed",
-      "sourceHash": "sha256:ecab1e4387c2d229150104afe61a476d3fb0f7775d252f19870ad0cf187c8ab4",
+      "sourceHash": "sha256:a324bc7db096580d7f2aa5f636761011aa52e43d075d410016137c5971a9e7cd",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/live-feed/main.go",
         "device/go.mod",
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
+        "device/internal/gstcodec/jpeg_h264.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
@@ -309,7 +310,7 @@
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.3"
+      "version": "0.1.4"
     },
     "ptz-control": {
       "artifacts": {
@@ -485,16 +486,16 @@
     "video-recorder": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "video-recorder-linux-arm64-v0.1.0",
-          "remotePath": "video-recorder/0.1.0/linux-arm64/video-recorder-linux-arm64-v0.1.0",
-          "sha256": "8584b4dca996a0d14948f95124e4899a59582b72c29f860bf672d50a34fb4ae7",
-          "updatedAt": "2026-04-17T07:59:13Z"
+          "fileName": "video-recorder-linux-arm64-v0.1.1",
+          "remotePath": "video-recorder/0.1.1/linux-arm64/video-recorder-linux-arm64-v0.1.1",
+          "sha256": "538769fecc203ccccbab0f3777aeadcaa47332db1d7452d0626ea52a48d3458e",
+          "updatedAt": "2026-04-17T08:12:36Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "video-recorder",
-      "sourceHash": "sha256:5545f6f9eb49215da08f9330ebea73c3ecdc2602a0ca327a5954b9c5f1ee2e58",
+      "sourceHash": "sha256:bc5ca44729a690ba79a793d5a40bbc937c3eabc96e715c7426b5a9f0b5cd39d5",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/video-recorder/main.go",
@@ -508,6 +509,7 @@
         "device/internal/cloudtransfer/reply.go",
         "device/internal/cloudtransfer/service.go",
         "device/internal/cloudtransfer/store.go",
+        "device/internal/gstcodec/jpeg_h264.go",
         "device/internal/ipc/client.go",
         "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
@@ -522,7 +524,7 @@
         "device/internal/videorecorder/writer.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "workflow-engine": {
       "artifacts": {
@@ -576,5 +578,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T07:59:13Z"
+  "updatedAt": "2026-04-17T08:12:36Z"
 }
