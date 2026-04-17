@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/trakrai/device-services/internal/gstcodec"
 )
 
 type clipWriter interface {
@@ -70,53 +72,22 @@ func (w *gstreamerWriter) WriteJPEGSequence(
 	_ = tempOutput.Close()
 	defer os.Remove(tempOutputPath)
 
-	args := []string{
-		"-q",
-		"multifilesrc",
-		fmt.Sprintf("location=%s", filepath.Join(tempDir, "frame-%06d.jpg")),
-		"index=0",
-		fmt.Sprintf("caps=image/jpeg,framerate=%d/1", fps),
-		"!",
-		"jpegdec",
-		"!",
-		"videoconvert",
-		"!",
-		"videoscale",
-		"!",
-		fmt.Sprintf("video/x-raw,format=I420,width=%d,height=%d,framerate=%d/1", width, height, fps),
-		"!",
-		"x264enc",
-		"tune=zerolatency",
-		"speed-preset=ultrafast",
-		"bitrate=2000",
-		fmt.Sprintf("key-int-max=%d", maxInt(2, fps)),
-		"!",
-		"h264parse",
-		"!",
-		"mp4mux",
-		"faststart=true",
-		"!",
-		"filesink",
-		fmt.Sprintf("location=%s", tempOutputPath),
-		"sync=false",
+	framePattern := filepath.Join(tempDir, "frame-%06d.jpg")
+	var lastErr error
+	for index, candidate := range gstcodec.JPEGMultiFileCandidates(framePattern, tempOutputPath, width, height, fps) {
+		command := exec.CommandContext(ctx, w.bin, candidate.Args...)
+		output, err := command.CombinedOutput()
+		if err == nil {
+			w.log.Debug("encoded clip", "output", outputPath, "frames", len(frames), "duration_sec", time.Duration(len(frames))*time.Second/time.Duration(fps), "pipeline", candidate.Label)
+			if err := os.Rename(tempOutputPath, outputPath); err != nil {
+				return fmt.Errorf("move encoded clip into place: %w", err)
+			}
+			return nil
+		}
+		lastErr = fmt.Errorf("%s: %w: %s", candidate.Label, err, string(output))
+		if index < 2 {
+			w.log.Warn("video clip pipeline unavailable, trying fallback", "pipeline", candidate.Label, "error", err)
+		}
 	}
-
-	command := exec.CommandContext(ctx, w.bin, args...)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("gstreamer encode failed: %w: %s", err, string(output))
-	}
-
-	if err := os.Rename(tempOutputPath, outputPath); err != nil {
-		return fmt.Errorf("move encoded clip into place: %w", err)
-	}
-	w.log.Debug("encoded clip", "output", outputPath, "frames", len(frames), "duration_sec", time.Duration(len(frames))*time.Second/time.Duration(fps))
-	return nil
-}
-
-func maxInt(left int, right int) int {
-	if left > right {
-		return left
-	}
-	return right
+	return fmt.Errorf("gstreamer encode failed: %w", lastErr)
 }

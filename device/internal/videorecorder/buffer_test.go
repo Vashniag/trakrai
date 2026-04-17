@@ -6,17 +6,29 @@ import (
 )
 
 func TestCameraBufferPrunesByAgeAndLimits(t *testing.T) {
-	buffer := newCameraBuffer(
+	buffer, err := newCameraBuffer(
 		CameraConfig{ID: "1", Name: "Camera-1", Width: 640, Height: 480},
+		t.TempDir(),
 		2*time.Second,
 		10,
 		2,
+		1024,
 	)
+	if err != nil {
+		t.Fatalf("newCameraBuffer() error = %v", err)
+	}
+	defer buffer.close()
 
 	base := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
-	buffer.addFrame("frame-1", base, []byte("1111"))
-	buffer.addFrame("frame-2", base.Add(500*time.Millisecond), []byte("2222"))
-	buffer.addFrame("frame-3", base.Add(3*time.Second), []byte("3333"))
+	if _, err := buffer.addFrame("frame-1", base, []byte("1111")); err != nil {
+		t.Fatalf("addFrame(frame-1) error = %v", err)
+	}
+	if _, err := buffer.addFrame("frame-2", base.Add(500*time.Millisecond), []byte("2222")); err != nil {
+		t.Fatalf("addFrame(frame-2) error = %v", err)
+	}
+	if _, err := buffer.addFrame("frame-3", base.Add(3*time.Second), []byte("3333")); err != nil {
+		t.Fatalf("addFrame(frame-3) error = %v", err)
+	}
 
 	status := buffer.status()
 	if status.Frames != 1 {
@@ -28,42 +40,58 @@ func TestCameraBufferPrunesByAgeAndLimits(t *testing.T) {
 }
 
 func TestCameraBufferNearestFrameUsesClosestTimestamp(t *testing.T) {
-	buffer := newCameraBuffer(
+	buffer, err := newCameraBuffer(
 		CameraConfig{ID: "1", Name: "Camera-1", Width: 640, Height: 480},
+		t.TempDir(),
 		10*time.Second,
 		1024,
 		10,
+		1024,
 	)
+	if err != nil {
+		t.Fatalf("newCameraBuffer() error = %v", err)
+	}
+	defer buffer.close()
 
 	base := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
-	buffer.addFrame("frame-1", base, []byte("1111"))
-	buffer.addFrame("frame-2", base.Add(2*time.Second), []byte("2222"))
+	if _, err := buffer.addFrame("frame-1", base, []byte("1111")); err != nil {
+		t.Fatalf("addFrame(frame-1) error = %v", err)
+	}
+	if _, err := buffer.addFrame("frame-2", base.Add(2*time.Second), []byte("2222")); err != nil {
+		t.Fatalf("addFrame(frame-2) error = %v", err)
+	}
 
-	frame, ok := buffer.nearestFrame(base.Add(1700 * time.Millisecond))
+	frame, ok, err := buffer.nearestFrame(base.Add(1700 * time.Millisecond))
+	if err != nil {
+		t.Fatalf("nearestFrame() error = %v", err)
+	}
 	if !ok {
 		t.Fatal("expected to find a nearest frame")
 	}
 	if frame.imageID != "frame-2" {
 		t.Fatalf("expected frame-2 to be nearest, got %q", frame.imageID)
 	}
+	if string(frame.jpeg) != "2222" {
+		t.Fatalf("expected to read back frame bytes, got %q", string(frame.jpeg))
+	}
 }
 
 func TestSelectFramesForClipRepeatsLatestFrameAcrossTargets(t *testing.T) {
 	base := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
-	frames := []frameEntry{
-		{imageID: "frame-1", timestamp: base, jpeg: []byte("1111")},
-		{imageID: "frame-2", timestamp: base.Add(500 * time.Millisecond), jpeg: []byte("2222")},
+	frames := []bufferedFrame{
+		{imageID: "frame-1", timestamp: base},
+		{imageID: "frame-2", timestamp: base.Add(500 * time.Millisecond)},
 	}
 
 	selected := selectFramesForClip(frames, base.Add(500*time.Millisecond), 0.5, 0.5, 4)
 	if len(selected) == 0 {
 		t.Fatal("expected frames to be selected")
 	}
-	if string(selected[0]) != "1111" {
-		t.Fatalf("expected first selected frame to use earliest jpeg, got %q", string(selected[0]))
+	if selected[0].imageID != "frame-1" {
+		t.Fatalf("expected first selected frame to use earliest image, got %q", selected[0].imageID)
 	}
-	if string(selected[len(selected)-1]) != "2222" {
-		t.Fatalf("expected latest selected frame to reuse most recent jpeg, got %q", string(selected[len(selected)-1]))
+	if selected[len(selected)-1].imageID != "frame-2" {
+		t.Fatalf("expected latest selected frame to reuse most recent image, got %q", selected[len(selected)-1].imageID)
 	}
 }
 

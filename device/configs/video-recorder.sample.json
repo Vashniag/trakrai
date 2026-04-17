@@ -12,13 +12,15 @@
     "key_prefix": "camera"
   },
   "storage": {
-    "shared_dir": "/home/hacklab/trakrai-device-runtime/shared"
+    "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
+    "buffer_dir": "/home/hacklab/trakrai-device-runtime/state/video-recorder"
   },
   "buffer": {
     "duration_sec": 600,
     "poll_interval_ms": 100,
     "max_frames_per_camera": 6000,
     "max_bytes_per_camera": 268435456,
+    "max_segment_bytes": 16777216,
     "status_report_interval_sec": 5
   },
   "queue": {

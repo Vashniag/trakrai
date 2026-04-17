@@ -2,6 +2,7 @@ package videorecorder
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/trakrai/device-services/internal/shared/configjson"
@@ -15,6 +16,7 @@ type IPCConfig struct {
 }
 
 type StorageConfig struct {
+	BufferDir string `json:"buffer_dir"`
 	SharedDir string `json:"shared_dir"`
 }
 
@@ -22,6 +24,7 @@ type BufferConfig struct {
 	DurationSec             int `json:"duration_sec"`
 	MaxBytesPerCamera       int `json:"max_bytes_per_camera"`
 	MaxFramesPerCamera      int `json:"max_frames_per_camera"`
+	MaxSegmentBytes         int `json:"max_segment_bytes"`
 	PollIntervalMs          int `json:"poll_interval_ms"`
 	StatusReportIntervalSec int `json:"status_report_interval_sec"`
 }
@@ -92,6 +95,7 @@ func LoadConfig(path string) (*Config, error) {
 			DurationSec:             600,
 			MaxBytesPerCamera:       256 * 1024 * 1024,
 			MaxFramesPerCamera:      6000,
+			MaxSegmentBytes:         16 * 1024 * 1024,
 			PollIntervalMs:          100,
 			StatusReportIntervalSec: 5,
 		},
@@ -151,6 +155,9 @@ func LoadConfig(path string) (*Config, error) {
 	if strings.TrimSpace(cfg.Storage.SharedDir) == "" {
 		return nil, fmt.Errorf("storage.shared_dir is required")
 	}
+	if strings.TrimSpace(cfg.Storage.BufferDir) == "" {
+		cfg.Storage.BufferDir = filepath.Join(cfg.Storage.SharedDir, ".video-recorder-buffer")
+	}
 	if cfg.Buffer.DurationSec <= 0 {
 		return nil, fmt.Errorf("buffer.duration_sec must be greater than 0")
 	}
@@ -162,6 +169,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.Buffer.MaxBytesPerCamera <= 0 {
 		return nil, fmt.Errorf("buffer.max_bytes_per_camera must be greater than 0")
+	}
+	if cfg.Buffer.MaxSegmentBytes <= 0 {
+		return nil, fmt.Errorf("buffer.max_segment_bytes must be greater than 0")
 	}
 	if cfg.Buffer.StatusReportIntervalSec <= 0 {
 		return nil, fmt.Errorf("buffer.status_report_interval_sec must be greater than 0")

@@ -3,6 +3,8 @@ package livefeed
 import (
 	"fmt"
 	"log/slog"
+
+	"github.com/trakrai/device-services/internal/gstcodec"
 )
 
 const minimumKeyframeIntervalFrames = 2
@@ -13,11 +15,7 @@ type PacketEncoder interface {
 }
 
 func keyframeIntervalFrames(fps int) int {
-	if fps < minimumKeyframeIntervalFrames {
-		return minimumKeyframeIntervalFrames
-	}
-
-	return fps
+	return gstcodec.KeyframeIntervalFrames(fps)
 }
 
 type H264Encoder struct {
@@ -48,61 +46,15 @@ func buildHWEncoderPipeline(width int, height int, fps int) string {
 }
 
 func buildHWJPEGEncoderPipeline(width int, height int, fps int) string {
-	keyframeInterval := keyframeIntervalFrames(fps)
-	return fmt.Sprintf(
-		"appsrc name=src is-live=true block=true format=time caps=image/jpeg,framerate=%d/1 "+
-			"! nvjpegdec "+
-			"! nvvidconv interpolation-method=1 "+
-			"! video/x-raw(memory:NVMM),format=NV12,width=%d,height=%d,framerate=%d/1 "+
-			"! nvv4l2h264enc maxperf-enable=true insert-sps-pps=true idrinterval=%d bitrate=2000000 "+
-			"! h264parse config-interval=1 "+
-			"! video/x-h264,stream-format=byte-stream "+
-			"! appsink name=sink max-buffers=4 drop=true sync=false emit-signals=false",
-		fps,
-		width,
-		height,
-		fps,
-		keyframeInterval,
-	)
+	return gstcodec.BuildJPEGAppSrcPipeline(gstcodec.JPEGH264VariantNVJPEG, width, height, fps)
 }
 
 func buildHWV4L2JPEGEncoderPipeline(width int, height int, fps int) string {
-	keyframeInterval := keyframeIntervalFrames(fps)
-	return fmt.Sprintf(
-		"appsrc name=src is-live=true block=true format=time caps=image/jpeg,framerate=%d/1 "+
-			"! nvv4l2decoder mjpeg=true enable-max-performance=true "+
-			"! nvvidconv interpolation-method=1 "+
-			"! video/x-raw(memory:NVMM),format=NV12,width=%d,height=%d,framerate=%d/1 "+
-			"! nvv4l2h264enc maxperf-enable=true insert-sps-pps=true idrinterval=%d bitrate=2000000 "+
-			"! h264parse config-interval=1 "+
-			"! video/x-h264,stream-format=byte-stream "+
-			"! appsink name=sink max-buffers=4 drop=true sync=false emit-signals=false",
-		fps,
-		width,
-		height,
-		fps,
-		keyframeInterval,
-	)
+	return gstcodec.BuildJPEGAppSrcPipeline(gstcodec.JPEGH264VariantV4L2, width, height, fps)
 }
 
 func buildSWJPEGEncoderPipeline(width int, height int, fps int) string {
-	keyframeInterval := keyframeIntervalFrames(fps)
-	return fmt.Sprintf(
-		"appsrc name=src is-live=true block=true format=time caps=image/jpeg,framerate=%d/1 "+
-			"! jpegdec "+
-			"! videoconvert "+
-			"! videoscale "+
-			"! video/x-raw,format=I420,width=%d,height=%d,framerate=%d/1 "+
-			"! x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 key-int-max=%d "+
-			"! h264parse config-interval=1 "+
-			"! video/x-h264,stream-format=byte-stream "+
-			"! appsink name=sink max-buffers=4 drop=true sync=false emit-signals=false",
-		fps,
-		width,
-		height,
-		fps,
-		keyframeInterval,
-	)
+	return gstcodec.BuildJPEGAppSrcPipeline(gstcodec.JPEGH264VariantSW, width, height, fps)
 }
 
 func startEncoder(desc string) (*Encoder, error) {
@@ -167,29 +119,12 @@ func (e *H264Encoder) Stop() {
 func NewJPEGH264Encoder(width int, height int, fps int) (*JPEGH264Encoder, error) {
 	log := slog.With("component", "jpeg-encoder")
 
-	candidates := []struct {
-		description string
-		label       string
-	}{
-		{
-			description: buildHWJPEGEncoderPipeline(width, height, fps),
-			label:       "using hardware JPEG decode + NVENC pipeline (nvjpegdec)",
-		},
-		{
-			description: buildHWV4L2JPEGEncoderPipeline(width, height, fps),
-			label:       "using hardware JPEG decode + NVENC pipeline (nvv4l2decoder)",
-		},
-		{
-			description: buildSWJPEGEncoderPipeline(width, height, fps),
-			label:       "using software JPEG decode/x264 pipeline",
-		},
-	}
-
 	var lastErr error
+	candidates := gstcodec.JPEGAppSrcCandidates(width, height, fps)
 	for index, candidate := range candidates {
-		enc, err := startEncoder(candidate.description)
+		enc, err := startEncoder(candidate.Description)
 		if err == nil {
-			log.Info(candidate.label)
+			log.Info(candidate.Label)
 			return &JPEGH264Encoder{enc: enc, log: log}, nil
 		}
 

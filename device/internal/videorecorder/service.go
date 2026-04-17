@@ -55,12 +55,17 @@ func NewService(cfg *Config) (*Service, error) {
 		if !camera.Enabled {
 			continue
 		}
-		buffer := newCameraBuffer(
+		buffer, err := newCameraBuffer(
 			camera,
+			cfg.Storage.BufferDir,
 			time.Duration(cfg.Buffer.DurationSec)*time.Second,
 			cfg.Buffer.MaxBytesPerCamera,
 			cfg.Buffer.MaxFramesPerCamera,
+			int64(cfg.Buffer.MaxSegmentBytes),
 		)
+		if err != nil {
+			return nil, fmt.Errorf("create camera buffer for %s: %w", camera.Name, err)
+		}
 		cameraBuffers[camera.Name] = buffer
 		cameraNamesByID[camera.ID] = camera.Name
 	}
@@ -88,6 +93,9 @@ func NewService(cfg *Config) (*Service, error) {
 }
 
 func (s *Service) Close() {
+	for _, buffer := range s.cameraBuffers {
+		buffer.close()
+	}
 	s.ipcClient.Close()
 	_ = s.redis.Close()
 }
@@ -95,6 +103,9 @@ func (s *Service) Close() {
 func (s *Service) Run(ctx context.Context) error {
 	if err := os.MkdirAll(s.cfg.Storage.SharedDir, 0o755); err != nil {
 		return fmt.Errorf("create shared dir: %w", err)
+	}
+	if err := os.MkdirAll(s.cfg.Storage.BufferDir, 0o755); err != nil {
+		return fmt.Errorf("create video buffer dir: %w", err)
 	}
 	if err := s.redis.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("connect redis: %w", err)
@@ -175,7 +186,9 @@ func (s *Service) collectLatestFrames(ctx context.Context) {
 		if timestamp.IsZero() {
 			timestamp = time.Now()
 		}
-		buffer.addFrame(imageID, timestamp, rawFrame)
+		if _, addErr := buffer.addFrame(imageID, timestamp, rawFrame); addErr != nil {
+			s.log.Warn("buffer frame append failed", "camera", buffer.camera.Name, "error", addErr)
+		}
 	}
 }
 
@@ -284,9 +297,13 @@ func (s *Service) handleCapturePhoto(sourceService string, env ipc.MQTTEnvelope)
 	var frame frameEntry
 	var found bool
 	if !targetTime.IsZero() {
-		frame, found = cameraBuffer.nearestFrame(targetTime)
+		frame, found, err = cameraBuffer.nearestFrame(targetTime)
 	} else {
-		frame, found = cameraBuffer.latestFrame()
+		frame, found, err = cameraBuffer.latestFrame()
+	}
+	if err != nil {
+		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("load buffered frame: %w", err))
+		return
 	}
 	if !found {
 		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("no buffered frame is available for %s", cameraBuffer.camera.Name))
@@ -497,6 +514,15 @@ func (s *Service) processJob(ctx context.Context, job RecordingJob, workerID int
 		s.failJob(job, fmt.Errorf("no frames were selected for clip encoding"))
 		return
 	}
+	selectedEntries, err := cameraBuffer.loadFrames(selectedFrames)
+	if err != nil {
+		s.failJob(job, fmt.Errorf("load selected clip frames: %w", err))
+		return
+	}
+	selectedJPEGs := make([][]byte, 0, len(selectedEntries))
+	for _, entry := range selectedEntries {
+		selectedJPEGs = append(selectedJPEGs, entry.jpeg)
+	}
 
 	_, absolutePath, err := resolveSharedPath(s.cfg.Storage.SharedDir, job.LocalPath)
 	if err != nil {
@@ -516,7 +542,7 @@ func (s *Service) processJob(ctx context.Context, job RecordingJob, workerID int
 		cameraBuffer.camera.Width,
 		cameraBuffer.camera.Height,
 		job.FrameRate,
-		selectedFrames,
+		selectedJPEGs,
 	)
 	cancel()
 	if err != nil {
@@ -835,12 +861,12 @@ func parseFrameTime(imageID string) time.Time {
 }
 
 func selectFramesForClip(
-	frames []frameEntry,
+	frames []bufferedFrame,
 	eventAt time.Time,
 	preSeconds float64,
 	postSeconds float64,
 	fps int,
-) [][]byte {
+) []bufferedFrame {
 	if len(frames) == 0 || fps <= 0 {
 		return nil
 	}
@@ -856,7 +882,7 @@ func selectFramesForClip(
 	}
 
 	step := time.Second / time.Duration(fps)
-	selected := make([][]byte, 0, int(clipEnd.Sub(clipStart)/step)+2)
+	selected := make([]bufferedFrame, 0, int(clipEnd.Sub(clipStart)/step)+2)
 	frameIndex := 0
 	lastFrame := frames[0]
 
@@ -865,10 +891,10 @@ func selectFramesForClip(
 			frameIndex++
 			lastFrame = frames[frameIndex]
 		}
-		selected = append(selected, append([]byte(nil), lastFrame.jpeg...))
+		selected = append(selected, lastFrame)
 	}
 	if len(selected) == 0 {
-		selected = append(selected, append([]byte(nil), frames[len(frames)-1].jpeg...))
+		selected = append(selected, frames[len(frames)-1])
 	}
 	return selected
 }
