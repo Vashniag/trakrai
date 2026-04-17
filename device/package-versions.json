@@ -452,16 +452,16 @@
     "trakrai-ai-inference": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_ai_inference-0.1.5-py3-none-any.whl",
-          "remotePath": "trakrai-ai-inference/0.1.5/linux-arm64/trakrai_ai_inference-0.1.5-py3-none-any.whl",
-          "sha256": "80d44e9700bab82665c9519eb9773f04116dc4fbad274d6d9085b3ee5aaa9559",
-          "updatedAt": "2026-04-17T13:32:11Z"
+          "fileName": "trakrai_ai_inference-0.1.6-py3-none-any.whl",
+          "remotePath": "trakrai-ai-inference/0.1.6/linux-arm64/trakrai_ai_inference-0.1.6-py3-none-any.whl",
+          "sha256": "5e5139c9ef58c2b6c85765d78603d98dfcdd244bce701c8f18edefd096d6b166",
+          "updatedAt": "2026-04-17T14:15:23Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "trakrai-ai-inference",
-      "sourceHash": "sha256:9c94e739d17c1de60727445facae9d6a12995c32fda12e2f51358b5d37758192",
+      "sourceHash": "sha256:03981e4bfbea6d3049c51866b4b9e1eb6e584df2b7e4c9843aec92f1c80eb280",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/ai_inference/.gitignore",
@@ -553,7 +553,7 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "video-recorder": {
       "artifacts": {
@@ -651,5 +651,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T13:32:11Z"
+  "updatedAt": "2026-04-17T14:15:23Z"
 }
