@@ -10,7 +10,7 @@ from typing import Any
 from . import manifests, paths
 from .build import resolve_local_artifacts
 from .packages import CLOUD_API_PACKAGE_DOWNLOAD_PATH, download_release_artifacts
-from .request_files import apply_request_overrides, load_request_file
+from .request_files import apply_request_overrides, load_request_file, require_argument_values
 from .ssh_transport import ExpectSSHClient, SSHConnectionInfo
 from .stage import StageOptions, load_config_dir, prepare_stage
 
@@ -121,6 +121,7 @@ def cmd_ssh(args: argparse.Namespace) -> int:
             "keep_stage",
         ],
     )
+    require_argument_values(args, {"host": "--host", "user": "--user", "password": "--password"})
     config_map = load_config_dir(Path(args.config_dir).expanduser().resolve()) if args.config_dir else load_remote_configs(args)
     artifacts = resolve_artifacts(args, config_map)
     remote_stage_dir = args.remote_stage_dir or f"/tmp/trakrai-bootstrap-{args.user}"
@@ -164,10 +165,10 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     ssh_parser = subparsers.add_parser("ssh", help="deploy the staged runtime to a remote SSH device")
     ssh_parser.add_argument("--request", default="")
-    ssh_parser.add_argument("--host", required=True)
+    ssh_parser.add_argument("--host", default="")
     ssh_parser.add_argument("--port", type=int, default=22)
-    ssh_parser.add_argument("--user", required=True)
-    ssh_parser.add_argument("--password", required=True)
+    ssh_parser.add_argument("--user", default="")
+    ssh_parser.add_argument("--password", default="")
     ssh_parser.add_argument("--runtime-root", default=paths.DEFAULT_RUNTIME_ROOT)
     ssh_parser.add_argument("--runtime-user", default=paths.DEFAULT_RUNTIME_USER)
     ssh_parser.add_argument("--runtime-group", default=paths.DEFAULT_RUNTIME_GROUP)

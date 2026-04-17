@@ -26,15 +26,8 @@ type CloudCommConfigEdge struct {
 	Enabled bool `json:"enabled"`
 	ListenAddr string `json:"listen_addr"`
 	Path string `json:"path"`
-	RateLimit CloudCommConfigEdgeRateLimit `json:"rate_limit"`
 	Ui CloudCommConfigEdgeUi `json:"ui"`
 	Webrtc CloudCommConfigEdgeWebrtc `json:"webrtc"`
-}
-
-type CloudCommConfigEdgeRateLimit struct {
-	MaxCommandMessages int `json:"max_command_messages"`
-	MaxMessages int `json:"max_messages"`
-	WindowSec int `json:"window_sec"`
 }
 
 type CloudCommConfigEdgeUi struct {
@@ -67,7 +60,7 @@ type CloudCommConfigMqtt struct {
 }
 
 func DefaultCloudCommConfig() CloudCommConfig {
-	return CloudCommConfig{Cameras: []CloudCommConfigCamerasItem{CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Main"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Sec"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP2-Main"}}, DeviceId: "default", Edge: CloudCommConfigEdge{AllowedOrigins: []string{"http://127.0.0.1:8080", "http://localhost:8080"}, Enabled: true, ListenAddr: ":8080", Path: "/ws", RateLimit: CloudCommConfigEdgeRateLimit{MaxCommandMessages: 40, MaxMessages: 120, WindowSec: 5}, Ui: CloudCommConfigEdgeUi{CloudBridgeUrl: "ws://10.8.0.51:8090/ws", DiagnosticsEnabled: true, Enabled: true, ManagementService: "runtime-manager", StaticDir: "/home/hacklab/trakrai-device-runtime/ui", TransportMode: "edge"}, Webrtc: CloudCommConfigEdgeWebrtc{IceServers: []CloudCommConfigEdgeWebrtcIceServersItem{CloudCommConfigEdgeWebrtcIceServersItem{Credential: "trakrai-secret", Urls: []string{"turn:192.168.1.100:3478"}, Username: "trakrai"}}}}, Ipc: CloudCommConfigIpc{SocketPath: "/tmp/trakrai-cloud-comm.sock"}, LogLevel: "info", Mqtt: CloudCommConfigMqtt{BrokerUrl: "tcp://192.168.1.100:1883", ClientId: "trakrai-device-01", KeepAliveSec: 30}}
+	return CloudCommConfig{Cameras: []CloudCommConfigCamerasItem{CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Main"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Sec"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP2-Main"}}, DeviceId: "default", Edge: CloudCommConfigEdge{AllowedOrigins: []string{"http://127.0.0.1:8080", "http://localhost:8080"}, Enabled: true, ListenAddr: ":8080", Path: "/ws", Ui: CloudCommConfigEdgeUi{CloudBridgeUrl: "ws://10.8.0.51:8090/ws", DiagnosticsEnabled: true, Enabled: true, ManagementService: "runtime-manager", StaticDir: "/home/hacklab/trakrai-device-runtime/ui", TransportMode: "edge"}, Webrtc: CloudCommConfigEdgeWebrtc{IceServers: []CloudCommConfigEdgeWebrtcIceServersItem{CloudCommConfigEdgeWebrtcIceServersItem{Credential: "trakrai-secret", Urls: []string{"turn:192.168.1.100:3478"}, Username: "trakrai"}}}}, Ipc: CloudCommConfigIpc{SocketPath: "/tmp/trakrai-cloud-comm.sock"}, LogLevel: "info", Mqtt: CloudCommConfigMqtt{BrokerUrl: "tcp://192.168.1.100:1883", ClientId: "trakrai-device-01", KeepAliveSec: 30}}
 }
 
 func LoadCloudCommConfig(path string) (CloudCommConfig, error) {

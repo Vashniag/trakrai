@@ -10,7 +10,7 @@ from typing import Any
 
 from . import manifests, paths, schema_tools
 from .interactive import choose_many, choose_one, prompt_bool, prompt_value
-from .request_files import apply_request_overrides, load_request_file
+from .request_files import apply_request_overrides, load_request_file, require_argument_values
 from .stage import load_config_dir
 from .utils import deep_copy_json
 
@@ -345,6 +345,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 def cmd_validate(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
     apply_request_overrides(args, request, ["config_dir"])
+    require_argument_values(args, {"config_dir": "--config-dir"})
     config_dir = Path(args.config_dir).expanduser().resolve()
     if not config_dir.exists():
         raise SystemExit(f"config directory does not exist: {config_dir}")
@@ -439,7 +440,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_parser = subparsers.add_parser("validate", help="validate a config directory against service schemas")
     validate_parser.add_argument("--request", default="")
-    validate_parser.add_argument("--config-dir", required=True)
+    validate_parser.add_argument("--config-dir", default="")
     validate_parser.set_defaults(func=cmd_validate)
 
     scaffold_parser = subparsers.add_parser("scaffold-schemas", help="generate schema files from sample configs")

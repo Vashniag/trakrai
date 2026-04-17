@@ -8,6 +8,10 @@ python3 -m device.devtool ...
 
 `device.devtool` is the maintained entry surface. Device-side staged helpers live under `device/devtool/device_side/`, and operator/developer docs live under `device/docs/`.
 
+For the exhaustive command reference, tested flows, request-file shapes, and command-by-command verification notes, use:
+
+- `device/docs/devtool-instructions.md`
+
 ## Main command groups
 
 ```bash

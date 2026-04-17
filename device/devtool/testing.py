@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
 from . import manifests, paths
-from .request_files import apply_request_overrides, load_request_file
+from .request_files import apply_request_overrides, load_request_file, require_argument_values
 from .runtime_client import RuntimeWsClient
 from .tools.mock_workflow_detections import feed_mock_detections
 
@@ -414,6 +414,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
     apply_request_overrides(args, request, ["test_name", "url", "device_id", "timeout_sec"])
+    require_argument_values(args, {"test_name": "--test-name"})
     test_manifest = manifests.require_test(args.test_name)
     runner = TestRunner(url=args.url, device_id=args.device_id, timeout_sec=args.timeout_sec or test_manifest.timeout_sec)
     try:
@@ -436,6 +437,7 @@ def cmd_feed_workflow(args: argparse.Namespace) -> int:
         request,
         ["input", "compose_project_name", "delay_ms", "request_timeout_sec", "shared_target"],
     )
+    require_argument_values(args, {"input": "--input"})
     output = feed_mock_detections(
         input_path=Path(args.input),
         compose_project_name=args.compose_project_name,
@@ -456,7 +458,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="run a JSON-defined test workflow")
     run_parser.add_argument("--request", default="")
-    run_parser.add_argument("--test-name", required=True)
+    run_parser.add_argument("--test-name", default="")
     run_parser.add_argument("--url", default="ws://127.0.0.1:18080/ws")
     run_parser.add_argument("--device-id", default="")
     run_parser.add_argument("--timeout-sec", type=float, default=120)
@@ -464,7 +466,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     feed_parser = subparsers.add_parser("feed-workflow", help="feed mock detections into the local workflow-engine")
     feed_parser.add_argument("--request", default="")
-    feed_parser.add_argument("--input", required=True)
+    feed_parser.add_argument("--input", default="")
     feed_parser.add_argument("--compose-project-name", default="trakrai-local-device")
     feed_parser.add_argument("--delay-ms", type=int, default=-1)
     feed_parser.add_argument("--request-timeout-sec", type=float, default=10.0)

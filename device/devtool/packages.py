@@ -20,7 +20,7 @@ from typing import Any
 from . import manifests, paths
 from .build import build_service_artifact
 from .interactive import choose_many, choose_one
-from .request_files import apply_request_overrides, load_request_file
+from .request_files import apply_request_overrides, load_request_file, require_argument_values
 from .utils import find_single_file
 
 
@@ -661,6 +661,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
             "interactive",
         ],
     )
+    require_argument_values(args, {"cloud_api_base_url": "--cloud-api-base-url", "device_id": "--device-id"})
     metadata_path = Path(args.metadata).resolve()
     metadata = load_metadata(metadata_path)
     selected_packages = list(args.package or [])
@@ -751,9 +752,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     pull_parser = subparsers.add_parser("pull", parents=[common_parent], help="download published packages from the cloud artifact repo using device credentials")
     pull_parser.add_argument("--platform", default=paths.DEFAULT_ARM64_PLATFORM)
-    pull_parser.add_argument("--cloud-api-base-url", required=True)
+    pull_parser.add_argument("--cloud-api-base-url", default="")
     pull_parser.add_argument("--cloud-api-token", default="")
-    pull_parser.add_argument("--device-id", required=True)
+    pull_parser.add_argument("--device-id", default="")
     pull_parser.add_argument("--package-download-path", default=CLOUD_API_PACKAGE_DOWNLOAD_PATH)
     pull_parser.add_argument("--output-root", default="")
     pull_parser.add_argument("--json-out", default="")

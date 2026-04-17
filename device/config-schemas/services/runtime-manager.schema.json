@@ -440,6 +440,266 @@
             "--version"
           ],
           "systemd_unit": "trakrai-cloud-comm.service"
+        },
+        {
+          "name": "runtime-manager",
+          "display_name": "Runtime manager",
+          "description": "Central device runtime control plane for services, logs, and updates.",
+          "kind": "binary",
+          "core": true,
+          "allow_control": false,
+          "allow_update": false,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/runtime-manager",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/runtime-manager.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-runtime-manager.service"
+        },
+        {
+          "name": "edge-ui",
+          "display_name": "Edge UI",
+          "description": "Static device console bundle served directly by cloud-comm.",
+          "kind": "zip",
+          "core": true,
+          "allow_control": false,
+          "allow_update": true,
+          "enabled": false,
+          "install_path": "/home/hacklab/trakrai-device-runtime/ui"
+        },
+        {
+          "name": "audio-manager",
+          "display_name": "Audio manager",
+          "description": "Queued text-to-speech generation, local playback, and network-speaker delivery service.",
+          "kind": "wheel",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "exec_start": [
+            "python3",
+            "-m",
+            "audio_manager",
+            "--config",
+            "/home/hacklab/trakrai-device-runtime/configs/audio-manager.json"
+          ],
+          "environment": {
+            "HOME": "/home/hacklab",
+            "PYTHONUNBUFFERED": "1"
+          },
+          "setup_command": [
+            "python3",
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--force-reinstall",
+            "{{artifact_path}}"
+          ],
+          "version_command": [
+            "python3",
+            "-m",
+            "audio_manager",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-audio-manager.service"
+        },
+        {
+          "name": "cloud-transfer",
+          "display_name": "Cloud transfer",
+          "description": "Queued upload/download worker backed by SQLite and presigned URLs.",
+          "kind": "binary",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/cloud-transfer",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/cloud-transfer.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-cloud-transfer.service"
+        },
+        {
+          "name": "live-feed",
+          "display_name": "Live feed",
+          "description": "On-device WebRTC live streaming service.",
+          "kind": "binary",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/live-feed",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/live-feed.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-live-feed.service"
+        },
+        {
+          "name": "ptz-control",
+          "display_name": "PTZ control",
+          "description": "PTZ command execution over the shared cloud-comm transport.",
+          "kind": "binary",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/ptz-control",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/ptz-control.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-ptz-control.service"
+        },
+        {
+          "name": "roi-config",
+          "display_name": "ROI config",
+          "description": "Per-camera PTZ base locations and ROI configuration document service.",
+          "kind": "binary",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/roi-config",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/roi-config.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-roi-config.service"
+        },
+        {
+          "name": "rtsp-feeder",
+          "display_name": "RTSP feeder",
+          "description": "Camera ingest and JPEG frame publishing into Redis.",
+          "kind": "binary",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/rtsp-feeder",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/rtsp-feeder.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-rtsp-feeder.service"
+        },
+        {
+          "name": "video-recorder",
+          "display_name": "Video recorder",
+          "description": "Rolling camera buffer with photo capture, clip recording, and upload orchestration.",
+          "kind": "binary",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "install_path": "/home/hacklab/trakrai-device-runtime/bin/video-recorder",
+          "exec_start": [
+            "{{install_path}}",
+            "-config",
+            "/home/hacklab/trakrai-device-runtime/configs/video-recorder.json"
+          ],
+          "version_command": [
+            "{{install_path}}",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-video-recorder.service"
+        },
+        {
+          "name": "trakrai-ai-inference",
+          "display_name": "AI inference",
+          "description": "Wheel-installed Python inference service using a module entrypoint.",
+          "kind": "wheel",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "exec_start": [
+            "python3",
+            "-m",
+            "ai_inference",
+            "--config",
+            "/home/hacklab/trakrai-device-runtime/configs/ai-inference.json"
+          ],
+          "environment": {
+            "HOME": "/home/hacklab",
+            "PYTHONUNBUFFERED": "1"
+          },
+          "setup_command": [
+            "python3",
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--force-reinstall",
+            "{{artifact_path}}"
+          ],
+          "version_command": [
+            "python3",
+            "-m",
+            "ai_inference",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-ai-inference.service"
+        },
+        {
+          "name": "workflow-engine",
+          "display_name": "Workflow engine",
+          "description": "Queued workflow execution service backed by a hot-reloaded workflow JSON file.",
+          "kind": "wheel",
+          "allow_control": true,
+          "allow_update": true,
+          "enabled": true,
+          "exec_start": [
+            "python3",
+            "-m",
+            "workflow_engine",
+            "--config",
+            "/home/hacklab/trakrai-device-runtime/configs/workflow-engine.json"
+          ],
+          "environment": {
+            "HOME": "/home/hacklab",
+            "PYTHONUNBUFFERED": "1"
+          },
+          "setup_command": [
+            "python3",
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--force-reinstall",
+            "{{artifact_path}}"
+          ],
+          "version_command": [
+            "python3",
+            "-m",
+            "workflow_engine",
+            "--version"
+          ],
+          "systemd_unit": "trakrai-workflow-engine.service"
         }
       ],
       "items": {
@@ -466,16 +726,6 @@
           "systemd_unit": "trakrai-cloud-comm.service"
         },
         "properties": {
-          "after": {
-            "type": "array",
-            "default": [
-              "network-online.target"
-            ],
-            "items": {
-              "type": "string",
-              "default": "network-online.target"
-            }
-          },
           "allow_control": {
             "type": "boolean",
             "default": true
@@ -486,7 +736,7 @@
           },
           "core": {
             "type": "boolean",
-            "default": false
+            "default": true
           },
           "description": {
             "type": "string",
@@ -507,16 +757,7 @@
               "PYTHONUNBUFFERED": "1"
             },
             "additionalProperties": {
-              "type": "string",
-              "default": ""
-            }
-          },
-          "environment_files": {
-            "type": "array",
-            "default": [],
-            "items": {
-              "type": "string",
-              "default": ""
+              "type": "string"
             }
           },
           "exec_start": {
@@ -531,10 +772,6 @@
               "default": "{{install_path}}"
             }
           },
-          "group": {
-            "type": "string",
-            "default": ""
-          },
           "install_path": {
             "type": "string",
             "default": "/home/hacklab/trakrai-device-runtime/bin/cloud-comm"
@@ -543,49 +780,29 @@
             "type": "string",
             "default": "binary"
           },
-          "log_path": {
-            "type": "string",
-            "default": ""
-          },
           "name": {
             "type": "string",
             "default": "cloud-comm"
           },
-          "requires": {
-            "type": "array",
-            "default": [],
-            "items": {
-              "type": "string",
-              "default": ""
-            }
-          },
-          "restart": {
-            "type": "string",
-            "default": ""
-          },
-          "restart_sec": {
-            "type": "integer",
-            "default": 0
-          },
-          "script_path": {
-            "type": "string",
-            "default": ""
-          },
           "setup_command": {
             "type": "array",
-            "default": [],
+            "default": [
+              "python3",
+              "-m",
+              "pip",
+              "install",
+              "--no-deps",
+              "--force-reinstall",
+              "{{artifact_path}}"
+            ],
             "items": {
               "type": "string",
-              "default": ""
+              "default": "python3"
             }
           },
           "systemd_unit": {
             "type": "string",
             "default": "trakrai-cloud-comm.service"
-          },
-          "user": {
-            "type": "string",
-            "default": ""
           },
           "version_command": {
             "type": "array",
@@ -597,23 +814,13 @@
               "type": "string",
               "default": "{{install_path}}"
             }
-          },
-          "version_file": {
-            "type": "string",
-            "default": ""
-          },
-          "wanted_by": {
-            "type": "string",
-            "default": ""
-          },
-          "working_directory": {
-            "type": "string",
-            "default": ""
           }
         },
         "required": [
           "allow_control",
           "allow_update",
+          "description",
+          "display_name",
           "enabled",
           "kind",
           "name"

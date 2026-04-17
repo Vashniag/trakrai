@@ -58,7 +58,8 @@ class DevtoolManifestTests(unittest.TestCase):
             host_audio_port=18920,
         )
         self.assertEqual({"cloud-comm.json", "runtime-manager.json"}, set(config_map))
-        self.assertEqual(120, config_map["cloud-comm.json"]["edge"]["rate_limit"]["max_messages"])
+        self.assertEqual("trakrai-device-local", config_map["cloud-comm.json"]["device_id"])
+        self.assertEqual("runtime-manager", config_map["cloud-comm.json"]["edge"]["ui"]["management_service"])
 
     def test_audio_manager_sample_validates_against_generated_schema(self) -> None:
         service = manifests.require_service("audio-manager")

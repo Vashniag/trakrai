@@ -15,7 +15,7 @@ from pathlib import Path
 from . import manifests, paths
 from .build import resolve_local_artifacts
 from .configs import default_webrtc_host_candidate_ip, generate_profile_config_map, parse_host_candidate_ip
-from .request_files import apply_request_overrides, load_request_file
+from .request_files import apply_request_overrides, load_request_file, require_argument_values
 from .stage import StageOptions, prepare_stage
 from .utils import DEFAULT_LOCAL_PLATFORM, ensure_clean_dir, run
 
@@ -253,6 +253,15 @@ def selected_component_names(profile_name: str, explicit_components: list[str], 
     return manifests.resolve_component_closure(list(profile.components) + manifests.required_components_for_services(service_names))
 
 
+def filter_config_map_for_services(config_map: dict[str, dict[str, object]], service_names: list[str]) -> dict[str, dict[str, object]]:
+    allowed_config_names = {
+        service.config_name
+        for service in (manifests.require_service(name) for name in service_names)
+        if service.config_name
+    }
+    return {name: payload for name, payload in config_map.items() if name in allowed_config_names}
+
+
 def verify_local_stack(*, env: dict[str, str], components: list[str], host_audio_port: int | None) -> None:
     run_compose(["ps"], env=env)
     if "device-emulator" in components:
@@ -303,6 +312,7 @@ def cmd_up(args: argparse.Namespace) -> int:
             "cloud_mode",
         ],
     )
+    require_argument_values(args, {"video": "--video"})
     video_path = Path(args.video).expanduser().resolve()
     if not video_path.exists():
         raise SystemExit(f"video file does not exist: {video_path}")
@@ -326,6 +336,7 @@ def cmd_up(args: argparse.Namespace) -> int:
         enable_host_audio_playback=enable_host_audio,
         host_audio_port=args.host_audio_port,
     )
+    config_map = filter_config_map_for_services(config_map, service_names)
     artifact_service_names = [name for name in service_names if name != "edge-ui"] + ["edge-ui"]
     if "device-emulator" in component_names:
         artifacts = resolve_local_artifacts(
@@ -429,7 +440,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     up_parser = subparsers.add_parser("up", help="build, stage, and start the local device stack")
     up_parser.add_argument("--request", default="")
-    up_parser.add_argument("--video", required=True)
+    up_parser.add_argument("--video", default="")
     up_parser.add_argument("--profile", default="local-emulator-all")
     up_parser.add_argument("--service", action="append")
     up_parser.add_argument("--component", action="append")

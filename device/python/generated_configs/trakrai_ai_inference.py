@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, List
 
 from ._runtime import load_dataclass_from_json
 
 @dataclass(frozen=True)
 class TrakraiAiInferenceConfig:
-    cameras: list[TrakraiAiInferenceConfigCamerasItem]
+    cameras: List[TrakraiAiInferenceConfigCamerasItem]
     inference: TrakraiAiInferenceConfigInference
     log_level: str
     redis: TrakraiAiInferenceConfigRedis
@@ -25,10 +26,10 @@ class TrakraiAiInferenceConfigInference:
     device: str
     fp16_inference: bool
     idle_sleep_ms: int
-    inference_image_size: list[int]
+    inference_image_size: List[int]
     iou_threshold: float
     min_brightness: int
-    models: list[TrakraiAiInferenceConfigInferenceModelsItem]
+    models: List[TrakraiAiInferenceConfigInferenceModelsItem]
     poll_interval_ms: int
     processed_images_maxlen: int
 

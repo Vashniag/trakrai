@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .request_files import apply_request_overrides, load_request_file
+from .request_files import apply_request_overrides, load_request_file, require_argument_values
 from .runtime_client import RuntimeWsClient
 
 
@@ -33,6 +33,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 def cmd_service_action(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
     apply_request_overrides(args, request, ["url", "device_id", "timeout_sec", "service_name", "action"])
+    require_argument_values(args, {"service_name": "--service-name"})
     with _client(args) as client:
         response = client.request(
             service="runtime-manager",
@@ -48,6 +49,7 @@ def cmd_service_action(args: argparse.Namespace) -> int:
 def cmd_logs(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
     apply_request_overrides(args, request, ["url", "device_id", "timeout_sec", "service_name", "lines"])
+    require_argument_values(args, {"service_name": "--service-name"})
     with _client(args) as client:
         response = client.request(
             service="runtime-manager",
@@ -63,6 +65,7 @@ def cmd_logs(args: argparse.Namespace) -> int:
 def cmd_definition(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
     apply_request_overrides(args, request, ["url", "device_id", "timeout_sec", "service_name"])
+    require_argument_values(args, {"service_name": "--service-name"})
     with _client(args) as client:
         response = client.request(
             service="runtime-manager",
@@ -93,6 +96,7 @@ def cmd_config_list(args: argparse.Namespace) -> int:
 def cmd_config_get(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
     apply_request_overrides(args, request, ["url", "device_id", "timeout_sec", "config_name", "output"])
+    require_argument_values(args, {"config_name": "--config-name"})
     with _client(args) as client:
         response = client.request(
             service="runtime-manager",
@@ -118,8 +122,7 @@ def cmd_config_set(args: argparse.Namespace) -> int:
         request,
         ["url", "device_id", "timeout_sec", "config_name", "content_file", "restart_service"],
     )
-    if not args.content_file:
-        raise SystemExit("--content-file is required")
+    require_argument_values(args, {"config_name": "--config-name", "content_file": "--content-file"})
     content = json.loads(Path(args.content_file).expanduser().resolve().read_text(encoding="utf-8"))
     with _client(args) as client:
         response = client.request(
@@ -152,28 +155,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     for action in ("start", "stop", "restart"):
         action_parser = subparsers.add_parser(action, parents=[common_parent], help=f"{action} a managed service")
-        action_parser.add_argument("--service-name", required=True)
+        action_parser.add_argument("--service-name", default="")
         action_parser.set_defaults(func=cmd_service_action, action=action)
 
     logs_parser = subparsers.add_parser("logs", parents=[common_parent], help="tail a managed service log")
-    logs_parser.add_argument("--service-name", required=True)
+    logs_parser.add_argument("--service-name", default="")
     logs_parser.add_argument("--lines", type=int, default=120)
     logs_parser.set_defaults(func=cmd_logs)
 
     definition_parser = subparsers.add_parser("definition", parents=[common_parent], help="load a managed service definition")
-    definition_parser.add_argument("--service-name", required=True)
+    definition_parser.add_argument("--service-name", default="")
     definition_parser.set_defaults(func=cmd_definition)
 
     config_parser = subparsers.add_parser("config-list", parents=[common_parent], help="list managed config files")
     config_parser.set_defaults(func=cmd_config_list)
 
     config_get_parser = subparsers.add_parser("config-get", parents=[common_parent], help="fetch a managed config file")
-    config_get_parser.add_argument("--config-name", required=True)
+    config_get_parser.add_argument("--config-name", default="")
     config_get_parser.add_argument("--output", default="")
     config_get_parser.set_defaults(func=cmd_config_get)
 
     config_set_parser = subparsers.add_parser("config-set", parents=[common_parent], help="update a managed config file")
-    config_set_parser.add_argument("--config-name", required=True)
+    config_set_parser.add_argument("--config-name", default="")
     config_set_parser.add_argument("--content-file", default="")
     config_set_parser.add_argument("--restart-service", action="append")
     config_set_parser.set_defaults(func=cmd_config_set)

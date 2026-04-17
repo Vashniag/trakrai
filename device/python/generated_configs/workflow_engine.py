@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, List
 
 from ._runtime import load_dataclass_from_json
 

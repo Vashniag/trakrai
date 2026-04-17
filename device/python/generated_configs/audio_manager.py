@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, List
 
 from ._runtime import load_dataclass_from_json
 
@@ -24,7 +25,7 @@ class AudioManagerConfigIpc:
 @dataclass(frozen=True)
 class AudioManagerConfigPlayback:
     backend: str
-    command_template: list[str]
+    command_template: List[str]
     timeout_sec: int
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ class AudioManagerConfigStorage:
 class AudioManagerConfigTts:
     default_language: str
     timeout_sec: int
-    voice_map: dict[str, str]
+    voice_map: Dict[str, str]
 
 DEFAULT_AUDIO_MANAGER_JSON = "{\"log_level\": \"info\", \"device_id\": \"trakrai-device-001\", \"ipc\": {\"socket_path\": \"/tmp/trakrai-cloud-comm.sock\"}, \"queue\": {\"max_pending\": 128, \"status_report_interval_sec\": 15, \"dedupe_window_sec\": 60}, \"storage\": {\"state_db_path\": \"/home/hacklab/trakrai-device-runtime/state/audio-manager.sqlite3\", \"cache_dir\": \"/home/hacklab/trakrai-device-runtime/shared/audio/cache\", \"event_log_path\": \"/home/hacklab/trakrai-device-runtime/shared/audio/audio-events.jsonl\"}, \"tts\": {\"default_language\": \"en\", \"timeout_sec\": 30, \"voice_map\": {\"en\": \"en\", \"hi\": \"hi\"}}, \"playback\": {\"backend\": \"auto\", \"timeout_sec\": 60, \"command_template\": [\"curl\", \"--fail\", \"--silent\", \"--show-error\", \"-X\", \"POST\", \"--data-binary\", \"@{audio_path}\", \"-H\", \"Content-Type: {audio_content_type}\", \"http://host.docker.internal:18920/play\"]}, \"speaker\": {\"enabled\": true, \"transport\": \"short-code-http\", \"mapping_file\": \"/home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv\", \"default_address\": \"\", \"request_timeout_sec\": 2, \"retry_count\": 2, \"backoff_sec\": 1}}"
 

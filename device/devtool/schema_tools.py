@@ -409,10 +409,10 @@ def _python_type_expr(name: str, schema: dict[str, Any]) -> str:
     if schema_type == "object":
         if isinstance(schema.get("additionalProperties"), dict) and not schema.get("properties"):
             value_type = _python_type_expr(name + "Value", schema["additionalProperties"])
-            return f"dict[str, {value_type}]"
+            return f"Dict[str, {value_type}]"
         return pascal_case(name)
     if schema_type == "array":
-        return f"list[{_python_type_expr(name + 'Item', schema.get('items', {}))}]"
+        return f"List[{_python_type_expr(name + 'Item', schema.get('items', {}))}]"
     if schema_type == "integer":
         return "int"
     if schema_type == "number":
@@ -432,6 +432,7 @@ def generate_python_code(service_name: str, schema: dict[str, Any]) -> str:
         "",
         "from dataclasses import dataclass",
         "from pathlib import Path",
+        "from typing import Dict, List",
         "",
         "from ._runtime import load_dataclass_from_json",
         "",
