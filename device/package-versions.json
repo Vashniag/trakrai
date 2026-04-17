@@ -3,40 +3,45 @@
     "audio-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_audio_manager-0.1.0-py3-none-any.whl",
-          "remotePath": "audio-manager/0.1.0/linux-arm64/trakrai_audio_manager-0.1.0-py3-none-any.whl",
-          "sha256": "259e0e1825e70a1ee5a501f0b55d146d19a51195eca4429f178e52c0a8b447bf",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "trakrai_audio_manager-0.1.1-py3-none-any.whl",
+          "remotePath": "audio-manager/0.1.1/linux-arm64/trakrai_audio_manager-0.1.1-py3-none-any.whl",
+          "sha256": "978bace2ac5dab99eb1880924c7208a982296d318a7df3f2c8019196cea39195",
+          "updatedAt": "2026-04-17T05:58:21Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "audio-manager",
-      "sourceHash": "sha256:e0b22f2a1f727a8c11fac672d368860c10e10adc24a8fc679517639fd2e9f37f",
+      "sourceHash": "sha256:d9c2550bd8192371fcb0987682c7bd046dafc6b0d41e29950cbb657c3afc356e",
       "sourceInputs": [
-        "device/python/audio_manager/Dockerfile.wheel",
+        "device/python/Dockerfile.wheel",
         "device/python/audio_manager/FLOW.md",
         "device/python/audio_manager/README.md",
+        "device/python/audio_manager/__init__.py",
+        "device/python/audio_manager/__main__.py",
+        "device/python/audio_manager/_version.py",
         "device/python/audio_manager/main.py",
         "device/python/audio_manager/pyproject.toml",
         "device/python/audio_manager/requirements.txt",
-        "device/python/audio_manager/src/trakrai_audio_manager/__init__.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/__main__.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/_version.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/config.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/ipc.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/main.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/models.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/playback.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/service.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/speaker.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/store.py",
-        "device/python/audio_manager/src/trakrai_audio_manager/tts.py",
+        "device/python/audio_manager/src/config.py",
+        "device/python/audio_manager/src/models.py",
+        "device/python/audio_manager/src/playback.py",
+        "device/python/audio_manager/src/service.py",
+        "device/python/audio_manager/src/speaker.py",
+        "device/python/audio_manager/src/store.py",
+        "device/python/audio_manager/src/tts.py",
         "device/python/audio_manager/tests/test_store.py",
-        "device/python/audio_manager/tests/test_tts.py"
+        "device/python/audio_manager/tests/test_tts.py",
+        "device/python/conftest.py",
+        "device/python/trakrai_service_runtime/__init__.py",
+        "device/python/trakrai_service_runtime/src/config_support.py",
+        "device/python/trakrai_service_runtime/src/ipc.py",
+        "device/python/trakrai_service_runtime/src/ipc_service.py",
+        "device/python/trakrai_service_runtime/src/service_bridge.py",
+        "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "cloud-comm": {
       "artifacts": {
@@ -436,78 +441,88 @@
     "trakrai-ai-inference": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_ai_inference-0.1.0-py3-none-any.whl",
-          "remotePath": "trakrai-ai-inference/0.1.0/linux-arm64/trakrai_ai_inference-0.1.0-py3-none-any.whl",
-          "sha256": "cf69649676302417895796beee3205902bb0bfbb9cb9d1f531192e03d1c2b8a7",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "trakrai_ai_inference-0.1.1-py3-none-any.whl",
+          "remotePath": "trakrai-ai-inference/0.1.1/linux-arm64/trakrai_ai_inference-0.1.1-py3-none-any.whl",
+          "sha256": "0a6eb6c3e5fe682acf29f3fcd24a3e247e50d4b247a9e16c08efed25043655a3",
+          "updatedAt": "2026-04-17T05:58:21Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "trakrai-ai-inference",
-      "sourceHash": "sha256:4bd68b709b6ae837064785439f8b88e96f24e1b036be8d4169c080a8b160de83",
+      "sourceHash": "sha256:7f906a385932fb9b997f5052582c85fd1844a7b2838235c0c012d19d6123c3af",
       "sourceInputs": [
+        "device/python/Dockerfile.wheel",
         "device/python/ai_inference/.gitignore",
-        "device/python/ai_inference/Dockerfile.wheel",
         "device/python/ai_inference/README.md",
+        "device/python/ai_inference/__init__.py",
+        "device/python/ai_inference/__main__.py",
+        "device/python/ai_inference/_version.py",
         "device/python/ai_inference/main.py",
         "device/python/ai_inference/pyproject.toml",
         "device/python/ai_inference/requirements.txt",
-        "device/python/ai_inference/src/ai_inference/__init__.py",
-        "device/python/ai_inference/src/ai_inference/__main__.py",
-        "device/python/ai_inference/src/ai_inference/_version.py",
-        "device/python/ai_inference/src/ai_inference/config.py",
-        "device/python/ai_inference/src/ai_inference/main.py",
-        "device/python/ai_inference/src/ai_inference/service.py"
+        "device/python/ai_inference/src/config.py",
+        "device/python/ai_inference/src/service.py",
+        "device/python/conftest.py",
+        "device/python/trakrai_service_runtime/__init__.py",
+        "device/python/trakrai_service_runtime/src/config_support.py",
+        "device/python/trakrai_service_runtime/src/ipc.py",
+        "device/python/trakrai_service_runtime/src/ipc_service.py",
+        "device/python/trakrai_service_runtime/src/service_bridge.py",
+        "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "workflow-engine": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_workflow_engine-0.1.0-py3-none-any.whl",
-          "remotePath": "workflow-engine/0.1.0/linux-arm64/trakrai_workflow_engine-0.1.0-py3-none-any.whl",
-          "sha256": "949de4c4afd62d6774b9053d238425ae31a3cc442a97c99b2005902ea0839daa",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "trakrai_workflow_engine-0.1.1-py3-none-any.whl",
+          "remotePath": "workflow-engine/0.1.1/linux-arm64/trakrai_workflow_engine-0.1.1-py3-none-any.whl",
+          "sha256": "06355c755179c9f38d7b1382f1175faf3dba08c7d3208a98c2e1c62026652e91",
+          "updatedAt": "2026-04-17T05:58:21Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "workflow-engine",
-      "sourceHash": "sha256:c8c699c5b9e56e55a8590e827e01a0fb72cfe731db9e5bf0e7c67496584a90a5",
+      "sourceHash": "sha256:1034419ee8b290ccaf228269f1eefc03b81fa6960f99f81561aea7bb13f2ede4",
       "sourceInputs": [
-        "device/python/workflow_engine/Dockerfile.wheel",
+        "device/python/Dockerfile.wheel",
+        "device/python/conftest.py",
+        "device/python/trakrai_service_runtime/__init__.py",
+        "device/python/trakrai_service_runtime/src/config_support.py",
+        "device/python/trakrai_service_runtime/src/ipc.py",
+        "device/python/trakrai_service_runtime/src/ipc_service.py",
+        "device/python/trakrai_service_runtime/src/service_bridge.py",
+        "device/python/trakrai_service_runtime/src/service_main.py",
         "device/python/workflow_engine/README.md",
+        "device/python/workflow_engine/__init__.py",
+        "device/python/workflow_engine/__main__.py",
+        "device/python/workflow_engine/_version.py",
         "device/python/workflow_engine/main.py",
         "device/python/workflow_engine/pyproject.toml",
         "device/python/workflow_engine/requirements.txt",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/__init__.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/__main__.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/_version.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/config.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/dag.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/engine.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/exceptions.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/ipc.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/main.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/mock_feed.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/models.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/nodes/__init__.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/nodes/audio_nodes.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/nodes/detection_nodes.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/payloads.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/registry.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/service.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/service_bridge.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/types.py",
-        "device/python/workflow_engine/src/trakrai_workflow_engine/validator.py",
+        "device/python/workflow_engine/src/config.py",
+        "device/python/workflow_engine/src/dag.py",
+        "device/python/workflow_engine/src/engine.py",
+        "device/python/workflow_engine/src/exceptions.py",
+        "device/python/workflow_engine/src/mock_feed.py",
+        "device/python/workflow_engine/src/models.py",
+        "device/python/workflow_engine/src/nodes/__init__.py",
+        "device/python/workflow_engine/src/nodes/audio_nodes.py",
+        "device/python/workflow_engine/src/nodes/detection_nodes.py",
+        "device/python/workflow_engine/src/payloads.py",
+        "device/python/workflow_engine/src/registry.py",
+        "device/python/workflow_engine/src/service.py",
+        "device/python/workflow_engine/src/types.py",
+        "device/python/workflow_engine/src/validator.py",
         "device/python/workflow_engine/tests/test_engine.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T04:09:10Z"
+  "updatedAt": "2026-04-17T05:58:21Z"
 }
