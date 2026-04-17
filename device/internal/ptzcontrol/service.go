@@ -94,7 +94,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	go service.handleNotifications(ctx)
 
 	slog.Info("trakrai ptz-control ready",
-		"socket", cfg.IPC.SocketPath,
+		"socket", cfg.Ipc.SocketPath,
 		"cameras", strings.Join(service.cameraList, ", "),
 	)
 
@@ -117,7 +117,7 @@ func newService(cfg *Config) *Service {
 
 	return &Service{
 		cfg:        cfg,
-		ipcClient:  ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
+		ipcClient:  ipc.NewClient(cfg.Ipc.SocketPath, ServiceName),
 		log:        slog.With("component", ServiceName),
 		cameras:    cameraMap,
 		cameraList: cameraNames,

@@ -5,7 +5,7 @@ This stack treats a Docker container as the local TrakrAI device runtime and reu
 What it does:
 
 - builds device artifacts for the local Docker platform
-- stages the runtime with the same manifest/bootstrap flow used by `deploy_device_runtime.py`
+- stages the runtime with the same manifest/bootstrap flow used by `python3 -m device.devtool deploy ssh`
 - starts an Ubuntu 18.04 + Python 3.8 device container
 - runs a fake RTSP camera from a looped MP4 file
 - connects `cloud-comm` to the existing Mosquitto broker already running on the laptop
@@ -27,27 +27,35 @@ The local stack also starts local object storage infrastructure for the transfer
 - `mock-speaker` on `http://127.0.0.1:18910`
 - `host-audio-player` on `http://127.0.0.1:18920`
 
-The real cloud API is expected to be provided by the `trakrai` web app, typically on:
+The local stack now starts a dedicated local cloud API that fronts the MinIO object store on:
 
 - `http://127.0.0.1:3000`
 
-If you want to add more services, pass `--config-dir` to [`local_device_runtime.py`](/Users/hardikj/code/web-apps/trakrbi/trakrai/device/scripts/local_device_runtime.py).
+Current local object-store credentials:
+
+- access key: `minioadmin`
+- secret key: `minioadmin`
+- bucket: `trakrai-local`
+
+If you want the emulator to target a live cloud environment instead, pass the cloud URL directly through the devtool config or emulator commands.
+
+If you want to add more services, pass `--config-dir` to the `emulator up` command.
 
 ## Usage
 
 From the repository root:
 
 ```bash
-python3 trakrai/device/scripts/local_device_runtime.py up --video /absolute/path/to/sample.mp4
+python3 -m device.devtool emulator up --video /absolute/path/to/sample.mp4
 ```
 
 Useful variants:
 
 ```bash
-python3 trakrai/device/scripts/local_device_runtime.py status
-python3 trakrai/device/scripts/local_device_runtime.py logs --service device-emulator
-python3 trakrai/device/scripts/local_device_runtime.py down
-python3 trakrai/device/scripts/local_device_runtime.py down --volumes
+python3 -m device.devtool emulator status
+python3 -m device.devtool emulator logs --service device-emulator
+python3 -m device.devtool emulator down
+python3 -m device.devtool emulator down --volumes
 ```
 
 Important defaults:
@@ -63,11 +71,11 @@ Important defaults:
 - local cloud API: `http://127.0.0.1:3000`
 - local host audio relay: `http://127.0.0.1:18920`
 
-By default, `local_device_runtime.py up` also starts a small host-side audio relay that plays generated WAV files
+By default, `python3 -m device.devtool emulator up` also starts a small host-side audio relay that plays generated WAV files
 through the laptop speakers. On macOS it uses `afplay`. If you do not want audible playback, add:
 
 ```bash
-python3 trakrai/device/scripts/local_device_runtime.py up \
+python3 -m device.devtool emulator up \
   --video /absolute/path/to/sample.mp4 \
   --disable-host-audio-playback
 ```
@@ -112,7 +120,7 @@ commands are routed through the Unix socket, and responses come back through rou
 Run the end-to-end verifier from the repository root:
 
 ```bash
-python3 trakrai/device/scripts/verify_cloud_transfer_local.py
+python3 -m device.devtool test run --test-name cloud-transfer-local
 ```
 
 That script:
@@ -133,7 +141,7 @@ The local stack now includes `video-recorder` plus the `send-violation-to-cloud`
 Run the end-to-end verifier from the repository root:
 
 ```bash
-python3 trakrai/device/scripts/verify_violation_service_local.py
+python3 -m device.devtool test run --test-name violation-service-local
 ```
 
 That script:
@@ -142,7 +150,7 @@ That script:
 - submits a detection frame to `workflow-engine`
 - waits for the immediate photo capture and photo upload handoff to complete
 - waits for `video-recorder` to finish the buffered clip and upload it through `cloud-transfer`
-- fetches the uploaded photo and video back through the real cloud API download-session route
+- fetches the uploaded photo and video back through the local cloud API download-session route
 - subscribes to the broker topic for `workflow-engine/event` and verifies the `violation-created` envelope was published
 - restores the original workflow file afterward
 
@@ -157,7 +165,7 @@ The local stack includes `audio-manager` as a wheel-installed managed service. I
 Run the end-to-end verifier from the repository root:
 
 ```bash
-python3 trakrai/device/scripts/verify_audio_service_local.py
+python3 -m device.devtool test run --test-name audio-service-local
 ```
 
 That script:
@@ -195,11 +203,11 @@ discarded if it completes against the previous workflow generation.
 To feed mock detections into the workflow queue from the host:
 
 ```bash
-python3 trakrai/device/scripts/mock_workflow_detections.py \
+python3 -m device.devtool test feed-workflow \
   --input trakrai/device/localdev/detections/sample-detections.json
 ```
 
-That script copies the payload file into the shared device volume and then runs the
+That command copies the payload file into the shared device volume and then runs the
 in-container feeder CLI, which submits each frame to `workflow-engine` over the local IPC bus.
 
 Input format example:
@@ -232,22 +240,24 @@ The baked device UI keeps working as-is from `cloud-comm`, but UI developers can
 From `trakrai/web`:
 
 ```bash
-pnpm --filter trakrai-device dev
+pnpm --filter trakrai-device dev -- --port 3001
 ```
 
 In development, `trakrai-device` now auto-resolves the fake device runtime from the current
-browser host on port `18080`, so `http://127.0.0.1:3000` talks to `http://127.0.0.1:18080`
-and `http://localhost:3000` talks to `http://localhost:18080` without extra setup.
+browser host on port `18080`. The local cloud API uses port `3000`, so run the Next.js dev
+server on another free port such as `3001`: `http://127.0.0.1:3001` talks to
+`http://127.0.0.1:18080` and `http://localhost:3001` talks to `http://localhost:18080`
+without extra setup.
 
-That keeps the Next.js app on the normal dev port while the runtime config, WebSocket, and
+That keeps the Next.js app on a nearby dev port while the runtime config, WebSocket, and
 ICE config continue to come from the fake device stack.
 
 If you need to override the default fake-device port or use a fully custom runtime-config URL:
 
 ```bash
-NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT=28080 pnpm --filter trakrai-device dev
+PORT=3001 NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT=28080 pnpm --filter trakrai-device dev
 
-NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL=http://127.0.0.1:28080/api/runtime-config \
+PORT=3001 NEXT_PUBLIC_TRAKRAI_RUNTIME_CONFIG_URL=http://127.0.0.1:28080/api/runtime-config \
 pnpm --filter trakrai-device dev
 ```
 
@@ -261,7 +271,7 @@ bridge IP such as `http://172.19.0.3:8080` is not host-routable from macOS. If y
 needs a different host candidate IP or a different UDP range, override those when starting the stack:
 
 ```bash
-python3 trakrai/device/scripts/local_device_runtime.py up \
+python3 -m device.devtool emulator up \
   --video /absolute/path/to/sample.mp4 \
   --webrtc-host-candidate-ip 192.168.1.34 \
   --webrtc-udp-port-min 41000 \
@@ -283,13 +293,13 @@ If you need a different origin, override it before starting the fake device stac
 
 ```bash
 TRAKRAI_UI_DEV_ORIGINS=http://127.0.0.1:3100,http://localhost:3100 \
-python3 trakrai/device/scripts/local_device_runtime.py up --video /absolute/path/to/sample.mp4
+python3 -m device.devtool emulator up --video /absolute/path/to/sample.mp4
 ```
 
 If the existing broker is reachable differently from Docker on your machine, override it:
 
 ```bash
-python3 trakrai/device/scripts/local_device_runtime.py up \
+python3 -m device.devtool emulator up \
   --video /absolute/path/to/sample.mp4 \
   --mqtt-host 192.168.1.50
 ```

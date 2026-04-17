@@ -1,0 +1,248 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0,
+      "key_prefix": "camera"
+    },
+    "inference": {
+      "device": "0",
+      "poll_interval_ms": 5,
+      "idle_sleep_ms": 40,
+      "min_brightness": 25,
+      "processed_images_maxlen": 10,
+      "inference_image_size": [
+        512,
+        512
+      ],
+      "confidence_threshold": 0.5,
+      "iou_threshold": 0.75,
+      "fp16_inference": true,
+      "models": [
+        {
+          "weights_path": "/home/hacklab/trakrai-device-runtime/models/primary.engine",
+          "allowed_detections": "*"
+        }
+      ]
+    },
+    "cameras": [
+      {
+        "id": 1,
+        "name": "Camera-1",
+        "enabled": true
+      }
+    ]
+  },
+  "properties": {
+    "cameras": {
+      "type": "array",
+      "default": [
+        {
+          "id": 1,
+          "name": "Camera-1",
+          "enabled": true
+        }
+      ],
+      "items": {
+        "type": "object",
+        "default": {
+          "id": 1,
+          "name": "Camera-1",
+          "enabled": true
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "id": {
+            "type": "integer",
+            "default": 1
+          },
+          "name": {
+            "type": "string",
+            "default": "Camera-1"
+          }
+        },
+        "required": [
+          "enabled",
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "inference": {
+      "type": "object",
+      "default": {
+        "device": "0",
+        "poll_interval_ms": 5,
+        "idle_sleep_ms": 40,
+        "min_brightness": 25,
+        "processed_images_maxlen": 10,
+        "inference_image_size": [
+          512,
+          512
+        ],
+        "confidence_threshold": 0.5,
+        "iou_threshold": 0.75,
+        "fp16_inference": true,
+        "models": [
+          {
+            "weights_path": "/home/hacklab/trakrai-device-runtime/models/primary.engine",
+            "allowed_detections": "*"
+          }
+        ]
+      },
+      "properties": {
+        "confidence_threshold": {
+          "type": "number",
+          "default": 0.5
+        },
+        "device": {
+          "type": "string",
+          "default": "0"
+        },
+        "fp16_inference": {
+          "type": "boolean",
+          "default": true
+        },
+        "idle_sleep_ms": {
+          "type": "integer",
+          "default": 40
+        },
+        "inference_image_size": {
+          "type": "array",
+          "default": [
+            512,
+            512
+          ],
+          "items": {
+            "type": "integer",
+            "default": 512
+          }
+        },
+        "iou_threshold": {
+          "type": "number",
+          "default": 0.75
+        },
+        "min_brightness": {
+          "type": "integer",
+          "default": 25
+        },
+        "models": {
+          "type": "array",
+          "default": [
+            {
+              "weights_path": "/home/hacklab/trakrai-device-runtime/models/primary.engine",
+              "allowed_detections": "*"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "default": {
+              "weights_path": "/home/hacklab/trakrai-device-runtime/models/primary.engine",
+              "allowed_detections": "*"
+            },
+            "properties": {
+              "allowed_detections": {
+                "type": "string",
+                "default": "*"
+              },
+              "weights_path": {
+                "type": "string",
+                "default": "/home/hacklab/trakrai-device-runtime/models/primary.engine"
+              }
+            },
+            "required": [
+              "allowed_detections",
+              "weights_path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "poll_interval_ms": {
+          "type": "integer",
+          "default": 5
+        },
+        "processed_images_maxlen": {
+          "type": "integer",
+          "default": 10
+        }
+      },
+      "required": [
+        "confidence_threshold",
+        "device",
+        "fp16_inference",
+        "idle_sleep_ms",
+        "inference_image_size",
+        "iou_threshold",
+        "min_brightness",
+        "models",
+        "poll_interval_ms",
+        "processed_images_maxlen"
+      ],
+      "additionalProperties": false,
+      "title": "Inference"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "redis": {
+      "type": "object",
+      "default": {
+        "host": "localhost",
+        "port": 6379,
+        "password": "",
+        "db": 0,
+        "key_prefix": "camera"
+      },
+      "properties": {
+        "db": {
+          "type": "integer",
+          "default": 0
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost"
+        },
+        "key_prefix": {
+          "type": "string",
+          "default": "camera"
+        },
+        "password": {
+          "type": "string",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "default": 6379
+        }
+      },
+      "required": [
+        "db",
+        "host",
+        "key_prefix",
+        "password",
+        "port"
+      ],
+      "additionalProperties": false,
+      "title": "Redis"
+    }
+  },
+  "required": [
+    "cameras",
+    "inference",
+    "log_level",
+    "redis"
+  ],
+  "additionalProperties": false,
+  "title": "AI inference config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Redis-driven AI inference worker packaged as a Python wheel."
+}

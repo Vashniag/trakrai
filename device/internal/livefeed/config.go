@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/trakrai/device-services/internal/shared/configjson"
+	"github.com/trakrai/device-services/internal/generatedconfig"
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
 )
 
@@ -51,39 +51,50 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	cfg := &Config{
-		LogLevel: "info",
-		Redis: redisconfig.Config{
-			Host:      "localhost",
-			Port:      6379,
-			DB:        0,
-			KeyPrefix: "camera",
-		},
-		IPC: IPCConfig{
-			SocketPath: "/tmp/trakrai-cloud-comm.sock",
-		},
-		WebRTC: WebRTCConfig{
-			ExcludedInterfacePrefixes: []string{
-				"lo",
-				"docker",
-				"br-",
-				"veth",
-				"virbr",
-				"cni",
-				"flannel",
-			},
-			ForceIPv4Candidates: true,
-			FramerateFPS:        10,
-		},
-		Composite: CompositeConfig{
-			Width:       960,
-			Height:      540,
-			TilePadding: 8,
-		},
+	raw, err := generatedconfig.LoadLiveFeedConfig(path)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := configjson.Load(path, cfg); err != nil {
-		return nil, err
+	cfg := &Config{
+		LogLevel: raw.LogLevel,
+		Redis: redisconfig.Config{
+			Host:      raw.Redis.Host,
+			Port:      raw.Redis.Port,
+			Password:  raw.Redis.Password,
+			DB:        raw.Redis.Db,
+			KeyPrefix: raw.Redis.KeyPrefix,
+		},
+		IPC: IPCConfig{
+			SocketPath: raw.Ipc.SocketPath,
+		},
+		WebRTC: WebRTCConfig{
+			AdvertiseRelayCandidates:  raw.Webrtc.AdvertiseRelayCandidates,
+			ExcludedInterfacePrefixes: append([]string(nil), raw.Webrtc.ExcludedInterfacePrefixes...),
+			ForceIPv4Candidates:       raw.Webrtc.ForceIpv4Candidates,
+			HostCandidateIPs:          append([]string(nil), raw.Webrtc.HostCandidateIps...),
+			STUNServers:               append([]string(nil), raw.Webrtc.StunServers...),
+			FramerateFPS:              raw.Webrtc.FramerateFps,
+			UDPPortRange: UDPPortRange{
+				Min: raw.Webrtc.UdpPortRange.Min,
+				Max: raw.Webrtc.UdpPortRange.Max,
+			},
+		},
+		Composite: CompositeConfig{
+			Width:       raw.Composite.Width,
+			Height:      raw.Composite.Height,
+			TilePadding: raw.Composite.TilePadding,
+		},
+	}
+	for _, server := range raw.Webrtc.TurnServers {
+		cfg.WebRTC.TURNServers = append(
+			cfg.WebRTC.TURNServers,
+			TURNServer{
+				URL:        server.Url,
+				Username:   server.Username,
+				Credential: server.Credential,
+			},
+		)
 	}
 
 	cfg.Redis = redisconfig.WithDefaults(cfg.Redis, "camera")

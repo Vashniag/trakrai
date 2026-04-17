@@ -1,0 +1,297 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0,
+      "key_prefix": "camera"
+    },
+    "webrtc": {
+      "advertise_relay_candidates": false,
+      "excluded_interface_prefixes": [
+        "lo",
+        "docker",
+        "br-",
+        "veth",
+        "virbr",
+        "cni",
+        "flannel"
+      ],
+      "force_ipv4_candidates": true,
+      "stun_servers": [
+        "stun:stun.l.google.com:19302"
+      ],
+      "turn_servers": [
+        {
+          "url": "turn:192.168.1.100:3478",
+          "username": "trakrai",
+          "credential": "trakrai-secret"
+        }
+      ],
+      "framerate_fps": 10
+    },
+    "composite": {
+      "width": 960,
+      "height": 540,
+      "tile_padding": 8
+    }
+  },
+  "properties": {
+    "composite": {
+      "type": "object",
+      "default": {
+        "width": 960,
+        "height": 540,
+        "tile_padding": 8
+      },
+      "properties": {
+        "height": {
+          "type": "integer",
+          "default": 540
+        },
+        "tile_padding": {
+          "type": "integer",
+          "default": 8
+        },
+        "width": {
+          "type": "integer",
+          "default": 960
+        }
+      },
+      "required": [
+        "height",
+        "tile_padding",
+        "width"
+      ],
+      "additionalProperties": false,
+      "title": "Composite"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "redis": {
+      "type": "object",
+      "default": {
+        "host": "localhost",
+        "port": 6379,
+        "password": "",
+        "db": 0,
+        "key_prefix": "camera"
+      },
+      "properties": {
+        "db": {
+          "type": "integer",
+          "default": 0
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost"
+        },
+        "key_prefix": {
+          "type": "string",
+          "default": "camera"
+        },
+        "password": {
+          "type": "string",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "default": 6379
+        }
+      },
+      "required": [
+        "db",
+        "host",
+        "key_prefix",
+        "password",
+        "port"
+      ],
+      "additionalProperties": false,
+      "title": "Redis"
+    },
+    "webrtc": {
+      "type": "object",
+      "default": {
+        "advertise_relay_candidates": false,
+        "excluded_interface_prefixes": [
+          "lo",
+          "docker",
+          "br-",
+          "veth",
+          "virbr",
+          "cni",
+          "flannel"
+        ],
+        "force_ipv4_candidates": true,
+        "stun_servers": [
+          "stun:stun.l.google.com:19302"
+        ],
+        "turn_servers": [
+          {
+            "url": "turn:192.168.1.100:3478",
+            "username": "trakrai",
+            "credential": "trakrai-secret"
+          }
+        ],
+        "framerate_fps": 10
+      },
+      "properties": {
+        "advertise_relay_candidates": {
+          "type": "boolean",
+          "default": false
+        },
+        "excluded_interface_prefixes": {
+          "type": "array",
+          "default": [
+            "lo",
+            "docker",
+            "br-",
+            "veth",
+            "virbr",
+            "cni",
+            "flannel"
+          ],
+          "items": {
+            "type": "string",
+            "default": "lo"
+          }
+        },
+        "force_ipv4_candidates": {
+          "type": "boolean",
+          "default": true
+        },
+        "framerate_fps": {
+          "type": "integer",
+          "default": 10
+        },
+        "host_candidate_ips": {
+          "type": "array",
+          "default": [
+            "127.0.0.1"
+          ],
+          "items": {
+            "type": "string",
+            "default": "127.0.0.1"
+          }
+        },
+        "stun_servers": {
+          "type": "array",
+          "default": [
+            "stun:stun.l.google.com:19302"
+          ],
+          "items": {
+            "type": "string",
+            "default": "stun:stun.l.google.com:19302"
+          }
+        },
+        "turn_servers": {
+          "type": "array",
+          "default": [
+            {
+              "url": "turn:192.168.1.100:3478",
+              "username": "trakrai",
+              "credential": "trakrai-secret"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "default": {
+              "url": "turn:192.168.1.100:3478",
+              "username": "trakrai",
+              "credential": "trakrai-secret"
+            },
+            "properties": {
+              "credential": {
+                "type": "string",
+                "default": "trakrai-secret"
+              },
+              "url": {
+                "type": "string",
+                "default": "turn:192.168.1.100:3478"
+              },
+              "username": {
+                "type": "string",
+                "default": "trakrai"
+              }
+            },
+            "required": [
+              "credential",
+              "url",
+              "username"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "udp_port_range": {
+          "type": "object",
+          "default": {
+            "min": 40000,
+            "max": 40049
+          },
+          "properties": {
+            "max": {
+              "type": "integer",
+              "default": 40049
+            },
+            "min": {
+              "type": "integer",
+              "default": 40000
+            }
+          },
+          "required": [
+            "max",
+            "min"
+          ],
+          "additionalProperties": false,
+          "title": "UdpPortRange"
+        }
+      },
+      "required": [
+        "advertise_relay_candidates",
+        "excluded_interface_prefixes",
+        "force_ipv4_candidates",
+        "framerate_fps",
+        "stun_servers",
+        "turn_servers"
+      ],
+      "additionalProperties": false,
+      "title": "Webrtc"
+    }
+  },
+  "required": [
+    "composite",
+    "ipc",
+    "log_level",
+    "redis",
+    "webrtc"
+  ],
+  "additionalProperties": false,
+  "title": "Live feed config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "On-device WebRTC live streaming service."
+}

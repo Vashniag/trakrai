@@ -1,0 +1,236 @@
+{
+  "name": "violation-service-local",
+  "displayName": "Violation Service Local",
+  "description": "Exercise workflow-driven violation creation, uploads, and MQTT emission against the local emulator.",
+  "profile": "local-emulator-all",
+  "timeoutSec": 180,
+  "cleanupSteps": [
+    {
+      "action": "stop_process",
+      "process": "${mqtt_process}"
+    },
+    {
+      "action": "restore_file",
+      "path": "${vars.localSharedDir}/workflow.json",
+      "backupPath": "${vars.localSharedDir}/workflow.backup.violation-verify.json",
+      "deleteIfMissing": true
+    },
+    {
+      "action": "poll_service",
+      "service": "workflow-engine",
+      "messageType": "get-status",
+      "expectedTypes": [
+        "workflow-engine-status"
+      ],
+      "payload": {},
+      "until": {
+        "path": "envelope.payload.workflow.loaded",
+        "truthy": true
+      },
+      "timeoutSec": 60,
+      "intervalSec": 0.5
+    }
+  ],
+  "steps": [
+    {
+      "id": "cloud_transfer_config",
+      "action": "load_json",
+      "path": "${vars.localStageDir}/configs/cloud-transfer.json"
+    },
+    {
+      "id": "cloud_comm_config",
+      "action": "load_json",
+      "path": "${vars.localStageDir}/configs/cloud-comm.json"
+    },
+    {
+      "id": "cloud_api_base_url",
+      "action": "host_accessible_url",
+      "value": "${cloud_transfer_config.cloud_api.base_url}"
+    },
+    {
+      "action": "backup_file",
+      "path": "${vars.localSharedDir}/workflow.json",
+      "backupPath": "${vars.localSharedDir}/workflow.backup.violation-verify.json"
+    },
+    {
+      "id": "violation_token",
+      "action": "uuid"
+    },
+    {
+      "id": "write_workflow",
+      "action": "write_json_template",
+      "template": "device/localdev/workflows/violation-service-verification-workflow.json",
+      "target": "${vars.localSharedDir}/workflow.json",
+      "set": {
+        "metadata.name": "Violation Service Verification ${violation_token}",
+        "nodes[0].data.configuration.remotePrefix": "violations-verification/${violation_token}"
+      }
+    },
+    {
+      "id": "mqtt_process",
+      "action": "start_mqtt_subscriber",
+      "brokerUrl": "${cloud_comm_config.mqtt.broker_url}",
+      "topic": "trakrai/device/${cloud_transfer_config.device_id}/service/workflow-engine/event"
+    },
+    {
+      "id": "workflow_loaded",
+      "action": "poll_service",
+      "service": "workflow-engine",
+      "messageType": "get-status",
+      "expectedTypes": [
+        "workflow-engine-status"
+      ],
+      "payload": {},
+      "until": {
+        "path": "envelope.payload.workflow.name",
+        "equals": "Violation Service Verification ${violation_token}"
+      },
+      "timeoutSec": 60,
+      "intervalSec": 0.5
+    },
+    {
+      "id": "latest_frame",
+      "action": "read_redis_hash_field",
+      "key": "camera:Camera-1:latest",
+      "field": "imgID"
+    },
+    {
+      "id": "violation_result",
+      "action": "service_request",
+      "service": "workflow-engine",
+      "messageType": "enqueue-detection",
+      "expectedTypes": [
+        "workflow-engine-result"
+      ],
+      "payload": {
+        "cameraId": "1",
+        "cameraName": "Camera-1",
+        "detections": [
+          {
+            "bbox": [
+              10,
+              10,
+              30,
+              30
+            ],
+            "confidence": 0.95,
+            "label": "person"
+          }
+        ],
+        "frameId": "${latest_frame}"
+      }
+    },
+    {
+      "id": "photo_transfer",
+      "action": "poll_service",
+      "service": "cloud-transfer",
+      "messageType": "get-transfer",
+      "expectedTypes": [
+        "cloud-transfer-transfer"
+      ],
+      "payload": {
+        "transferId": "${violation_result.envelope.payload.run.outputs.violation.photoTransferId}"
+      },
+      "until": {
+        "path": "envelope.payload.transfer.state",
+        "in": [
+          "completed",
+          "failed"
+        ]
+      },
+      "timeoutSec": 120,
+      "intervalSec": 1
+    },
+    {
+      "id": "video_job",
+      "action": "poll_service",
+      "service": "video-recorder",
+      "messageType": "get-job",
+      "expectedTypes": [
+        "video-recorder-job"
+      ],
+      "payload": {
+        "jobId": "${violation_result.envelope.payload.run.outputs.violation.videoJobId}"
+      },
+      "until": {
+        "path": "envelope.payload.job.state",
+        "in": [
+          "completed",
+          "failed"
+        ]
+      },
+      "timeoutSec": 120,
+      "intervalSec": 1
+    },
+    {
+      "id": "video_transfer",
+      "action": "poll_service",
+      "service": "cloud-transfer",
+      "messageType": "get-transfer",
+      "expectedTypes": [
+        "cloud-transfer-transfer"
+      ],
+      "payload": {
+        "transferId": "${video_job.envelope.payload.job.transferId}"
+      },
+      "until": {
+        "path": "envelope.payload.transfer.state",
+        "in": [
+          "completed",
+          "failed"
+        ]
+      },
+      "timeoutSec": 120,
+      "intervalSec": 1
+    },
+    {
+      "id": "photo_session",
+      "action": "cloud_download_session",
+      "baseUrl": "${cloud_api_base_url}",
+      "accessToken": "${cloud_transfer_config.cloud_api.access_token}",
+      "deviceId": "${cloud_transfer_config.device_id}",
+      "downloadPath": "${cloud_transfer_config.cloud_api.download_presign_path}",
+      "remotePath": "${violation_result.envelope.payload.run.outputs.violation.photoRemotePath}"
+    },
+    {
+      "id": "photo_bytes",
+      "action": "fetch_cloud_asset",
+      "session": "${photo_session}"
+    },
+    {
+      "action": "assert_startswith",
+      "value": "${photo_bytes}",
+      "prefix": "${vars.jpegMagic}"
+    },
+    {
+      "id": "video_session",
+      "action": "cloud_download_session",
+      "baseUrl": "${cloud_api_base_url}",
+      "accessToken": "${cloud_transfer_config.cloud_api.access_token}",
+      "deviceId": "${cloud_transfer_config.device_id}",
+      "downloadPath": "${cloud_transfer_config.cloud_api.download_presign_path}",
+      "remotePath": "${violation_result.envelope.payload.run.outputs.violation.videoRemotePath}"
+    },
+    {
+      "id": "video_bytes",
+      "action": "fetch_cloud_asset",
+      "session": "${video_session}"
+    },
+    {
+      "action": "assert_nonempty",
+      "value": "${video_bytes}"
+    },
+    {
+      "id": "mqtt_message",
+      "action": "wait_mqtt_message",
+      "process": "${mqtt_process}",
+      "expectedType": "violation-created",
+      "timeoutSec": 60
+    },
+    {
+      "action": "assert_equals",
+      "left": "${mqtt_message.payload.violationId}",
+      "right": "${violation_result.envelope.payload.run.outputs.violation.violationId}"
+    }
+  ]
+}

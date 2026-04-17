@@ -119,4 +119,4 @@ flowchart TD
 - Playback backend selection: `device/python/audio_manager/src/playback.py`
 - Network speaker delivery: `device/python/audio_manager/src/speaker.py`
 - Local host relay: `device/localdev/host-audio-player/server.py`
-- Local verifier: `device/scripts/verify_audio_service_local.py`
+- Local verifier: `python3 -m device.devtool test run --test-name audio-service-local`

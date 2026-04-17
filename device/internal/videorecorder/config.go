@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/trakrai/device-services/internal/generatedconfig"
 	"github.com/trakrai/device-services/internal/gstcodec"
-	"github.com/trakrai/device-services/internal/shared/configjson"
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
 )
 
@@ -92,58 +92,55 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	raw := rawConfig{
-		Buffer: BufferConfig{
-			DurationSec:             600,
-			MaxBytesPerCamera:       256 * 1024 * 1024,
-			MaxFramesPerCamera:      6000,
-			MaxSegmentBytes:         16 * 1024 * 1024,
-			PollIntervalMs:          100,
-			StatusReportIntervalSec: 5,
-		},
-		DeviceID: "trakrai-device",
-		IPC: IPCConfig{
-			SocketPath: "/tmp/trakrai-cloud-comm.sock",
-		},
-		LogLevel: "info",
-		Queue: QueueConfig{
-			MaxPending:  64,
-			WorkerCount: 1,
-		},
-		Recording: RecordingConfig{
-			DefaultCodec:     string(gstcodec.VideoCodecH264),
-			DefaultFrameRate: 10,
-			DefaultPostSec:   5,
-			DefaultPreSec:    5,
-			GStreamerBin:     "gst-launch-1.0",
-			MaxFrameRate:     25,
-			WriteTimeoutSec:  60,
-		},
-		Redis: redisconfig.Config{
-			KeyPrefix: "camera",
-		},
-		Storage: StorageConfig{
-			SharedDir: "/home/hacklab/trakrai-device-runtime/shared",
-		},
-		Upload: UploadConfig{
-			ServiceName: "cloud-transfer",
-		},
-	}
-
-	if err := configjson.Load(path, &raw); err != nil {
+	raw, err := generatedconfig.LoadVideoRecorderConfig(path)
+	if err != nil {
 		return nil, err
 	}
 
 	cfg := &Config{
-		Buffer:    raw.Buffer,
-		DeviceID:  strings.TrimSpace(raw.DeviceID),
-		IPC:       raw.IPC,
-		LogLevel:  strings.TrimSpace(raw.LogLevel),
-		Queue:     raw.Queue,
-		Recording: raw.Recording,
-		Redis:     redisconfig.WithDefaults(raw.Redis, "camera"),
-		Storage:   raw.Storage,
-		Upload:    raw.Upload,
+		Buffer: BufferConfig{
+			DurationSec:             raw.Buffer.DurationSec,
+			MaxBytesPerCamera:       raw.Buffer.MaxBytesPerCamera,
+			MaxFramesPerCamera:      raw.Buffer.MaxFramesPerCamera,
+			MaxSegmentBytes:         raw.Buffer.MaxSegmentBytes,
+			PollIntervalMs:          raw.Buffer.PollIntervalMs,
+			StatusReportIntervalSec: raw.Buffer.StatusReportIntervalSec,
+		},
+		DeviceID: strings.TrimSpace(raw.DeviceId),
+		IPC: IPCConfig{
+			SocketPath: raw.Ipc.SocketPath,
+		},
+		LogLevel: strings.TrimSpace(raw.LogLevel),
+		Queue: QueueConfig{
+			MaxPending:  raw.Queue.MaxPending,
+			WorkerCount: raw.Queue.WorkerCount,
+		},
+		Recording: RecordingConfig{
+			DefaultCodec:     raw.Recording.DefaultCodec,
+			DefaultFrameRate: raw.Recording.DefaultFrameRate,
+			DefaultPostSec:   raw.Recording.DefaultPostSec,
+			DefaultPreSec:    raw.Recording.DefaultPreSec,
+			GStreamerBin:     raw.Recording.GstreamerBin,
+			MaxFrameRate:     raw.Recording.MaxFrameRate,
+			WriteTimeoutSec:  raw.Recording.WriteTimeoutSec,
+		},
+		Redis: redisconfig.WithDefaults(
+			redisconfig.Config{
+				Host:      raw.Redis.Host,
+				Port:      raw.Redis.Port,
+				Password:  raw.Redis.Password,
+				DB:        raw.Redis.Db,
+				KeyPrefix: raw.Redis.KeyPrefix,
+			},
+			"camera",
+		),
+		Storage: StorageConfig{
+			BufferDir: raw.Storage.BufferDir,
+			SharedDir: raw.Storage.SharedDir,
+		},
+		Upload: UploadConfig{
+			ServiceName: raw.Upload.ServiceName,
+		},
 	}
 
 	if cfg.DeviceID == "" {
@@ -212,19 +209,16 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	for _, rawCamera := range raw.Cameras {
-		cameraID := strings.TrimSpace(fmt.Sprint(rawCamera.ID))
+		cameraID := strings.TrimSpace(fmt.Sprint(rawCamera.Id))
 		if cameraID == "" || cameraID == "<nil>" {
 			return nil, fmt.Errorf("camera id is required")
 		}
 		camera := CameraConfig{
-			Enabled: true,
+			Enabled: rawCamera.Enabled,
 			ID:      cameraID,
 			Height:  rawCamera.Height,
 			Name:    strings.TrimSpace(rawCamera.Name),
 			Width:   rawCamera.Width,
-		}
-		if rawCamera.Enabled != nil {
-			camera.Enabled = *rawCamera.Enabled
 		}
 		if camera.Name == "" {
 			return nil, fmt.Errorf("camera %s is missing name", camera.ID)

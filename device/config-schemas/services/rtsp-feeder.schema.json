@@ -1,0 +1,291 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0,
+      "key_prefix": "camera"
+    },
+    "defaults": {
+      "capture_method": "auto",
+      "width": 640,
+      "height": 480,
+      "framerate": 10,
+      "jpeg_quality": 85,
+      "latency_ms": 200,
+      "protocols": "tcp",
+      "reconnect_delay_sec": 5,
+      "rotate_180": false,
+      "save_frames": false,
+      "save_path": "/data/raw",
+      "pipeline_timeout_sec": 15
+    },
+    "cameras": [
+      {
+        "id": 1,
+        "name": "Camera-1",
+        "rtsp_url": "rtsp://user:password@192.168.1.10:554/stream",
+        "enabled": true,
+        "rotate_180": false
+      },
+      {
+        "id": 2,
+        "name": "Camera-2",
+        "rtsp_url": "rtsp://user:password@192.168.1.11:554/stream",
+        "enabled": true,
+        "rotate_180": true,
+        "width": 1280,
+        "height": 720,
+        "framerate": 5
+      }
+    ]
+  },
+  "properties": {
+    "cameras": {
+      "type": "array",
+      "default": [
+        {
+          "id": 1,
+          "name": "Camera-1",
+          "rtsp_url": "rtsp://user:password@192.168.1.10:554/stream",
+          "enabled": true,
+          "rotate_180": false
+        },
+        {
+          "id": 2,
+          "name": "Camera-2",
+          "rtsp_url": "rtsp://user:password@192.168.1.11:554/stream",
+          "enabled": true,
+          "rotate_180": true,
+          "width": 1280,
+          "height": 720,
+          "framerate": 5
+        }
+      ],
+      "items": {
+        "type": "object",
+        "default": {
+          "id": 1,
+          "name": "Camera-1",
+          "rtsp_url": "rtsp://user:password@192.168.1.10:554/stream",
+          "enabled": true,
+          "rotate_180": false
+        },
+        "properties": {
+          "capture_method": {
+            "type": "string",
+            "default": "auto"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "framerate": {
+            "type": "number",
+            "default": 5
+          },
+          "height": {
+            "type": "integer",
+            "default": 720
+          },
+          "id": {
+            "type": "integer",
+            "default": 1
+          },
+          "jpeg_quality": {
+            "type": "integer",
+            "default": 85
+          },
+          "latency_ms": {
+            "type": "integer",
+            "default": 200
+          },
+          "name": {
+            "type": "string",
+            "default": "Camera-1"
+          },
+          "pipeline_timeout_sec": {
+            "type": "integer",
+            "default": 15
+          },
+          "protocols": {
+            "type": "string",
+            "default": "tcp"
+          },
+          "reconnect_delay_sec": {
+            "type": "integer",
+            "default": 5
+          },
+          "rotate_180": {
+            "type": "boolean",
+            "default": false
+          },
+          "rtsp_url": {
+            "type": "string",
+            "default": "rtsp://user:password@192.168.1.10:554/stream"
+          },
+          "save_frames": {
+            "type": "boolean",
+            "default": false
+          },
+          "save_path": {
+            "type": "string",
+            "default": "/data/raw"
+          },
+          "width": {
+            "type": "integer",
+            "default": 1280
+          }
+        },
+        "required": [
+          "enabled",
+          "id",
+          "name",
+          "rtsp_url"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "default": {
+        "capture_method": "auto",
+        "width": 640,
+        "height": 480,
+        "framerate": 10,
+        "jpeg_quality": 85,
+        "latency_ms": 200,
+        "protocols": "tcp",
+        "reconnect_delay_sec": 5,
+        "rotate_180": false,
+        "save_frames": false,
+        "save_path": "/data/raw",
+        "pipeline_timeout_sec": 15
+      },
+      "properties": {
+        "capture_method": {
+          "type": "string",
+          "default": "auto"
+        },
+        "framerate": {
+          "type": "number",
+          "default": 10
+        },
+        "height": {
+          "type": "integer",
+          "default": 480
+        },
+        "jpeg_quality": {
+          "type": "integer",
+          "default": 85
+        },
+        "latency_ms": {
+          "type": "integer",
+          "default": 200
+        },
+        "pipeline_timeout_sec": {
+          "type": "integer",
+          "default": 15
+        },
+        "protocols": {
+          "type": "string",
+          "default": "tcp"
+        },
+        "reconnect_delay_sec": {
+          "type": "integer",
+          "default": 5
+        },
+        "rotate_180": {
+          "type": "boolean",
+          "default": false
+        },
+        "save_frames": {
+          "type": "boolean",
+          "default": false
+        },
+        "save_path": {
+          "type": "string",
+          "default": "/data/raw"
+        },
+        "width": {
+          "type": "integer",
+          "default": 640
+        }
+      },
+      "required": [
+        "capture_method",
+        "framerate",
+        "height",
+        "jpeg_quality",
+        "latency_ms",
+        "pipeline_timeout_sec",
+        "protocols",
+        "reconnect_delay_sec",
+        "rotate_180",
+        "save_frames",
+        "save_path",
+        "width"
+      ],
+      "additionalProperties": false,
+      "title": "Defaults"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "redis": {
+      "type": "object",
+      "default": {
+        "host": "localhost",
+        "port": 6379,
+        "password": "",
+        "db": 0,
+        "key_prefix": "camera"
+      },
+      "properties": {
+        "db": {
+          "type": "integer",
+          "default": 0
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost"
+        },
+        "key_prefix": {
+          "type": "string",
+          "default": "camera"
+        },
+        "password": {
+          "type": "string",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "default": 6379
+        }
+      },
+      "required": [
+        "db",
+        "host",
+        "key_prefix",
+        "password",
+        "port"
+      ],
+      "additionalProperties": false,
+      "title": "Redis"
+    }
+  },
+  "required": [
+    "cameras",
+    "defaults",
+    "log_level",
+    "redis"
+  ],
+  "additionalProperties": false,
+  "title": "RTSP feeder config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RTSP ingest service that publishes JPEG frames into Redis."
+}

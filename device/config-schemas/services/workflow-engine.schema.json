@@ -1,0 +1,116 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "device_id": "trakrai-device-001",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "queue": {
+      "max_pending": 256,
+      "status_report_interval_sec": 15
+    },
+    "workflow": {
+      "file_path": "/home/hacklab/trakrai-device-runtime/shared/workflow.json",
+      "reload_poll_interval_ms": 1000,
+      "max_workers": 4,
+      "result_history_size": 20
+    }
+  },
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "default": "trakrai-device-001"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "queue": {
+      "type": "object",
+      "default": {
+        "max_pending": 256,
+        "status_report_interval_sec": 15
+      },
+      "properties": {
+        "max_pending": {
+          "type": "integer",
+          "default": 256
+        },
+        "status_report_interval_sec": {
+          "type": "integer",
+          "default": 15
+        }
+      },
+      "required": [
+        "max_pending",
+        "status_report_interval_sec"
+      ],
+      "additionalProperties": false,
+      "title": "Queue"
+    },
+    "workflow": {
+      "type": "object",
+      "default": {
+        "file_path": "/home/hacklab/trakrai-device-runtime/shared/workflow.json",
+        "reload_poll_interval_ms": 1000,
+        "max_workers": 4,
+        "result_history_size": 20
+      },
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared/workflow.json"
+        },
+        "max_workers": {
+          "type": "integer",
+          "default": 4
+        },
+        "reload_poll_interval_ms": {
+          "type": "integer",
+          "default": 1000
+        },
+        "result_history_size": {
+          "type": "integer",
+          "default": 20
+        }
+      },
+      "required": [
+        "file_path",
+        "max_workers",
+        "reload_poll_interval_ms",
+        "result_history_size"
+      ],
+      "additionalProperties": false,
+      "title": "Workflow"
+    }
+  },
+  "required": [
+    "device_id",
+    "ipc",
+    "log_level",
+    "queue",
+    "workflow"
+  ],
+  "additionalProperties": false,
+  "title": "Workflow engine config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Queued workflow execution service with hot-reloaded workflow JSON."
+}

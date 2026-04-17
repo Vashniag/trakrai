@@ -34,7 +34,7 @@ export const env = createEnv({
     NEXT_PUBLIC_TRAKRAI_ENABLE_DIAGNOSTICS: z.enum(['true', 'false']).optional(),
 
     // Local Docker-emulated device HTTP port.
-    // Get this from `device/scripts/local_device_runtime.py` output or `device/.localdev/compose.env`.
+    // Get this from `python3 -m device.devtool emulator up` output or `device/.localdev/compose.env`.
     NEXT_PUBLIC_TRAKRAI_LOCAL_DEVICE_HTTP_PORT: z.string().optional(),
 
     // Optional explicit runtime-config endpoint override for local/dev setups.

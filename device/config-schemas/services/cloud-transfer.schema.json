@@ -1,0 +1,179 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "device_id": "default",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "storage": {
+      "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
+      "database_path": "/home/hacklab/trakrai-device-runtime/state/cloud-transfer/transfers.sqlite"
+    },
+    "cloud_api": {
+      "base_url": "https://api.trakrai.example",
+      "access_token": "",
+      "upload_presign_path": "/api/external/storage/devices/upload-session",
+      "download_presign_path": "/api/external/storage/devices/download-session",
+      "package_download_presign_path": "/api/external/storage/packages/download-session",
+      "request_timeout_sec": 30
+    },
+    "queue": {
+      "worker_count": 1,
+      "poll_interval_ms": 1000,
+      "initial_backoff_sec": 5,
+      "max_backoff_sec": 300,
+      "status_report_interval_sec": 15
+    }
+  },
+  "properties": {
+    "cloud_api": {
+      "type": "object",
+      "default": {
+        "base_url": "https://api.trakrai.example",
+        "access_token": "",
+        "upload_presign_path": "/api/external/storage/devices/upload-session",
+        "download_presign_path": "/api/external/storage/devices/download-session",
+        "package_download_presign_path": "/api/external/storage/packages/download-session",
+        "request_timeout_sec": 30
+      },
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "default": ""
+        },
+        "base_url": {
+          "type": "string",
+          "default": "https://api.trakrai.example"
+        },
+        "download_presign_path": {
+          "type": "string",
+          "default": "/api/external/storage/devices/download-session"
+        },
+        "package_download_presign_path": {
+          "type": "string",
+          "default": "/api/external/storage/packages/download-session"
+        },
+        "request_timeout_sec": {
+          "type": "integer",
+          "default": 30
+        },
+        "upload_presign_path": {
+          "type": "string",
+          "default": "/api/external/storage/devices/upload-session"
+        }
+      },
+      "required": [
+        "access_token",
+        "base_url",
+        "download_presign_path",
+        "package_download_presign_path",
+        "request_timeout_sec",
+        "upload_presign_path"
+      ],
+      "additionalProperties": false,
+      "title": "CloudApi"
+    },
+    "device_id": {
+      "type": "string",
+      "default": "default"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "queue": {
+      "type": "object",
+      "default": {
+        "worker_count": 1,
+        "poll_interval_ms": 1000,
+        "initial_backoff_sec": 5,
+        "max_backoff_sec": 300,
+        "status_report_interval_sec": 15
+      },
+      "properties": {
+        "initial_backoff_sec": {
+          "type": "integer",
+          "default": 5
+        },
+        "max_backoff_sec": {
+          "type": "integer",
+          "default": 300
+        },
+        "poll_interval_ms": {
+          "type": "integer",
+          "default": 1000
+        },
+        "status_report_interval_sec": {
+          "type": "integer",
+          "default": 15
+        },
+        "worker_count": {
+          "type": "integer",
+          "default": 1
+        }
+      },
+      "required": [
+        "initial_backoff_sec",
+        "max_backoff_sec",
+        "poll_interval_ms",
+        "status_report_interval_sec",
+        "worker_count"
+      ],
+      "additionalProperties": false,
+      "title": "Queue"
+    },
+    "storage": {
+      "type": "object",
+      "default": {
+        "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
+        "database_path": "/home/hacklab/trakrai-device-runtime/state/cloud-transfer/transfers.sqlite"
+      },
+      "properties": {
+        "database_path": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/state/cloud-transfer/transfers.sqlite"
+        },
+        "shared_dir": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared"
+        }
+      },
+      "required": [
+        "database_path",
+        "shared_dir"
+      ],
+      "additionalProperties": false,
+      "title": "Storage"
+    }
+  },
+  "required": [
+    "cloud_api",
+    "device_id",
+    "ipc",
+    "log_level",
+    "queue",
+    "storage"
+  ],
+  "additionalProperties": false,
+  "title": "Cloud transfer config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Queued upload/download worker backed by SQLite and presigned URLs."
+}

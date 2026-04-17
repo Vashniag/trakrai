@@ -7,70 +7,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/trakrai/device-services/internal/shared/configjson"
+	"github.com/trakrai/device-services/internal/generatedconfig"
 )
 
 const ServiceName = "runtime-manager"
 
-type IPCConfig struct {
-	SocketPath string `json:"socket_path"`
-}
-
-type SystemdConfig struct {
-	Bin           string `json:"bin"`
-	Shell         string `json:"shell"`
-	UnitDirectory string `json:"unit_directory"`
-}
-
-type HTTPConfig struct {
-	DownloadTimeoutSec int `json:"download_timeout_sec"`
-}
-
-type RuntimePathsConfig struct {
-	BinaryDir   string `json:"binary_dir"`
-	DownloadDir string `json:"download_dir"`
-	LogDir      string `json:"log_dir"`
-	RootDir     string `json:"root_dir"`
-	SharedDir   string `json:"shared_dir"`
-	ScriptDir   string `json:"script_dir"`
-	StateFile   string `json:"state_file"`
-	VersionDir  string `json:"version_dir"`
-}
-
-type UpdateConfig struct {
-	DownloadService string `json:"download_service"`
-	PollIntervalMs  int    `json:"poll_interval_ms"`
-	WaitTimeoutSec  int    `json:"wait_timeout_sec"`
-}
-
-type ManagedServiceConfig struct {
-	After            []string          `json:"after,omitempty"`
-	AllowControl     bool              `json:"allow_control"`
-	AllowUpdate      bool              `json:"allow_update"`
-	Core             bool              `json:"core"`
-	Description      string            `json:"description,omitempty"`
-	DisplayName      string            `json:"display_name,omitempty"`
-	Enabled          bool              `json:"enabled"`
-	Environment      map[string]string `json:"environment,omitempty"`
-	EnvironmentFiles []string          `json:"environment_files,omitempty"`
-	ExecStart        []string          `json:"exec_start,omitempty"`
-	Group            string            `json:"group,omitempty"`
-	InstallPath      string            `json:"install_path,omitempty"`
-	Kind             string            `json:"kind,omitempty"`
-	LogPath          string            `json:"log_path,omitempty"`
-	Name             string            `json:"name"`
-	Requires         []string          `json:"requires,omitempty"`
-	Restart          string            `json:"restart,omitempty"`
-	RestartSec       int               `json:"restart_sec,omitempty"`
-	ScriptPath       string            `json:"script_path,omitempty"`
-	SetupCommand     []string          `json:"setup_command,omitempty"`
-	SystemdUnit      string            `json:"systemd_unit,omitempty"`
-	User             string            `json:"user,omitempty"`
-	VersionCommand   []string          `json:"version_command,omitempty"`
-	VersionFile      string            `json:"version_file,omitempty"`
-	WantedBy         string            `json:"wanted_by,omitempty"`
-	WorkingDirectory string            `json:"working_directory,omitempty"`
-}
+type IPCConfig = generatedconfig.RuntimeManagerConfigIpc
+type SystemdConfig = generatedconfig.RuntimeManagerConfigSystemd
+type HTTPConfig = generatedconfig.RuntimeManagerConfigHttp
+type RuntimePathsConfig = generatedconfig.RuntimeManagerConfigRuntime
+type UpdateConfig = generatedconfig.RuntimeManagerConfigUpdates
+type ManagedServiceConfig = generatedconfig.RuntimeManagerConfigServicesItem
 
 type Config struct {
 	HTTP     HTTPConfig             `json:"http"`
@@ -83,31 +30,73 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	cfg := &Config{
-		LogLevel: "info",
-		HTTP: HTTPConfig{
-			DownloadTimeoutSec: 300,
-		},
-		IPC: IPCConfig{
-			SocketPath: "/tmp/trakrai-cloud-comm.sock",
-		},
-		Runtime: RuntimePathsConfig{
-			RootDir: filepath.Join(os.TempDir(), "trakrai-runtime"),
-		},
-		Systemd: SystemdConfig{
-			Bin:           "systemctl",
-			Shell:         "/bin/bash",
-			UnitDirectory: "/etc/systemd/system",
-		},
-		Updates: UpdateConfig{
-			DownloadService: "cloud-transfer",
-			PollIntervalMs:  1000,
-			WaitTimeoutSec:  900,
-		},
+	raw, err := generatedconfig.LoadRuntimeManagerConfig(path)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := configjson.Load(path, cfg); err != nil {
-		return nil, err
+	cfg := &Config{
+		LogLevel: raw.LogLevel,
+		HTTP: HTTPConfig{
+			DownloadTimeoutSec: raw.Http.DownloadTimeoutSec,
+		},
+		IPC: IPCConfig{
+			SocketPath: raw.Ipc.SocketPath,
+		},
+		Runtime: RuntimePathsConfig{
+			BinaryDir:   raw.Runtime.BinaryDir,
+			ConfigDir:   raw.Runtime.ConfigDir,
+			DownloadDir: raw.Runtime.DownloadDir,
+			LogDir:      raw.Runtime.LogDir,
+			RootDir:     raw.Runtime.RootDir,
+			SharedDir:   raw.Runtime.SharedDir,
+			ScriptDir:   raw.Runtime.ScriptDir,
+			StateFile:   raw.Runtime.StateFile,
+			VersionDir:  raw.Runtime.VersionDir,
+		},
+		Systemd: SystemdConfig{
+			Bin:           raw.Systemd.Bin,
+			Shell:         raw.Systemd.Shell,
+			UnitDirectory: raw.Systemd.UnitDirectory,
+		},
+		Updates: UpdateConfig{
+			DownloadService: raw.Updates.DownloadService,
+			PollIntervalMs:  raw.Updates.PollIntervalMs,
+			WaitTimeoutSec:  raw.Updates.WaitTimeoutSec,
+		},
+	}
+	for _, service := range raw.Services {
+		cfg.Services = append(
+			cfg.Services,
+			ManagedServiceConfig{
+				After:            append([]string(nil), service.After...),
+				AllowControl:     service.AllowControl,
+				AllowUpdate:      service.AllowUpdate,
+				Core:             service.Core,
+				Description:      service.Description,
+				DisplayName:      service.DisplayName,
+				Enabled:          service.Enabled,
+				Environment:      cloneStringMap(service.Environment),
+				EnvironmentFiles: append([]string(nil), service.EnvironmentFiles...),
+				ExecStart:        append([]string(nil), service.ExecStart...),
+				Group:            service.Group,
+				InstallPath:      service.InstallPath,
+				Kind:             service.Kind,
+				LogPath:          service.LogPath,
+				Name:             service.Name,
+				Requires:         append([]string(nil), service.Requires...),
+				Restart:          service.Restart,
+				RestartSec:       service.RestartSec,
+				ScriptPath:       service.ScriptPath,
+				SetupCommand:     append([]string(nil), service.SetupCommand...),
+				SystemdUnit:      service.SystemdUnit,
+				User:             service.User,
+				VersionCommand:   append([]string(nil), service.VersionCommand...),
+				VersionFile:      service.VersionFile,
+				WantedBy:         service.WantedBy,
+				WorkingDirectory: service.WorkingDirectory,
+			},
+		)
 	}
 
 	if cfg.LogLevel == "" {
@@ -133,6 +122,9 @@ func LoadConfig(path string) (*Config, error) {
 	if cfg.Runtime.BinaryDir == "" {
 		cfg.Runtime.BinaryDir = filepath.Join(cfg.Runtime.RootDir, "bin")
 	}
+	if cfg.Runtime.ConfigDir == "" {
+		cfg.Runtime.ConfigDir = filepath.Join(cfg.Runtime.RootDir, "configs")
+	}
 	if cfg.Runtime.DownloadDir == "" {
 		cfg.Runtime.DownloadDir = filepath.Join(cfg.Runtime.RootDir, "downloads")
 	}
@@ -153,6 +145,7 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	cfg.Runtime.BinaryDir = filepath.Clean(cfg.Runtime.BinaryDir)
+	cfg.Runtime.ConfigDir = filepath.Clean(cfg.Runtime.ConfigDir)
 	cfg.Runtime.DownloadDir = filepath.Clean(cfg.Runtime.DownloadDir)
 	cfg.Runtime.LogDir = filepath.Clean(cfg.Runtime.LogDir)
 	cfg.Runtime.ScriptDir = filepath.Clean(cfg.Runtime.ScriptDir)

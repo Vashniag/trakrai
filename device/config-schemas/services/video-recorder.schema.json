@@ -1,0 +1,353 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "device_id": "trakrai-device",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0,
+      "key_prefix": "camera"
+    },
+    "storage": {
+      "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
+      "buffer_dir": "/home/hacklab/trakrai-device-runtime/state/video-recorder"
+    },
+    "buffer": {
+      "duration_sec": 600,
+      "poll_interval_ms": 100,
+      "max_frames_per_camera": 6000,
+      "max_bytes_per_camera": 268435456,
+      "max_segment_bytes": 16777216,
+      "status_report_interval_sec": 5
+    },
+    "queue": {
+      "max_pending": 64,
+      "worker_count": 1
+    },
+    "recording": {
+      "default_codec": "h264",
+      "default_frame_rate": 10,
+      "default_pre_sec": 5,
+      "default_post_sec": 5,
+      "max_frame_rate": 25,
+      "write_timeout_sec": 60,
+      "gstreamer_bin": "gst-launch-1.0"
+    },
+    "upload": {
+      "service_name": "cloud-transfer"
+    },
+    "cameras": [
+      {
+        "id": 1,
+        "name": "Camera-1",
+        "width": 640,
+        "height": 480,
+        "enabled": true
+      }
+    ]
+  },
+  "properties": {
+    "buffer": {
+      "type": "object",
+      "default": {
+        "duration_sec": 600,
+        "poll_interval_ms": 100,
+        "max_frames_per_camera": 6000,
+        "max_bytes_per_camera": 268435456,
+        "max_segment_bytes": 16777216,
+        "status_report_interval_sec": 5
+      },
+      "properties": {
+        "duration_sec": {
+          "type": "integer",
+          "default": 600
+        },
+        "max_bytes_per_camera": {
+          "type": "integer",
+          "default": 268435456
+        },
+        "max_frames_per_camera": {
+          "type": "integer",
+          "default": 6000
+        },
+        "max_segment_bytes": {
+          "type": "integer",
+          "default": 16777216
+        },
+        "poll_interval_ms": {
+          "type": "integer",
+          "default": 100
+        },
+        "status_report_interval_sec": {
+          "type": "integer",
+          "default": 5
+        }
+      },
+      "required": [
+        "duration_sec",
+        "max_bytes_per_camera",
+        "max_frames_per_camera",
+        "max_segment_bytes",
+        "poll_interval_ms",
+        "status_report_interval_sec"
+      ],
+      "additionalProperties": false,
+      "title": "Buffer"
+    },
+    "cameras": {
+      "type": "array",
+      "default": [
+        {
+          "id": 1,
+          "name": "Camera-1",
+          "width": 640,
+          "height": 480,
+          "enabled": true
+        }
+      ],
+      "items": {
+        "type": "object",
+        "default": {
+          "id": 1,
+          "name": "Camera-1",
+          "width": 640,
+          "height": 480,
+          "enabled": true
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "height": {
+            "type": "integer",
+            "default": 480
+          },
+          "id": {
+            "type": "integer",
+            "default": 1
+          },
+          "name": {
+            "type": "string",
+            "default": "Camera-1"
+          },
+          "width": {
+            "type": "integer",
+            "default": 640
+          }
+        },
+        "required": [
+          "enabled",
+          "height",
+          "id",
+          "name",
+          "width"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "device_id": {
+      "type": "string",
+      "default": "trakrai-device"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "queue": {
+      "type": "object",
+      "default": {
+        "max_pending": 64,
+        "worker_count": 1
+      },
+      "properties": {
+        "max_pending": {
+          "type": "integer",
+          "default": 64
+        },
+        "worker_count": {
+          "type": "integer",
+          "default": 1
+        }
+      },
+      "required": [
+        "max_pending",
+        "worker_count"
+      ],
+      "additionalProperties": false,
+      "title": "Queue"
+    },
+    "recording": {
+      "type": "object",
+      "default": {
+        "default_codec": "h264",
+        "default_frame_rate": 10,
+        "default_pre_sec": 5,
+        "default_post_sec": 5,
+        "max_frame_rate": 25,
+        "write_timeout_sec": 60,
+        "gstreamer_bin": "gst-launch-1.0"
+      },
+      "properties": {
+        "default_codec": {
+          "type": "string",
+          "default": "h264"
+        },
+        "default_frame_rate": {
+          "type": "integer",
+          "default": 10
+        },
+        "default_post_sec": {
+          "type": "integer",
+          "default": 5
+        },
+        "default_pre_sec": {
+          "type": "integer",
+          "default": 5
+        },
+        "gstreamer_bin": {
+          "type": "string",
+          "default": "gst-launch-1.0"
+        },
+        "max_frame_rate": {
+          "type": "integer",
+          "default": 25
+        },
+        "write_timeout_sec": {
+          "type": "integer",
+          "default": 60
+        }
+      },
+      "required": [
+        "default_codec",
+        "default_frame_rate",
+        "default_post_sec",
+        "default_pre_sec",
+        "gstreamer_bin",
+        "max_frame_rate",
+        "write_timeout_sec"
+      ],
+      "additionalProperties": false,
+      "title": "Recording"
+    },
+    "redis": {
+      "type": "object",
+      "default": {
+        "host": "localhost",
+        "port": 6379,
+        "password": "",
+        "db": 0,
+        "key_prefix": "camera"
+      },
+      "properties": {
+        "db": {
+          "type": "integer",
+          "default": 0
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost"
+        },
+        "key_prefix": {
+          "type": "string",
+          "default": "camera"
+        },
+        "password": {
+          "type": "string",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "default": 6379
+        }
+      },
+      "required": [
+        "db",
+        "host",
+        "key_prefix",
+        "password",
+        "port"
+      ],
+      "additionalProperties": false,
+      "title": "Redis"
+    },
+    "storage": {
+      "type": "object",
+      "default": {
+        "shared_dir": "/home/hacklab/trakrai-device-runtime/shared",
+        "buffer_dir": "/home/hacklab/trakrai-device-runtime/state/video-recorder"
+      },
+      "properties": {
+        "buffer_dir": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/state/video-recorder"
+        },
+        "shared_dir": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared"
+        }
+      },
+      "required": [
+        "buffer_dir",
+        "shared_dir"
+      ],
+      "additionalProperties": false,
+      "title": "Storage"
+    },
+    "upload": {
+      "type": "object",
+      "default": {
+        "service_name": "cloud-transfer"
+      },
+      "properties": {
+        "service_name": {
+          "type": "string",
+          "default": "cloud-transfer"
+        }
+      },
+      "required": [
+        "service_name"
+      ],
+      "additionalProperties": false,
+      "title": "Upload"
+    }
+  },
+  "required": [
+    "buffer",
+    "cameras",
+    "device_id",
+    "ipc",
+    "log_level",
+    "queue",
+    "recording",
+    "redis",
+    "storage",
+    "upload"
+  ],
+  "additionalProperties": false,
+  "title": "Video recorder config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Rolling JPEG frame buffer, photo capture, clip recording, and upload orchestration."
+}

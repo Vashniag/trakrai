@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "name": "redis",
+      "displayName": "Redis",
+      "description": "Local Redis backing store used by media and workflow services.",
+      "kind": "docker-compose-service",
+      "composeFile": "device/localdev/docker-compose.yml",
+      "composeService": "redis",
+      "requires": []
+    },
+    {
+      "name": "minio",
+      "displayName": "MinIO",
+      "description": "S3-compatible object storage backing the local cloud API and package repository.",
+      "kind": "docker-compose-service",
+      "composeFile": "device/localdev/docker-compose.yml",
+      "composeService": "minio",
+      "requires": []
+    },
+    {
+      "name": "cloud-api",
+      "displayName": "Local cloud API",
+      "description": "Local cloud artifact/session API that fronts MinIO for package and cloud-transfer workflows.",
+      "kind": "docker-compose-service",
+      "composeFile": "device/localdev/docker-compose.yml",
+      "composeService": "cloud-api",
+      "requires": [
+        "minio"
+      ]
+    },
+    {
+      "name": "mock-speaker",
+      "displayName": "Mock speaker",
+      "description": "HTTP mock speaker service for audio-manager verification.",
+      "kind": "docker-compose-service",
+      "composeFile": "device/localdev/docker-compose.yml",
+      "composeService": "mock-speaker",
+      "requires": []
+    },
+    {
+      "name": "fake-camera",
+      "displayName": "Fake camera",
+      "description": "Looping RTSP video source used by local media flows.",
+      "kind": "docker-compose-service",
+      "composeFile": "device/localdev/docker-compose.yml",
+      "composeService": "fake-camera",
+      "requires": []
+    },
+    {
+      "name": "device-emulator",
+      "displayName": "Device emulator",
+      "description": "Dockerized local runtime that installs the staged device payload.",
+      "kind": "docker-compose-service",
+      "composeFile": "device/localdev/docker-compose.yml",
+      "composeService": "device-emulator",
+      "requires": [
+        "redis",
+        "fake-camera"
+      ]
+    },
+    {
+      "name": "host-audio-player",
+      "displayName": "Host audio player",
+      "description": "Host-side audio relay used to play generated audio through the developer machine.",
+      "kind": "host-process",
+      "requires": []
+    }
+  ]
+}

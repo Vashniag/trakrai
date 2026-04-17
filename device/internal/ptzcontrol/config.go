@@ -3,93 +3,30 @@ package ptzcontrol
 import (
 	"fmt"
 
-	"github.com/trakrai/device-services/internal/shared/configjson"
+	"github.com/trakrai/device-services/internal/generatedconfig"
 )
 
 const ServiceName = "ptz-control"
 
-type IPCConfig struct {
-	SocketPath string `json:"socket_path"`
-}
-
-type MoveDefaults struct {
-	AbsoluteSpeed float64 `json:"absolute_speed"`
-	PanTiltSpeed  float64 `json:"pan_tilt_speed"`
-	ZoomSpeed     float64 `json:"zoom_speed"`
-}
-
-type HomePosition struct {
-	Pan  float64 `json:"pan"`
-	Tilt float64 `json:"tilt"`
-	Zoom float64 `json:"zoom"`
-}
-
-type rawCameraConfig struct {
-	Name         string        `json:"name"`
-	Driver       string        `json:"driver,omitempty"`
-	Address      string        `json:"address"`
-	OnvifPort    int           `json:"onvif_port"`
-	Username     string        `json:"username"`
-	Password     string        `json:"password"`
-	ProfileToken string        `json:"profile_token,omitempty"`
-	Enabled      *bool         `json:"enabled,omitempty"`
-	Home         *HomePosition `json:"home,omitempty"`
-}
-
-type rawConfig struct {
-	LogLevel string            `json:"log_level"`
-	IPC      IPCConfig         `json:"ipc"`
-	Defaults MoveDefaults      `json:"defaults"`
-	Cameras  []rawCameraConfig `json:"cameras"`
-}
-
-type CameraConfig struct {
-	Name         string
-	Driver       string
-	Address      string
-	OnvifPort    int
-	Username     string
-	Password     string
-	ProfileToken string
-	Enabled      bool
-	Home         *HomePosition
-}
-
-type Config struct {
-	LogLevel string
-	IPC      IPCConfig
-	Defaults MoveDefaults
-	Cameras  []CameraConfig
-}
+type IPCConfig = generatedconfig.PtzControlConfigIpc
+type MoveDefaults = generatedconfig.PtzControlConfigDefaults
+type HomePosition = generatedconfig.PtzControlConfigCamerasItemHome
+type CameraConfig = generatedconfig.PtzControlConfigCamerasItem
+type Config = generatedconfig.PtzControlConfig
 
 func LoadConfig(path string) (*Config, error) {
-	raw := rawConfig{
-		LogLevel: "info",
-		IPC: IPCConfig{
-			SocketPath: "/tmp/trakrai-cloud-comm.sock",
-		},
-		Defaults: MoveDefaults{
-			AbsoluteSpeed: 0.8,
-			PanTiltSpeed:  0.55,
-			ZoomSpeed:     0.45,
-		},
-	}
-
-	if err := configjson.Load(path, &raw); err != nil {
+	cfg, err := generatedconfig.LoadPtzControlConfig(path)
+	if err != nil {
 		return nil, err
 	}
 
-	if raw.IPC.SocketPath == "" {
+	if cfg.Ipc.SocketPath == "" {
 		return nil, fmt.Errorf("ipc.socket_path is required")
 	}
 
-	cfg := &Config{
-		LogLevel: raw.LogLevel,
-		IPC:      raw.IPC,
-		Defaults: applyDefaults(raw.Defaults),
-	}
-
-	for _, rawCamera := range raw.Cameras {
+	cfg.Defaults = applyDefaults(cfg.Defaults)
+	resolved := make([]CameraConfig, 0, len(cfg.Cameras))
+	for _, rawCamera := range cfg.Cameras {
 		camera := resolveCamera(rawCamera)
 		if !camera.Enabled {
 			continue
@@ -97,8 +34,9 @@ func LoadConfig(path string) (*Config, error) {
 		if err := validateCamera(camera); err != nil {
 			return nil, fmt.Errorf("camera %q: %w", rawCamera.Name, err)
 		}
-		cfg.Cameras = append(cfg.Cameras, camera)
+		resolved = append(resolved, camera)
 	}
+	cfg.Cameras = resolved
 
 	if len(cfg.Cameras) == 0 {
 		return nil, fmt.Errorf("no enabled PTZ cameras defined in config")
@@ -108,7 +46,7 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.LogLevel = "info"
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }
 
 func applyDefaults(defaults MoveDefaults) MoveDefaults {
@@ -125,27 +63,14 @@ func applyDefaults(defaults MoveDefaults) MoveDefaults {
 	return defaults
 }
 
-func resolveCamera(rawCamera rawCameraConfig) CameraConfig {
-	enabled := true
-	if rawCamera.Enabled != nil {
-		enabled = *rawCamera.Enabled
-	}
-	port := rawCamera.OnvifPort
+func resolveCamera(camera CameraConfig) CameraConfig {
+	port := camera.OnvifPort
 	if port == 0 {
 		port = 80
 	}
-
-	return CameraConfig{
-		Name:         rawCamera.Name,
-		Driver:       resolveDriver(rawCamera.Driver),
-		Address:      rawCamera.Address,
-		OnvifPort:    port,
-		Username:     rawCamera.Username,
-		Password:     rawCamera.Password,
-		ProfileToken: rawCamera.ProfileToken,
-		Enabled:      enabled,
-		Home:         rawCamera.Home,
-	}
+	camera.Driver = resolveDriver(camera.Driver)
+	camera.OnvifPort = port
+	return camera
 }
 
 func resolveDriver(driver string) string {

@@ -26,7 +26,7 @@ type Service struct {
 func NewService(cfg *Config) *Service {
 	return &Service{
 		cfg:       cfg,
-		ipcClient: ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
+		ipcClient: ipc.NewClient(cfg.Ipc.SocketPath, ServiceName),
 		log:       slog.With("component", ServiceName),
 	}
 }

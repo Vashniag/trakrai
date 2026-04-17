@@ -1,5 +1,7 @@
 package runtimemanager
 
+import "encoding/json"
+
 type ManagedServiceSnapshot struct {
 	ActiveState      string   `json:"activeState,omitempty"`
 	AllowControl     bool     `json:"allowControl"`
@@ -61,6 +63,7 @@ type ManagedServiceDefinition struct {
 
 type RuntimeStatusPayload struct {
 	BinaryDir    string                   `json:"binaryDir"`
+	ConfigDir    string                   `json:"configDir"`
 	CoreCount    int                      `json:"coreCount"`
 	DownloadDir  string                   `json:"downloadDir"`
 	GeneratedAt  string                   `json:"generatedAt"`
@@ -108,6 +111,25 @@ type RuntimeErrorPayload struct {
 	ServiceName string `json:"serviceName,omitempty"`
 }
 
+type RuntimeConfigEntry struct {
+	Consumers []string `json:"consumers,omitempty"`
+	Name      string   `json:"name"`
+	Path      string   `json:"path"`
+}
+
+type RuntimeConfigListPayload struct {
+	Configs    []RuntimeConfigEntry `json:"configs"`
+	RequestID  string               `json:"requestId,omitempty"`
+}
+
+type RuntimeConfigPayload struct {
+	Config            RuntimeConfigEntry `json:"config"`
+	Content           json.RawMessage    `json:"content,omitempty"`
+	Message           string             `json:"message,omitempty"`
+	RequestID         string             `json:"requestId,omitempty"`
+	RestartedServices []string           `json:"restartedServices,omitempty"`
+}
+
 type versionRecord struct {
 	ArtifactSHA256 string `json:"artifactSha256,omitempty"`
 	RemotePath     string `json:"remotePath,omitempty"`
@@ -144,6 +166,22 @@ type removeServiceRequest struct {
 	PurgeFiles  bool   `json:"purgeFiles,omitempty"`
 	RequestID   string `json:"requestId,omitempty"`
 	ServiceName string `json:"serviceName"`
+}
+
+type configListRequest struct {
+	RequestID string `json:"requestId,omitempty"`
+}
+
+type configRequest struct {
+	ConfigName string `json:"configName"`
+	RequestID  string `json:"requestId,omitempty"`
+}
+
+type putConfigRequest struct {
+	ConfigName      string          `json:"configName"`
+	Content         json.RawMessage `json:"content"`
+	RequestID       string          `json:"requestId,omitempty"`
+	RestartServices []string        `json:"restartServices,omitempty"`
 }
 
 type managedServiceStateFile struct {

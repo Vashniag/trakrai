@@ -1,0 +1,200 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "defaults": {
+      "absolute_speed": 0.8,
+      "pan_tilt_speed": 0.55,
+      "zoom_speed": 0.45
+    },
+    "cameras": [
+      {
+        "name": "LP1-Main",
+        "driver": "onvif",
+        "address": "192.168.1.20",
+        "onvif_port": 80,
+        "username": "admin",
+        "password": "HACK_LAB",
+        "enabled": true
+      },
+      {
+        "name": "LP1-Sec",
+        "driver": "onvif",
+        "address": "192.168.1.25",
+        "onvif_port": 80,
+        "username": "admin",
+        "password": "HACK_LAB",
+        "enabled": true
+      }
+    ]
+  },
+  "properties": {
+    "cameras": {
+      "type": "array",
+      "default": [
+        {
+          "name": "LP1-Main",
+          "driver": "onvif",
+          "address": "192.168.1.20",
+          "onvif_port": 80,
+          "username": "admin",
+          "password": "HACK_LAB",
+          "enabled": true
+        },
+        {
+          "name": "LP1-Sec",
+          "driver": "onvif",
+          "address": "192.168.1.25",
+          "onvif_port": 80,
+          "username": "admin",
+          "password": "HACK_LAB",
+          "enabled": true
+        }
+      ],
+      "items": {
+        "type": "object",
+        "default": {
+          "name": "LP1-Main",
+          "driver": "onvif",
+          "address": "192.168.1.20",
+          "onvif_port": 80,
+          "username": "admin",
+          "password": "HACK_LAB",
+          "enabled": true
+        },
+        "properties": {
+          "address": {
+            "type": "string",
+            "default": "192.168.1.20"
+          },
+          "driver": {
+            "type": "string",
+            "default": "onvif"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "home": {
+            "type": "object",
+            "default": {
+              "pan": 0,
+              "tilt": 0,
+              "zoom": 0.25
+            },
+            "properties": {
+              "pan": {
+                "type": "number",
+                "default": 0
+              },
+              "tilt": {
+                "type": "number",
+                "default": 0
+              },
+              "zoom": {
+                "type": "number",
+                "default": 0.25
+              }
+            },
+            "required": [
+              "pan",
+              "tilt",
+              "zoom"
+            ],
+            "additionalProperties": false,
+            "title": "Home"
+          },
+          "name": {
+            "type": "string",
+            "default": "LP1-Main"
+          },
+          "onvif_port": {
+            "type": "integer",
+            "default": 80
+          },
+          "profile_token": {
+            "type": "string",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "default": "HACK_LAB"
+          },
+          "username": {
+            "type": "string",
+            "default": "admin"
+          }
+        },
+        "required": [
+          "driver",
+          "enabled",
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "default": {
+        "absolute_speed": 0.8,
+        "pan_tilt_speed": 0.55,
+        "zoom_speed": 0.45
+      },
+      "properties": {
+        "absolute_speed": {
+          "type": "number",
+          "default": 0.8
+        },
+        "pan_tilt_speed": {
+          "type": "number",
+          "default": 0.55
+        },
+        "zoom_speed": {
+          "type": "number",
+          "default": 0.45
+        }
+      },
+      "required": [
+        "absolute_speed",
+        "pan_tilt_speed",
+        "zoom_speed"
+      ],
+      "additionalProperties": false,
+      "title": "Defaults"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    }
+  },
+  "required": [
+    "cameras",
+    "defaults",
+    "ipc",
+    "log_level"
+  ],
+  "additionalProperties": false,
+  "title": "PTZ control config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "PTZ command execution service over the shared transport."
+}

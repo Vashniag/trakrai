@@ -3,7 +3,7 @@ package rtspfeeder
 import (
 	"fmt"
 
-	"github.com/trakrai/device-services/internal/shared/configjson"
+	"github.com/trakrai/device-services/internal/generatedconfig"
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
 )
 
@@ -75,15 +75,39 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	var raw rawConfig
-	if err := configjson.Load(path, &raw); err != nil {
+	raw, err := generatedconfig.LoadRtspFeederConfig(path)
+	if err != nil {
 		return nil, err
 	}
 
-	defaults := applyGlobalDefaults(raw.Defaults)
+	defaults := applyGlobalDefaults(
+		CameraDefaults{
+			CaptureMethod:     raw.Defaults.CaptureMethod,
+			Width:             raw.Defaults.Width,
+			Height:            raw.Defaults.Height,
+			Framerate:         raw.Defaults.Framerate,
+			JPEGQuality:       raw.Defaults.JpegQuality,
+			LatencyMS:         raw.Defaults.LatencyMs,
+			Protocols:         raw.Defaults.Protocols,
+			ReconnectDelaySec: raw.Defaults.ReconnectDelaySec,
+			Rotate180:         raw.Defaults.Rotate180,
+			SaveFrames:        raw.Defaults.SaveFrames,
+			SavePath:          raw.Defaults.SavePath,
+			PipelineTimeout:   raw.Defaults.PipelineTimeoutSec,
+		},
+	)
 	cfg := &Config{
 		LogLevel: raw.LogLevel,
-		Redis:    redisconfig.WithDefaults(raw.Redis, "camera"),
+		Redis: redisconfig.WithDefaults(
+			redisconfig.Config{
+				Host:      raw.Redis.Host,
+				Port:      raw.Redis.Port,
+				Password:  raw.Redis.Password,
+				DB:        raw.Redis.Db,
+				KeyPrefix: raw.Redis.KeyPrefix,
+			},
+			"camera",
+		),
 	}
 
 	for _, rawCamera := range raw.Cameras {
@@ -139,12 +163,12 @@ func applyGlobalDefaults(defaults CameraDefaults) CameraDefaults {
 	return defaults
 }
 
-func resolveCamera(rawCamera rawCamera, defaults CameraDefaults) CameraConfig {
+func resolveCamera(rawCamera generatedconfig.RtspFeederConfigCamerasItem, defaults CameraDefaults) CameraConfig {
 	camera := CameraConfig{
-		ID:                rawCamera.ID,
+		ID:                rawCamera.Id,
 		Name:              rawCamera.Name,
-		RTSPURL:           rawCamera.RTSPURL,
-		Enabled:           true,
+		RTSPURL:           rawCamera.RtspUrl,
+		Enabled:           rawCamera.Enabled,
 		CaptureMethod:     defaults.CaptureMethod,
 		Width:             defaults.Width,
 		Height:            defaults.Height,
@@ -159,44 +183,41 @@ func resolveCamera(rawCamera rawCamera, defaults CameraDefaults) CameraConfig {
 		PipelineTimeout:   defaults.PipelineTimeout,
 	}
 
-	if rawCamera.Enabled != nil {
-		camera.Enabled = *rawCamera.Enabled
-	}
 	if rawCamera.CaptureMethod != "" {
 		camera.CaptureMethod = rawCamera.CaptureMethod
 	}
-	if rawCamera.Width != nil {
-		camera.Width = *rawCamera.Width
+	if rawCamera.Width > 0 {
+		camera.Width = rawCamera.Width
 	}
-	if rawCamera.Height != nil {
-		camera.Height = *rawCamera.Height
+	if rawCamera.Height > 0 {
+		camera.Height = rawCamera.Height
 	}
-	if rawCamera.Framerate != nil {
-		camera.Framerate = *rawCamera.Framerate
+	if rawCamera.Framerate > 0 {
+		camera.Framerate = rawCamera.Framerate
 	}
-	if rawCamera.JPEGQuality != nil {
-		camera.JPEGQuality = *rawCamera.JPEGQuality
+	if rawCamera.JpegQuality > 0 {
+		camera.JPEGQuality = rawCamera.JpegQuality
 	}
-	if rawCamera.LatencyMS != nil {
-		camera.LatencyMS = *rawCamera.LatencyMS
+	if rawCamera.LatencyMs > 0 {
+		camera.LatencyMS = rawCamera.LatencyMs
 	}
-	if rawCamera.Protocols != nil {
-		camera.Protocols = *rawCamera.Protocols
+	if rawCamera.Protocols != "" {
+		camera.Protocols = rawCamera.Protocols
 	}
-	if rawCamera.ReconnectDelaySec != nil {
-		camera.ReconnectDelaySec = *rawCamera.ReconnectDelaySec
+	if rawCamera.ReconnectDelaySec > 0 {
+		camera.ReconnectDelaySec = rawCamera.ReconnectDelaySec
 	}
-	if rawCamera.Rotate180 != nil {
-		camera.Rotate180 = *rawCamera.Rotate180
+	if rawCamera.Rotate180 {
+		camera.Rotate180 = true
 	}
-	if rawCamera.SaveFrames != nil {
-		camera.SaveFrames = *rawCamera.SaveFrames
+	if rawCamera.SaveFrames {
+		camera.SaveFrames = true
 	}
-	if rawCamera.SavePath != nil {
-		camera.SavePath = *rawCamera.SavePath
+	if rawCamera.SavePath != "" {
+		camera.SavePath = rawCamera.SavePath
 	}
-	if rawCamera.PipelineTimeout != nil {
-		camera.PipelineTimeout = *rawCamera.PipelineTimeout
+	if rawCamera.PipelineTimeoutSec > 0 {
+		camera.PipelineTimeout = rawCamera.PipelineTimeoutSec
 	}
 
 	return camera

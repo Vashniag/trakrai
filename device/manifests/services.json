@@ -1,0 +1,530 @@
+{
+  "schemaVersion": 1,
+  "services": [
+    {
+      "name": "cloud-comm",
+      "packageName": "cloud-comm",
+      "displayName": "Cloud comm",
+      "description": "MQTT bridge, IPC router, edge WebSocket transport, and runtime-config API.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "cloud-comm.json",
+      "schemaPath": "device/config-schemas/services/cloud-comm.schema.json",
+      "sampleConfigPath": "device/configs/cloud-comm.sample.json",
+      "build": {
+        "binaryName": "cloud-comm",
+        "cmdPath": "./cmd/cloud-comm",
+        "context": "device",
+        "dockerfile": "Dockerfile",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": true,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/cloud-comm.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": true,
+        "requiresComponents": []
+      }
+    },
+    {
+      "name": "runtime-manager",
+      "packageName": "runtime-manager",
+      "displayName": "Runtime manager",
+      "description": "Central device runtime controller for services, logs, configs, and updates.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "runtime-manager.json",
+      "schemaPath": "device/config-schemas/services/runtime-manager.schema.json",
+      "sampleConfigPath": "device/configs/runtime-manager.sample.json",
+      "build": {
+        "binaryName": "runtime-manager",
+        "cmdPath": "./cmd/runtime-manager",
+        "context": "device",
+        "dockerfile": "Dockerfile",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": false,
+        "allowUpdate": false,
+        "core": true,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/runtime-manager.json"
+        ],
+        "runAs": "root",
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "defaultEnabled": true,
+        "requiresComponents": []
+      }
+    },
+    {
+      "name": "edge-ui",
+      "packageName": "edge-ui",
+      "displayName": "Edge UI",
+      "description": "Static device console bundle served by cloud-comm.",
+      "kind": "ui-bundle",
+      "configLanguages": [],
+      "configName": null,
+      "schemaPath": null,
+      "sampleConfigPath": null,
+      "build": {
+        "context": "web",
+        "dockerfile": "Dockerfile.trakrai-device-bundle",
+        "platformStrategy": "universal",
+        "workspaceFilter": "trakrai-device"
+      },
+      "runtime": {
+        "allowControl": false,
+        "allowUpdate": true,
+        "core": true
+      },
+      "local": {
+        "defaultEnabled": true,
+        "requiresComponents": []
+      }
+    },
+    {
+      "name": "cloud-transfer",
+      "packageName": "cloud-transfer",
+      "displayName": "Cloud transfer",
+      "description": "Queued upload/download worker backed by SQLite and presigned URLs.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "cloud-transfer.json",
+      "schemaPath": "device/config-schemas/services/cloud-transfer.schema.json",
+      "sampleConfigPath": "device/configs/cloud-transfer.sample.json",
+      "build": {
+        "binaryName": "cloud-transfer",
+        "cmdPath": "./cmd/cloud-transfer",
+        "context": "device",
+        "dockerfile": "Dockerfile",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/cloud-transfer.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "defaultEnabled": true,
+        "requiresComponents": [
+          "cloud-api"
+        ]
+      }
+    },
+    {
+      "name": "live-feed",
+      "packageName": "live-feed",
+      "displayName": "Live feed",
+      "description": "On-device WebRTC live streaming service.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "live-feed.json",
+      "schemaPath": "device/config-schemas/services/live-feed.schema.json",
+      "sampleConfigPath": "device/configs/live-feed.sample.json",
+      "build": {
+        "binaryName": "live-feed",
+        "cmdPath": "./cmd/live-feed",
+        "context": "device",
+        "dockerfile": "Dockerfile.gstreamer",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/live-feed.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": true,
+        "requiresComponents": [
+          "redis"
+        ]
+      }
+    },
+    {
+      "name": "ptz-control",
+      "packageName": "ptz-control",
+      "displayName": "PTZ control",
+      "description": "PTZ command execution service over the shared transport.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "ptz-control.json",
+      "schemaPath": "device/config-schemas/services/ptz-control.schema.json",
+      "sampleConfigPath": "device/configs/ptz-control.sample.json",
+      "build": {
+        "binaryName": "ptz-control",
+        "cmdPath": "./cmd/ptz-control",
+        "context": "device",
+        "dockerfile": "Dockerfile",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/ptz-control.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": true,
+        "requiresComponents": []
+      }
+    },
+    {
+      "name": "roi-config",
+      "packageName": "roi-config",
+      "displayName": "ROI config",
+      "description": "Per-camera PTZ base-location and ROI document service.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "roi-config.json",
+      "schemaPath": "device/config-schemas/services/roi-config.schema.json",
+      "sampleConfigPath": "device/configs/roi-config.sample.json",
+      "build": {
+        "binaryName": "roi-config",
+        "cmdPath": "./cmd/roi-config",
+        "context": "device",
+        "dockerfile": "Dockerfile",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/roi-config.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "defaultEnabled": true,
+        "requiresComponents": []
+      }
+    },
+    {
+      "name": "rtsp-feeder",
+      "packageName": "rtsp-feeder",
+      "displayName": "RTSP feeder",
+      "description": "RTSP ingest service that publishes JPEG frames into Redis.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "rtsp-feeder.json",
+      "schemaPath": "device/config-schemas/services/rtsp-feeder.schema.json",
+      "sampleConfigPath": "device/configs/rtsp-feeder.sample.json",
+      "build": {
+        "binaryName": "rtsp-feeder",
+        "cmdPath": "./cmd/rtsp-feeder",
+        "context": "device",
+        "dockerfile": "Dockerfile.gstreamer",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/rtsp-feeder.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": true,
+        "requiresComponents": [
+          "fake-camera",
+          "redis"
+        ]
+      }
+    },
+    {
+      "name": "video-recorder",
+      "packageName": "video-recorder",
+      "displayName": "Video recorder",
+      "description": "Rolling JPEG frame buffer, photo capture, clip recording, and upload orchestration.",
+      "kind": "go-binary",
+      "configLanguages": [
+        "go"
+      ],
+      "configName": "video-recorder.json",
+      "schemaPath": "device/config-schemas/services/video-recorder.schema.json",
+      "sampleConfigPath": "device/configs/video-recorder.sample.json",
+      "build": {
+        "binaryName": "video-recorder",
+        "cmdPath": "./cmd/video-recorder",
+        "context": "device",
+        "dockerfile": "Dockerfile",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "execStart": [
+          "{{installPath}}",
+          "-config",
+          "{{configDir}}/video-recorder.json"
+        ],
+        "versionCommand": [
+          "{{installPath}}",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": true,
+        "requiresComponents": [
+          "redis"
+        ]
+      }
+    },
+    {
+      "name": "audio-manager",
+      "packageName": "audio-manager",
+      "displayName": "Audio manager",
+      "description": "Queued text-to-speech generation, local playback, and network-speaker delivery service.",
+      "kind": "python-wheel",
+      "configLanguages": [
+        "python"
+      ],
+      "configName": "audio-manager.json",
+      "schemaPath": "device/config-schemas/services/audio-manager.schema.json",
+      "sampleConfigPath": "device/configs/audio-manager.sample.json",
+      "build": {
+        "artifactKey": "audio-manager-wheel",
+        "buildWheelhouse": true,
+        "context": "device/python",
+        "dockerfile": "Dockerfile.wheel",
+        "moduleName": "audio_manager",
+        "packageDir": "audio_manager",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "environment": {
+          "HOME": "/home/{{runtimeUser}}",
+          "PYTHONPATH": "{{runtimeRoot}}/python",
+          "PYTHONUNBUFFERED": "1"
+        },
+        "execStart": [
+          "python3",
+          "-m",
+          "audio_manager",
+          "--config",
+          "{{configDir}}/audio-manager.json"
+        ],
+        "setupCommand": [
+          "python3",
+          "-m",
+          "pip",
+          "install",
+          "--no-deps",
+          "--force-reinstall",
+          "{{artifactPath}}"
+        ],
+        "versionCommand": [
+          "python3",
+          "-m",
+          "audio_manager",
+          "--version"
+        ]
+      },
+      "local": {
+        "defaultEnabled": true,
+        "requiresComponents": [
+          "mock-speaker"
+        ]
+      }
+    },
+    {
+      "name": "workflow-engine",
+      "packageName": "workflow-engine",
+      "displayName": "Workflow engine",
+      "description": "Queued workflow execution service with hot-reloaded workflow JSON.",
+      "kind": "python-wheel",
+      "configLanguages": [
+        "python"
+      ],
+      "configName": "workflow-engine.json",
+      "schemaPath": "device/config-schemas/services/workflow-engine.schema.json",
+      "sampleConfigPath": "device/configs/workflow-engine.sample.json",
+      "build": {
+        "artifactKey": "workflow-engine-wheel",
+        "buildWheelhouse": false,
+        "context": "device/python",
+        "dockerfile": "Dockerfile.wheel",
+        "moduleName": "workflow_engine",
+        "packageDir": "workflow_engine",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "environment": {
+          "HOME": "/home/{{runtimeUser}}",
+          "PYTHONPATH": "{{runtimeRoot}}/python",
+          "PYTHONUNBUFFERED": "1"
+        },
+        "execStart": [
+          "python3",
+          "-m",
+          "workflow_engine",
+          "--config",
+          "{{configDir}}/workflow-engine.json"
+        ],
+        "setupCommand": [
+          "python3",
+          "-m",
+          "pip",
+          "install",
+          "--no-deps",
+          "--force-reinstall",
+          "{{artifactPath}}"
+        ],
+        "versionCommand": [
+          "python3",
+          "-m",
+          "workflow_engine",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": true,
+        "requiresComponents": []
+      }
+    },
+    {
+      "name": "trakrai-ai-inference",
+      "packageName": "trakrai-ai-inference",
+      "displayName": "AI inference",
+      "description": "Redis-driven AI inference worker packaged as a Python wheel.",
+      "kind": "python-wheel",
+      "configLanguages": [
+        "python"
+      ],
+      "configName": "ai-inference.json",
+      "schemaPath": "device/config-schemas/services/ai-inference.schema.json",
+      "sampleConfigPath": "device/configs/ai-inference.sample.json",
+      "build": {
+        "artifactKey": "ai-wheel",
+        "buildWheelhouse": false,
+        "context": "device/python",
+        "dockerfile": "Dockerfile.wheel",
+        "moduleName": "ai_inference",
+        "packageDir": "ai_inference",
+        "platformStrategy": "platform"
+      },
+      "runtime": {
+        "allowControl": true,
+        "allowUpdate": true,
+        "core": false,
+        "environment": {
+          "HOME": "/home/{{runtimeUser}}",
+          "PYTHONPATH": "{{runtimeRoot}}/python",
+          "PYTHONUNBUFFERED": "1"
+        },
+        "execStart": [
+          "python3",
+          "-m",
+          "ai_inference",
+          "--config",
+          "{{configDir}}/ai-inference.json"
+        ],
+        "setupCommand": [
+          "python3",
+          "-m",
+          "pip",
+          "install",
+          "--no-deps",
+          "--force-reinstall",
+          "{{artifactPath}}"
+        ],
+        "versionCommand": [
+          "python3",
+          "-m",
+          "ai_inference",
+          "--version"
+        ]
+      },
+      "local": {
+        "cameraAware": true,
+        "defaultEnabled": false,
+        "requiresComponents": [
+          "redis"
+        ]
+      }
+    }
+  ]
+}

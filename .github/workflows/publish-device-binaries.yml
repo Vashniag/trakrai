@@ -9,7 +9,7 @@ on:
       - device/internal/**
       - device/python/**
       - device/configs/**
-      - device/scripts/**
+      - device/devtool/**
       - device/Dockerfile
       - device/Dockerfile.gstreamer
       - device/go.mod
@@ -99,7 +99,7 @@ jobs:
           test -n "${TRAKRAI_PACKAGE_RELEASE_TOKEN}" || { echo "Missing TRAKRAI_PACKAGE_RELEASE_TOKEN for the Production environment"; exit 1; }
           mkdir -p .github/state
           mkdir -p /tmp/.buildx-cache
-          python3 device/scripts/manage_device_packages.py release \
+          python3 -m device.devtool package release \
             --metadata device/package-versions.json \
             --platform linux/arm64 \
             --publish-target cloud-api \

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/trakrai/device-services/internal/shared/configjson"
+	"github.com/trakrai/device-services/internal/generatedconfig"
 )
 
 const ServiceName = "cloud-transfer"
@@ -47,33 +47,36 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	cfg := &Config{
-		CloudAPI: CloudAPIConfig{
-			DownloadPresignPath:        "/api/external/storage/devices/download-session",
-			PackageDownloadPresignPath: "/api/external/storage/packages/download-session",
-			RequestTimeoutSec:          30,
-			UploadPresignPath:          "/api/external/storage/devices/upload-session",
-		},
-		DeviceID: "default",
-		IPC: IPCConfig{
-			SocketPath: "/tmp/trakrai-cloud-comm.sock",
-		},
-		LogLevel: "info",
-		Queue: QueueConfig{
-			InitialBackoffSec:       5,
-			MaxBackoffSec:           300,
-			PollIntervalMs:          1000,
-			StatusReportIntervalSec: 15,
-			WorkerCount:             1,
-		},
-		Storage: StorageConfig{
-			DatabasePath: filepath.Join(os.TempDir(), "trakrai-cloud-transfer", "transfers.sqlite"),
-			SharedDir:    filepath.Join(os.TempDir(), "trakrai-cloud-transfer", "shared"),
-		},
+	raw, err := generatedconfig.LoadCloudTransferConfig(path)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := configjson.Load(path, cfg); err != nil {
-		return nil, err
+	cfg := &Config{
+		CloudAPI: CloudAPIConfig{
+			AccessToken:                raw.CloudApi.AccessToken,
+			BaseURL:                    raw.CloudApi.BaseUrl,
+			DownloadPresignPath:        raw.CloudApi.DownloadPresignPath,
+			PackageDownloadPresignPath: raw.CloudApi.PackageDownloadPresignPath,
+			RequestTimeoutSec:          raw.CloudApi.RequestTimeoutSec,
+			UploadPresignPath:          raw.CloudApi.UploadPresignPath,
+		},
+		DeviceID: raw.DeviceId,
+		IPC: IPCConfig{
+			SocketPath: raw.Ipc.SocketPath,
+		},
+		LogLevel: raw.LogLevel,
+		Queue: QueueConfig{
+			InitialBackoffSec:       raw.Queue.InitialBackoffSec,
+			MaxBackoffSec:           raw.Queue.MaxBackoffSec,
+			PollIntervalMs:          raw.Queue.PollIntervalMs,
+			StatusReportIntervalSec: raw.Queue.StatusReportIntervalSec,
+			WorkerCount:             raw.Queue.WorkerCount,
+		},
+		Storage: StorageConfig{
+			DatabasePath: raw.Storage.DatabasePath,
+			SharedDir:    raw.Storage.SharedDir,
+		},
 	}
 
 	cfg.LogLevel = normalizeDefault(cfg.LogLevel, "info")

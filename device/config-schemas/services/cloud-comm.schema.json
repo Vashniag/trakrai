@@ -1,0 +1,381 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "device_id": "default",
+    "mqtt": {
+      "broker_url": "tcp://192.168.1.100:1883",
+      "client_id": "trakrai-device-01",
+      "keep_alive_sec": 30
+    },
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "edge": {
+      "enabled": true,
+      "listen_addr": ":8080",
+      "path": "/ws",
+      "allowed_origins": [
+        "http://127.0.0.1:8080",
+        "http://localhost:8080"
+      ],
+      "rate_limit": {
+        "max_messages": 120,
+        "max_command_messages": 40,
+        "window_sec": 5
+      },
+      "webrtc": {
+        "ice_servers": [
+          {
+            "urls": [
+              "turn:192.168.1.100:3478"
+            ],
+            "username": "trakrai",
+            "credential": "trakrai-secret"
+          }
+        ]
+      },
+      "ui": {
+        "enabled": true,
+        "static_dir": "/home/hacklab/trakrai-device-runtime/ui",
+        "diagnostics_enabled": true,
+        "transport_mode": "edge",
+        "cloud_bridge_url": "ws://10.8.0.51:8090/ws",
+        "management_service": "runtime-manager"
+      }
+    },
+    "cameras": [
+      {
+        "name": "LP1-Main",
+        "enabled": true
+      },
+      {
+        "name": "LP1-Sec",
+        "enabled": true
+      },
+      {
+        "name": "LP2-Main",
+        "enabled": true
+      }
+    ]
+  },
+  "properties": {
+    "cameras": {
+      "type": "array",
+      "default": [
+        {
+          "name": "LP1-Main",
+          "enabled": true
+        },
+        {
+          "name": "LP1-Sec",
+          "enabled": true
+        },
+        {
+          "name": "LP2-Main",
+          "enabled": true
+        }
+      ],
+      "items": {
+        "type": "object",
+        "default": {
+          "name": "LP1-Main",
+          "enabled": true
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "name": {
+            "type": "string",
+            "default": "LP1-Main"
+          }
+        },
+        "required": [
+          "enabled",
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "device_id": {
+      "type": "string",
+      "default": "default"
+    },
+    "edge": {
+      "type": "object",
+      "default": {
+        "enabled": true,
+        "listen_addr": ":8080",
+        "path": "/ws",
+        "allowed_origins": [
+          "http://127.0.0.1:8080",
+          "http://localhost:8080"
+        ],
+        "webrtc": {
+          "ice_servers": [
+            {
+              "urls": [
+                "turn:192.168.1.100:3478"
+              ],
+              "username": "trakrai",
+              "credential": "trakrai-secret"
+            }
+          ]
+        },
+        "ui": {
+          "enabled": true,
+          "static_dir": "/home/hacklab/trakrai-device-runtime/ui",
+          "diagnostics_enabled": true,
+          "transport_mode": "edge",
+          "cloud_bridge_url": "ws://10.8.0.51:8090/ws",
+          "management_service": "runtime-manager"
+        }
+      },
+      "properties": {
+        "allowed_origins": {
+          "type": "array",
+          "default": [
+            "http://127.0.0.1:8080",
+            "http://localhost:8080"
+          ],
+          "items": {
+            "type": "string",
+            "default": "http://127.0.0.1:8080"
+          }
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "listen_addr": {
+          "type": "string",
+          "default": ":8080"
+        },
+        "path": {
+          "type": "string",
+          "default": "/ws"
+        },
+        "rate_limit": {
+          "type": "object",
+          "default": {
+            "max_messages": 120,
+            "max_command_messages": 40,
+            "window_sec": 5
+          },
+          "properties": {
+            "max_command_messages": {
+              "type": "integer",
+              "default": 40
+            },
+            "max_messages": {
+              "type": "integer",
+              "default": 120
+            },
+            "window_sec": {
+              "type": "integer",
+              "default": 5
+            }
+          },
+          "required": [
+            "max_command_messages",
+            "max_messages",
+            "window_sec"
+          ],
+          "additionalProperties": false,
+          "title": "RateLimit"
+        },
+        "ui": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "static_dir": "/home/hacklab/trakrai-device-runtime/ui",
+            "diagnostics_enabled": true,
+            "transport_mode": "edge",
+            "cloud_bridge_url": "ws://10.8.0.51:8090/ws",
+            "management_service": "runtime-manager"
+          },
+          "properties": {
+            "cloud_bridge_url": {
+              "type": "string",
+              "default": "ws://10.8.0.51:8090/ws"
+            },
+            "diagnostics_enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "management_service": {
+              "type": "string",
+              "default": "runtime-manager"
+            },
+            "static_dir": {
+              "type": "string",
+              "default": "/home/hacklab/trakrai-device-runtime/ui"
+            },
+            "transport_mode": {
+              "type": "string",
+              "default": "edge"
+            }
+          },
+          "required": [
+            "cloud_bridge_url",
+            "diagnostics_enabled",
+            "enabled",
+            "management_service",
+            "static_dir",
+            "transport_mode"
+          ],
+          "additionalProperties": false,
+          "title": "Ui"
+        },
+        "webrtc": {
+          "type": "object",
+          "default": {
+            "ice_servers": [
+              {
+                "urls": [
+                  "turn:192.168.1.100:3478"
+                ],
+                "username": "trakrai",
+                "credential": "trakrai-secret"
+              }
+            ]
+          },
+          "properties": {
+            "ice_servers": {
+              "type": "array",
+              "default": [
+                {
+                  "urls": [
+                    "turn:192.168.1.100:3478"
+                  ],
+                  "username": "trakrai",
+                  "credential": "trakrai-secret"
+                }
+              ],
+              "items": {
+                "type": "object",
+                "default": {
+                  "urls": [
+                    "turn:192.168.1.100:3478"
+                  ],
+                  "username": "trakrai",
+                  "credential": "trakrai-secret"
+                },
+                "properties": {
+                  "credential": {
+                    "type": "string",
+                    "default": "trakrai-secret"
+                  },
+                  "urls": {
+                    "type": "array",
+                    "default": [
+                      "turn:192.168.1.100:3478"
+                    ],
+                    "items": {
+                      "type": "string",
+                      "default": "turn:192.168.1.100:3478"
+                    }
+                  },
+                  "username": {
+                    "type": "string",
+                    "default": "trakrai"
+                  }
+                },
+                "required": [
+                  "credential",
+                  "urls",
+                  "username"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "ice_servers"
+          ],
+          "additionalProperties": false,
+          "title": "Webrtc"
+        }
+      },
+      "required": [
+        "allowed_origins",
+        "enabled",
+        "listen_addr",
+        "path",
+        "rate_limit",
+        "ui",
+        "webrtc"
+      ],
+      "additionalProperties": false,
+      "title": "Edge"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "mqtt": {
+      "type": "object",
+      "default": {
+        "broker_url": "tcp://192.168.1.100:1883",
+        "client_id": "trakrai-device-01",
+        "keep_alive_sec": 30
+      },
+      "properties": {
+        "broker_url": {
+          "type": "string",
+          "default": "tcp://192.168.1.100:1883"
+        },
+        "client_id": {
+          "type": "string",
+          "default": "trakrai-device-01"
+        },
+        "keep_alive_sec": {
+          "type": "integer",
+          "default": 30
+        }
+      },
+      "required": [
+        "broker_url",
+        "client_id",
+        "keep_alive_sec"
+      ],
+      "additionalProperties": false,
+      "title": "Mqtt"
+    }
+  },
+  "required": [
+    "cameras",
+    "device_id",
+    "edge",
+    "ipc",
+    "log_level",
+    "mqtt"
+  ],
+  "additionalProperties": false,
+  "title": "Cloud comm config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "MQTT bridge, IPC router, edge WebSocket transport, and runtime-config API."
+}

@@ -125,7 +125,7 @@ func newCameraController(cfg CameraConfig, defaults MoveDefaults) *cameraControl
 				Zoom:         0.25,
 			},
 		}
-		if cfg.Home != nil {
+		if cfg.Home.Pan != 0 || cfg.Home.Tilt != 0 || cfg.Home.Zoom != 0 {
 			controller.mockState.position.Pan = clamp(cfg.Home.Pan, -1, 1)
 			controller.mockState.position.Tilt = clamp(cfg.Home.Tilt, -1, 1)
 			controller.mockState.position.Zoom = clamp(cfg.Home.Zoom, 0, 1)
@@ -417,7 +417,7 @@ func (c *cameraController) GoHome(ctx context.Context) (*positionSnapshot, error
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.isMock() {
-		if c.cfg.Home != nil {
+		if c.cfg.Home.Pan != 0 || c.cfg.Home.Tilt != 0 || c.cfg.Home.Zoom != 0 {
 			return c.setMockPositionLocked(c.cfg.Home.Pan, c.cfg.Home.Tilt, c.cfg.Home.Zoom, "idle"), nil
 		}
 		return c.setMockPositionLocked(0, 0, 0.25, "idle"), nil
@@ -427,7 +427,7 @@ func (c *cameraController) GoHome(ctx context.Context) (*positionSnapshot, error
 		return nil, err
 	}
 
-	if c.cfg.Home != nil {
+	if c.cfg.Home.Pan != 0 || c.cfg.Home.Tilt != 0 || c.cfg.Home.Zoom != 0 {
 		if !c.capabilities.CanAbsolutePanTilt {
 			return nil, fmt.Errorf("camera %s does not support absolute pan/tilt moves for the configured home position", c.cfg.Name)
 		}
@@ -521,7 +521,8 @@ func (c *cameraController) ensureConnectedLocked(ctx context.Context) error {
 	c.spaces = spacesFromProfileAndNode(profile.PTZConfiguration, node)
 	c.limits = positionLimitsFromProfileAndNode(profile.PTZConfiguration, node)
 	c.velocity = velocityLimitsFromNode(node)
-	c.capabilities = buildCapabilities(c.cfg.Home != nil, c.spaces, c.limits, c.velocity, bool(node.HomeSupported))
+	hasConfiguredHome := c.cfg.Home.Pan != 0 || c.cfg.Home.Tilt != 0 || c.cfg.Home.Zoom != 0
+	c.capabilities = buildCapabilities(hasConfiguredHome, c.spaces, c.limits, c.velocity, bool(node.HomeSupported))
 
 	if strings.TrimSpace(c.ptzEndpoint) == "" {
 		return fmt.Errorf("camera %s returned no PTZ service endpoint", c.cfg.Name)

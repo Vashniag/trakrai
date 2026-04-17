@@ -1,0 +1,16 @@
+{
+  "name": "local-emulator-core",
+  "displayName": "Local Emulator (Core)",
+  "description": "Minimal local emulator profile with only the control plane and UI runtime.",
+  "target": "local-emulator",
+  "baseConfigDir": "device/localdev/configs",
+  "overlays": [],
+  "services": [
+    "cloud-comm",
+    "runtime-manager",
+    "edge-ui"
+  ],
+  "components": [
+    "device-emulator"
+  ]
+}

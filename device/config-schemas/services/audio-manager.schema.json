@@ -1,0 +1,274 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "device_id": "trakrai-device-001",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "queue": {
+      "max_pending": 128,
+      "status_report_interval_sec": 15,
+      "dedupe_window_sec": 60
+    },
+    "storage": {
+      "state_db_path": "/home/hacklab/trakrai-device-runtime/state/audio-manager.sqlite3",
+      "cache_dir": "/home/hacklab/trakrai-device-runtime/shared/audio/cache",
+      "event_log_path": "/home/hacklab/trakrai-device-runtime/shared/audio/audio-events.jsonl"
+    },
+    "tts": {
+      "default_language": "en",
+      "timeout_sec": 30,
+      "voice_map": {
+        "en": "en",
+        "hi": "hi"
+      }
+    },
+    "playback": {
+      "backend": "auto",
+      "timeout_sec": 60
+    },
+    "speaker": {
+      "enabled": true,
+      "transport": "short-code-http",
+      "mapping_file": "/home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv",
+      "default_address": "",
+      "request_timeout_sec": 2,
+      "retry_count": 2,
+      "backoff_sec": 1
+    }
+  },
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "default": "trakrai-device-001"
+    },
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "playback": {
+      "type": "object",
+      "default": {
+        "backend": "auto",
+        "timeout_sec": 60
+      },
+      "properties": {
+        "backend": {
+          "type": "string",
+          "default": "auto"
+        },
+        "command_template": {
+          "type": "array",
+          "default": [
+            "curl",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "-X",
+            "POST",
+            "--data-binary",
+            "@{audio_path}",
+            "-H",
+            "Content-Type: {audio_content_type}",
+            "http://host.docker.internal:18920/play"
+          ],
+          "items": {
+            "type": "string",
+            "default": "curl"
+          }
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "default": 60
+        }
+      },
+      "required": [
+        "backend",
+        "timeout_sec"
+      ],
+      "additionalProperties": false,
+      "title": "Playback"
+    },
+    "queue": {
+      "type": "object",
+      "default": {
+        "max_pending": 128,
+        "status_report_interval_sec": 15,
+        "dedupe_window_sec": 60
+      },
+      "properties": {
+        "dedupe_window_sec": {
+          "type": "integer",
+          "default": 60
+        },
+        "max_pending": {
+          "type": "integer",
+          "default": 128
+        },
+        "status_report_interval_sec": {
+          "type": "integer",
+          "default": 15
+        }
+      },
+      "required": [
+        "dedupe_window_sec",
+        "max_pending",
+        "status_report_interval_sec"
+      ],
+      "additionalProperties": false,
+      "title": "Queue"
+    },
+    "speaker": {
+      "type": "object",
+      "default": {
+        "enabled": true,
+        "transport": "short-code-http",
+        "mapping_file": "/home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv",
+        "default_address": "",
+        "request_timeout_sec": 2,
+        "retry_count": 2,
+        "backoff_sec": 1
+      },
+      "properties": {
+        "backoff_sec": {
+          "type": "number",
+          "default": 1
+        },
+        "default_address": {
+          "type": "string",
+          "default": ""
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "mapping_file": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared/audio/speaker-codes.csv"
+        },
+        "request_timeout_sec": {
+          "type": "integer",
+          "default": 2
+        },
+        "retry_count": {
+          "type": "integer",
+          "default": 2
+        },
+        "transport": {
+          "type": "string",
+          "default": "short-code-http"
+        }
+      },
+      "required": [
+        "backoff_sec",
+        "default_address",
+        "enabled",
+        "mapping_file",
+        "request_timeout_sec",
+        "retry_count",
+        "transport"
+      ],
+      "additionalProperties": false,
+      "title": "Speaker"
+    },
+    "storage": {
+      "type": "object",
+      "default": {
+        "state_db_path": "/home/hacklab/trakrai-device-runtime/state/audio-manager.sqlite3",
+        "cache_dir": "/home/hacklab/trakrai-device-runtime/shared/audio/cache",
+        "event_log_path": "/home/hacklab/trakrai-device-runtime/shared/audio/audio-events.jsonl"
+      },
+      "properties": {
+        "cache_dir": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared/audio/cache"
+        },
+        "event_log_path": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared/audio/audio-events.jsonl"
+        },
+        "state_db_path": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/state/audio-manager.sqlite3"
+        }
+      },
+      "required": [
+        "cache_dir",
+        "event_log_path",
+        "state_db_path"
+      ],
+      "additionalProperties": false,
+      "title": "Storage"
+    },
+    "tts": {
+      "type": "object",
+      "default": {
+        "default_language": "en",
+        "timeout_sec": 30,
+        "voice_map": {
+          "en": "en",
+          "hi": "hi"
+        }
+      },
+      "properties": {
+        "default_language": {
+          "type": "string",
+          "default": "en"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "default": 30
+        },
+        "voice_map": {
+          "type": "object",
+          "default": {
+            "en": "en",
+            "hi": "hi"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "default_language",
+        "timeout_sec",
+        "voice_map"
+      ],
+      "additionalProperties": false,
+      "title": "Tts"
+    }
+  },
+  "required": [
+    "device_id",
+    "ipc",
+    "log_level",
+    "playback",
+    "queue",
+    "speaker",
+    "storage",
+    "tts"
+  ],
+  "additionalProperties": false,
+  "title": "Audio manager config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Queued text-to-speech generation, local playback, and network-speaker delivery service."
+}

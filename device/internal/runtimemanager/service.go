@@ -25,6 +25,8 @@ import (
 const (
 	defaultLogTailLines          = 120
 	runtimeManagerActionType     = "runtime-manager-service-action"
+	runtimeManagerConfigListType = "runtime-manager-config-list"
+	runtimeManagerConfigType     = "runtime-manager-config"
 	runtimeManagerDefinitionType = "runtime-manager-service-definition"
 	runtimeManagerErrorType      = "runtime-manager-error"
 	runtimeManagerLogType        = "runtime-manager-log"
@@ -214,10 +216,16 @@ func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
 	switch env.Type {
 	case "get-status":
 		s.handleGetStatus(ctx, ipc.ReadRequestID(env.Payload))
+	case "get-config":
+		s.handleGetConfig(env)
+	case "list-configs":
+		s.handleListConfigs(env)
 	case "get-service-definition":
 		s.handleGetServiceDefinition(env)
 	case "get-service-log":
 		s.handleLogRequest(ctx, env)
+	case "put-config":
+		s.handlePutConfig(ctx, env)
 	case "remove-service":
 		s.handleRemoveService(ctx, env)
 	case "restart-service":
@@ -288,6 +296,149 @@ func (s *Service) handleGetServiceDefinition(env ipc.MQTTEnvelope) {
 		ServiceName: serviceConfig.Name,
 	}); err != nil {
 		s.log.Warn("publish runtime-manager definition failed", "error", err)
+	}
+}
+
+func (s *Service) handleListConfigs(env ipc.MQTTEnvelope) {
+	var request configListRequest
+	if err := unmarshalPayload(env.Payload, &request); err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action: "list-configs",
+			Error:  fmt.Sprintf("invalid config list request: %v", err),
+		})
+		return
+	}
+
+	configs, err := s.listConfigEntries()
+	if err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action:    "list-configs",
+			Error:     err.Error(),
+			RequestID: request.RequestID,
+		})
+		return
+	}
+
+	s.recordAction("list configs", nil)
+	if err := s.publishResponse(runtimeManagerConfigListType, RuntimeConfigListPayload{
+		Configs:   configs,
+		RequestID: request.RequestID,
+	}); err != nil {
+		s.log.Warn("publish runtime-manager config list failed", "error", err)
+	}
+}
+
+func (s *Service) handleGetConfig(env ipc.MQTTEnvelope) {
+	var request configRequest
+	if err := unmarshalPayload(env.Payload, &request); err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action: "get-config",
+			Error:  fmt.Sprintf("invalid config request: %v", err),
+		})
+		return
+	}
+
+	entry, content, err := s.readConfigEntry(request.ConfigName)
+	if err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action:    "get-config",
+			Error:     err.Error(),
+			RequestID: request.RequestID,
+		})
+		return
+	}
+
+	s.recordAction(fmt.Sprintf("load config %s", entry.Name), nil)
+	if err := s.publishResponse(runtimeManagerConfigType, RuntimeConfigPayload{
+		Config:    entry,
+		Content:   content,
+		RequestID: request.RequestID,
+	}); err != nil {
+		s.log.Warn("publish runtime-manager config failed", "error", err)
+	}
+}
+
+func (s *Service) handlePutConfig(ctx context.Context, env ipc.MQTTEnvelope) {
+	var request putConfigRequest
+	if err := unmarshalPayload(env.Payload, &request); err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action: "put-config",
+			Error:  fmt.Sprintf("invalid config update request: %v", err),
+		})
+		return
+	}
+
+	entry, normalizedContent, err := s.normalizeConfigWrite(request.ConfigName, request.Content)
+	if err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action:    "put-config",
+			Error:     err.Error(),
+			RequestID: request.RequestID,
+		})
+		return
+	}
+
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	if err := os.WriteFile(entry.Path, normalizedContent, 0o644); err != nil {
+		s.recordAction(fmt.Sprintf("write config %s", entry.Name), err)
+		s.publishError(RuntimeErrorPayload{
+			Action:    "put-config",
+			Error:     fmt.Sprintf("write config %s: %v", entry.Name, err),
+			RequestID: request.RequestID,
+		})
+		return
+	}
+
+	restarted := make([]string, 0, len(request.RestartServices))
+	for _, serviceName := range cleanStringList(request.RestartServices) {
+		serviceConfig, err := s.lookupService(serviceName)
+		if err != nil {
+			s.recordAction(fmt.Sprintf("restart %s after config update", serviceName), err)
+			s.publishError(RuntimeErrorPayload{
+				Action:      "put-config",
+				Error:       err.Error(),
+				RequestID:   request.RequestID,
+				ServiceName: serviceName,
+			})
+			return
+		}
+		if !serviceConfig.AllowControl || serviceConfig.SystemdUnit == "" {
+			s.publishError(RuntimeErrorPayload{
+				Action:      "put-config",
+				Error:       fmt.Sprintf("service control is disabled for %s", serviceConfig.Name),
+				RequestID:   request.RequestID,
+				ServiceName: serviceConfig.Name,
+			})
+			return
+		}
+		commandCtx, cancel := context.WithTimeout(ctx, systemCommandTimeout)
+		output, restartErr := s.runSystemctl(commandCtx, "restart", serviceConfig.SystemdUnit)
+		cancel()
+		if restartErr != nil {
+			s.recordAction(fmt.Sprintf("restart %s after config update", serviceConfig.Name), restartErr)
+			s.publishError(RuntimeErrorPayload{
+				Action:      "put-config",
+				Error:       formatCommandError(restartErr, output),
+				RequestID:   request.RequestID,
+				ServiceName: serviceConfig.Name,
+			})
+			return
+		}
+		restarted = append(restarted, serviceConfig.Name)
+	}
+
+	s.invalidateStatusSnapshot()
+	s.recordAction(fmt.Sprintf("write config %s", entry.Name), nil)
+	if err := s.publishResponse(runtimeManagerConfigType, RuntimeConfigPayload{
+		Config:            entry,
+		Content:           json.RawMessage(normalizedContent),
+		Message:           fmt.Sprintf("saved config %s", entry.Name),
+		RequestID:         request.RequestID,
+		RestartedServices: restarted,
+	}); err != nil {
+		s.log.Warn("publish runtime-manager config update failed", "error", err)
 	}
 }
 
@@ -744,6 +895,7 @@ func (s *Service) buildFreshStatusPayload(ctx context.Context) (RuntimeStatusPay
 
 	return RuntimeStatusPayload{
 		BinaryDir:    s.cfg.Runtime.BinaryDir,
+		ConfigDir:    s.cfg.Runtime.ConfigDir,
 		CoreCount:    coreCount,
 		DownloadDir:  s.cfg.Runtime.DownloadDir,
 		GeneratedAt:  s.now().UTC().Format(time.RFC3339Nano),
@@ -1311,6 +1463,121 @@ func (s *Service) lookupServiceOptional(name string) (ManagedServiceConfig, bool
 
 	service, ok := s.managed[strings.ToLower(strings.TrimSpace(name))]
 	return service, ok
+}
+
+func (s *Service) listConfigEntries() ([]RuntimeConfigEntry, error) {
+	configs := make([]RuntimeConfigEntry, 0)
+	configDir := s.cfg.Runtime.ConfigDir
+	entries, err := os.ReadDir(configDir)
+	if err != nil {
+		return nil, fmt.Errorf("read config dir %q: %w", configDir, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".json") {
+			continue
+		}
+		configs = append(configs, RuntimeConfigEntry{
+			Consumers: s.configConsumers(entry.Name()),
+			Name:      entry.Name(),
+			Path:      filepath.Join(configDir, entry.Name()),
+		})
+	}
+	stateName := filepath.Base(s.cfg.Runtime.StateFile)
+	if strings.HasSuffix(strings.ToLower(stateName), ".json") {
+		configs = append(configs, RuntimeConfigEntry{
+			Consumers: []string{ServiceName},
+			Name:      stateName,
+			Path:      s.cfg.Runtime.StateFile,
+		})
+	}
+	sort.Slice(configs, func(i, j int) bool {
+		return configs[i].Name < configs[j].Name
+	})
+	return configs, nil
+}
+
+func (s *Service) readConfigEntry(configName string) (RuntimeConfigEntry, json.RawMessage, error) {
+	configPath, err := s.resolveConfigPath(configName)
+	if err != nil {
+		return RuntimeConfigEntry{}, nil, err
+	}
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return RuntimeConfigEntry{}, nil, fmt.Errorf("read config %q: %w", configName, err)
+	}
+	var normalized json.RawMessage
+	if err := json.Unmarshal(content, &normalized); err != nil {
+		return RuntimeConfigEntry{}, nil, fmt.Errorf("parse config %q: %w", configName, err)
+	}
+	return RuntimeConfigEntry{
+		Consumers: s.configConsumers(filepath.Base(configPath)),
+		Name:      filepath.Base(configPath),
+		Path:      configPath,
+	}, normalized, nil
+}
+
+func (s *Service) normalizeConfigWrite(configName string, content json.RawMessage) (RuntimeConfigEntry, []byte, error) {
+	configPath, err := s.resolveConfigPath(configName)
+	if err != nil {
+		return RuntimeConfigEntry{}, nil, err
+	}
+	if len(content) == 0 {
+		return RuntimeConfigEntry{}, nil, fmt.Errorf("content is required")
+	}
+	var parsed interface{}
+	if err := json.Unmarshal(content, &parsed); err != nil {
+		return RuntimeConfigEntry{}, nil, fmt.Errorf("invalid JSON content: %w", err)
+	}
+	normalized, err := json.MarshalIndent(parsed, "", "  ")
+	if err != nil {
+		return RuntimeConfigEntry{}, nil, fmt.Errorf("format JSON content: %w", err)
+	}
+	normalized = append(normalized, '\n')
+	return RuntimeConfigEntry{
+		Consumers: s.configConsumers(filepath.Base(configPath)),
+		Name:      filepath.Base(configPath),
+		Path:      configPath,
+	}, normalized, nil
+}
+
+func (s *Service) resolveConfigPath(configName string) (string, error) {
+	name := filepath.Base(strings.TrimSpace(configName))
+	if name == "" || strings.Contains(name, string(filepath.Separator)) || name == "." {
+		return "", fmt.Errorf("configName is required")
+	}
+	stateName := filepath.Base(s.cfg.Runtime.StateFile)
+	if name == stateName {
+		return s.cfg.Runtime.StateFile, nil
+	}
+	configPath := filepath.Join(s.cfg.Runtime.ConfigDir, name)
+	if !isPathWithinRoot(s.cfg.Runtime.ConfigDir, configPath) {
+		return "", fmt.Errorf("config %q escapes config dir", name)
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("config %q does not exist", name)
+		}
+		return "", fmt.Errorf("stat config %q: %w", name, err)
+	}
+	return configPath, nil
+}
+
+func (s *Service) configConsumers(configName string) []string {
+	consumers := make([]string, 0)
+	stateName := filepath.Base(s.cfg.Runtime.StateFile)
+	if configName == stateName {
+		return []string{ServiceName}
+	}
+	for _, service := range s.listManagedServices() {
+		for _, arg := range service.ExecStart {
+			if filepath.Base(strings.TrimSpace(arg)) == configName {
+				consumers = append(consumers, service.Name)
+				break
+			}
+		}
+	}
+	sort.Strings(consumers)
+	return consumers
 }
 
 func (s *Service) storeManagedService(service ManagedServiceConfig) {

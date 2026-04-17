@@ -39,7 +39,7 @@ export const env = createEnv({
     MINIO_SECRET_KEY: z.string().optional(),
 
     // Used by package publishing flows.
-    // Local source: shell env when running `device/scripts/manage_device_packages.py release`.
+    // Local source: shell env when running `python3 -m device.devtool package release`.
     // CI source: GitHub Actions secret used in `.github/workflows/publish-device-binaries.yml`.
     TRAKRAI_PACKAGE_RELEASE_TOKEN: z.string().optional(),
 

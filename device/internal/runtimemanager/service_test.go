@@ -2,6 +2,7 @@ package runtimemanager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -231,6 +232,90 @@ func TestSaveAndLoadManagedServicesState(t *testing.T) {
 	}
 }
 
+func TestListConfigEntriesIncludesConsumersAndStateFile(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "configs")
+	stateDir := filepath.Join(tempDir, "state")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config dir failed: %v", err)
+	}
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatalf("mkdir state dir failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "cloud-comm.json"), []byte(`{"device_id":"edge-1"}`), 0o644); err != nil {
+		t.Fatalf("write cloud-comm config failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(stateDir, "managed-services.json"), []byte(`{"services":[]}`), 0o644); err != nil {
+		t.Fatalf("write state config failed: %v", err)
+	}
+
+	service := &Service{
+		cfg: &Config{
+			Runtime: RuntimePathsConfig{
+				ConfigDir: configDir,
+				StateFile: filepath.Join(stateDir, "managed-services.json"),
+			},
+		},
+		managed: map[string]ManagedServiceConfig{
+			"cloud-comm": {
+				Name:      "cloud-comm",
+				ExecStart: []string{"{{install_path}}", "-config", filepath.Join(configDir, "cloud-comm.json")},
+			},
+		},
+	}
+
+	configs, err := service.listConfigEntries()
+	if err != nil {
+		t.Fatalf("list config entries failed: %v", err)
+	}
+	if len(configs) != 2 {
+		t.Fatalf("expected 2 config entries, got %#v", configs)
+	}
+	if configs[0].Name != "cloud-comm.json" || !reflect.DeepEqual(configs[0].Consumers, []string{"cloud-comm"}) {
+		t.Fatalf("unexpected service config entry %#v", configs[0])
+	}
+	if configs[1].Name != "managed-services.json" || !reflect.DeepEqual(configs[1].Consumers, []string{ServiceName}) {
+		t.Fatalf("unexpected managed services entry %#v", configs[1])
+	}
+}
+
+func TestNormalizeConfigWriteFormatsJSON(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "configs")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config dir failed: %v", err)
+	}
+	configPath := filepath.Join(configDir, "cloud-comm.json")
+	if err := os.WriteFile(configPath, []byte(`{"device_id":"edge-1"}`), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	service := &Service{
+		cfg: &Config{
+			Runtime: RuntimePathsConfig{
+				ConfigDir: configDir,
+				StateFile: filepath.Join(tempDir, "state", "managed-services.json"),
+			},
+		},
+	}
+
+	entry, normalized, err := service.normalizeConfigWrite("cloud-comm.json", json.RawMessage(`{"device_id":"edge-2","mqtt":{"broker_url":"tcp://broker:1883"}}`))
+	if err != nil {
+		t.Fatalf("normalize config write failed: %v", err)
+	}
+	if entry.Name != "cloud-comm.json" || entry.Path != configPath {
+		t.Fatalf("unexpected config entry %#v", entry)
+	}
+	expected := "{\n  \"device_id\": \"edge-2\",\n  \"mqtt\": {\n    \"broker_url\": \"tcp://broker:1883\"\n  }\n}\n"
+	if string(normalized) != expected {
+		t.Fatalf("expected normalized content %q, got %q", expected, string(normalized))
+	}
+}
+
 func TestBuildStatusPayloadCachesFreshSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -252,8 +337,8 @@ func TestBuildStatusPayloadCachesFreshSnapshot(t *testing.T) {
 		t.Fatalf("build cached status payload failed: %v", err)
 	}
 
-	if commandCount.Load() != 2 {
-		t.Fatalf("expected cached status payload to reuse 2 command calls, got %d", commandCount.Load())
+	if commandCount.Load() != 1 {
+		t.Fatalf("expected cached status payload to reuse 1 command call, got %d", commandCount.Load())
 	}
 	if firstPayload.GeneratedAt != secondPayload.GeneratedAt {
 		t.Fatalf("expected cached payload generatedAt to match, got %q and %q", firstPayload.GeneratedAt, secondPayload.GeneratedAt)
@@ -265,7 +350,7 @@ func TestBuildStatusPayloadCachesFreshSnapshot(t *testing.T) {
 		t.Fatalf("build refreshed status payload failed: %v", err)
 	}
 
-	if commandCount.Load() != 4 {
+	if commandCount.Load() != 2 {
 		t.Fatalf("expected expired cache to rebuild status payload, got %d command calls", commandCount.Load())
 	}
 	if thirdPayload.GeneratedAt == secondPayload.GeneratedAt {
@@ -301,8 +386,8 @@ func TestBuildStatusPayloadCoalescesConcurrentRequests(t *testing.T) {
 		}
 	}
 
-	if commandCount.Load() != 2 {
-		t.Fatalf("expected concurrent requests to share 2 command calls, got %d", commandCount.Load())
+	if commandCount.Load() != 1 {
+		t.Fatalf("expected concurrent requests to share 1 command call, got %d", commandCount.Load())
 	}
 }
 

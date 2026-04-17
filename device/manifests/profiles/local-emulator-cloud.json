@@ -1,0 +1,21 @@
+{
+  "name": "local-emulator-cloud",
+  "displayName": "Local Emulator (Cloud APIs)",
+  "description": "Local emulator profile that targets the cloud-emulator config set.",
+  "target": "local-emulator",
+  "baseConfigDir": "device/localdev/configs-cloud-emulator",
+  "overlays": [],
+  "services": [
+    "cloud-comm",
+    "runtime-manager",
+    "edge-ui",
+    "cloud-transfer",
+    "live-feed",
+    "rtsp-feeder",
+    "video-recorder"
+  ],
+  "components": [
+    "device-emulator",
+    "cloud-api"
+  ]
+}

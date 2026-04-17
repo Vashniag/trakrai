@@ -1,0 +1,61 @@
+{
+  "type": "object",
+  "default": {
+    "log_level": "info",
+    "ipc": {
+      "socket_path": "/tmp/trakrai-cloud-comm.sock"
+    },
+    "storage": {
+      "file_path": "/home/hacklab/trakrai-device-runtime/shared/roi-config.json"
+    }
+  },
+  "properties": {
+    "ipc": {
+      "type": "object",
+      "default": {
+        "socket_path": "/tmp/trakrai-cloud-comm.sock"
+      },
+      "properties": {
+        "socket_path": {
+          "type": "string",
+          "default": "/tmp/trakrai-cloud-comm.sock"
+        }
+      },
+      "required": [
+        "socket_path"
+      ],
+      "additionalProperties": false,
+      "title": "Ipc"
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info"
+    },
+    "storage": {
+      "type": "object",
+      "default": {
+        "file_path": "/home/hacklab/trakrai-device-runtime/shared/roi-config.json"
+      },
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "default": "/home/hacklab/trakrai-device-runtime/shared/roi-config.json"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "additionalProperties": false,
+      "title": "Storage"
+    }
+  },
+  "required": [
+    "ipc",
+    "log_level",
+    "storage"
+  ],
+  "additionalProperties": false,
+  "title": "ROI config config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Per-camera PTZ base-location and ROI document service."
+}

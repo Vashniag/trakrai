@@ -1,0 +1,249 @@
+{
+  "name": "audio-service-local",
+  "displayName": "Audio Service Local",
+  "description": "Exercise direct and workflow-driven audio flows against the local emulator.",
+  "profile": "local-emulator-all",
+  "timeoutSec": 120,
+  "cleanupSteps": [
+    {
+      "action": "restore_file",
+      "path": "${vars.localSharedDir}/workflow.json",
+      "backupPath": "${vars.localSharedDir}/workflow.backup.audio-verify.json",
+      "deleteIfMissing": true
+    },
+    {
+      "action": "poll_service",
+      "service": "workflow-engine",
+      "messageType": "get-status",
+      "expectedTypes": [
+        "workflow-engine-status"
+      ],
+      "payload": {},
+      "until": {
+        "path": "envelope.payload.workflow.loaded",
+        "truthy": true
+      },
+      "timeoutSec": 60,
+      "intervalSec": 0.5
+    }
+  ],
+  "steps": [
+    {
+      "id": "direct_token",
+      "action": "uuid"
+    },
+    {
+      "id": "host_audio_before",
+      "action": "read_file_mtime",
+      "path": "device/.localdev/host-audio-player/last-request.json"
+    },
+    {
+      "id": "speaker_before",
+      "action": "read_file_mtime",
+      "path": "device/.localdev/shared/mock-speaker/last-request.json"
+    },
+    {
+      "id": "direct_play",
+      "action": "service_request",
+      "service": "audio-manager",
+      "messageType": "play-audio",
+      "expectedTypes": [
+        "audio-manager-job"
+      ],
+      "payload": {
+        "cameraId": "1",
+        "cameraName": "Camera-1",
+        "language": "en",
+        "playLocal": true,
+        "playSpeaker": true,
+        "speakerMessageId": "local-alert",
+        "text": "Local audio verification ${direct_token}"
+      }
+    },
+    {
+      "id": "direct_job",
+      "action": "poll_service",
+      "service": "audio-manager",
+      "messageType": "get-job",
+      "expectedTypes": [
+        "audio-manager-job"
+      ],
+      "payload": {
+        "jobId": "${direct_play.envelope.payload.job.id}"
+      },
+      "until": {
+        "path": "envelope.payload.job.state",
+        "in": [
+          "completed",
+          "failed",
+          "deduped"
+        ]
+      },
+      "timeoutSec": 60,
+      "intervalSec": 0.5
+    },
+    {
+      "id": "host_audio_after",
+      "action": "read_file_mtime",
+      "path": "device/.localdev/host-audio-player/last-request.json"
+    },
+    {
+      "id": "speaker_after",
+      "action": "read_file_mtime",
+      "path": "device/.localdev/shared/mock-speaker/last-request.json"
+    },
+    {
+      "action": "assert_gt",
+      "left": "${host_audio_after}",
+      "right": "${host_audio_before}"
+    },
+    {
+      "action": "assert_gt",
+      "left": "${speaker_after}",
+      "right": "${speaker_before}"
+    },
+    {
+      "id": "host_audio_request",
+      "action": "read_json_file",
+      "path": "device/.localdev/host-audio-player/last-request.json"
+    },
+    {
+      "id": "speaker_request",
+      "action": "read_json_file",
+      "path": "device/.localdev/shared/mock-speaker/last-request.json"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${direct_job.envelope.payload.job.state}",
+      "right": "completed"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${direct_job.envelope.payload.job.localState}",
+      "right": "completed"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${direct_job.envelope.payload.job.speakerState}",
+      "right": "completed"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${speaker_request.body}",
+      "right": "m:901"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${host_audio_request.played}",
+      "right": true
+    },
+    {
+      "action": "backup_file",
+      "path": "${vars.localSharedDir}/workflow.json",
+      "backupPath": "${vars.localSharedDir}/workflow.backup.audio-verify.json"
+    },
+    {
+      "id": "workflow_token",
+      "action": "uuid"
+    },
+    {
+      "id": "write_workflow",
+      "action": "write_json_template",
+      "template": "device/localdev/workflows/audio-service-verification-workflow.json",
+      "target": "${vars.localSharedDir}/workflow.json",
+      "set": {
+        "metadata.name": "Audio Service Verification Workflow ${workflow_token}",
+        "nodes[0].data.configuration.message": "Workflow audio verification ${workflow_token}"
+      }
+    },
+    {
+      "id": "workflow_loaded",
+      "action": "poll_service",
+      "service": "workflow-engine",
+      "messageType": "get-status",
+      "expectedTypes": [
+        "workflow-engine-status"
+      ],
+      "payload": {},
+      "until": {
+        "path": "envelope.payload.workflow.name",
+        "equals": "Audio Service Verification Workflow ${workflow_token}"
+      },
+      "timeoutSec": 60,
+      "intervalSec": 0.5
+    },
+    {
+      "id": "workflow_run",
+      "action": "service_request",
+      "service": "workflow-engine",
+      "messageType": "enqueue-detection",
+      "expectedTypes": [
+        "workflow-engine-result"
+      ],
+      "payload": {
+        "cameraId": "1",
+        "cameraName": "Camera-1",
+        "detections": [
+          {
+            "bbox": [
+              10,
+              10,
+              30,
+              30
+            ],
+            "confidence": 0.95,
+            "label": "person"
+          }
+        ],
+        "frameId": "frame-${workflow_token}"
+      }
+    },
+    {
+      "id": "workflow_audio_job",
+      "action": "poll_service",
+      "service": "audio-manager",
+      "messageType": "get-job",
+      "expectedTypes": [
+        "audio-manager-job"
+      ],
+      "payload": {
+        "jobId": "${workflow_run.envelope.payload.run.outputs.audio.jobId}"
+      },
+      "until": {
+        "path": "envelope.payload.job.state",
+        "in": [
+          "completed",
+          "failed",
+          "deduped"
+        ]
+      },
+      "timeoutSec": 60,
+      "intervalSec": 0.5
+    },
+    {
+      "id": "workflow_host_audio_after",
+      "action": "read_file_mtime",
+      "path": "device/.localdev/host-audio-player/last-request.json"
+    },
+    {
+      "action": "assert_gt",
+      "left": "${workflow_host_audio_after}",
+      "right": "${host_audio_after}"
+    },
+    {
+      "id": "workflow_speaker_request",
+      "action": "read_json_file",
+      "path": "device/.localdev/shared/mock-speaker/last-request.json"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${workflow_audio_job.envelope.payload.job.state}",
+      "right": "completed"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${workflow_speaker_request.body}",
+      "right": "m:902"
+    }
+  ]
+}

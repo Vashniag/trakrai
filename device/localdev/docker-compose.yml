@@ -10,6 +10,45 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - type: volume
+        source: trakrai_local_minio
+        target: /data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O - http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  cloud-api:
+    build:
+      context: ./cloud-api
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    environment:
+      TRAKRAI_LOCAL_CLOUD_API_PORT: 3000
+      TRAKRAI_MINIO_ENDPOINT: minio:9000
+      TRAKRAI_MINIO_ACCESS_KEY: minioadmin
+      TRAKRAI_MINIO_SECRET_KEY: minioadmin
+      TRAKRAI_MINIO_BUCKET: trakrai-local
+      TRAKRAI_MINIO_SECURE: 'false'
+      TRAKRAI_DEVICE_ACCESS_TOKEN: ${TRAKRAI_LOCAL_DEVICE_ACCESS_TOKEN:-}
+      TRAKRAI_PACKAGE_RELEASE_TOKEN: ${TRAKRAI_LOCAL_PACKAGE_RELEASE_TOKEN:-}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python3',
+          '-c',
+          'import urllib.request; urllib.request.urlopen("http://127.0.0.1:3000/health", timeout=2).read()',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7-alpine
@@ -99,3 +138,4 @@ services:
 
 volumes:
   trakrai_local_runtime:
+  trakrai_local_minio:

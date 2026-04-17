@@ -1,0 +1,122 @@
+{
+  "name": "cloud-transfer-local",
+  "displayName": "Cloud Transfer Local",
+  "description": "Exercise upload/download cloud-transfer flows against the local emulator and object store.",
+  "profile": "local-emulator-all",
+  "timeoutSec": 120,
+  "steps": [
+    {
+      "id": "token",
+      "action": "uuid"
+    },
+    {
+      "id": "upload_file",
+      "action": "write_text",
+      "path": "${vars.localSharedDir}/cloud-transfer-tests/${token}/upload/payload.txt",
+      "content": "trakrai-cloud-transfer-${token}\n"
+    },
+    {
+      "id": "enqueue_upload",
+      "action": "service_request",
+      "service": "cloud-transfer",
+      "messageType": "enqueue-upload",
+      "expectedTypes": [
+        "cloud-transfer-transfer"
+      ],
+      "payload": {
+        "contentType": "text/plain",
+        "localPath": "cloud-transfer-tests/${token}/upload/payload.txt",
+        "remotePath": "cloud-transfer-tests/${token}/payload.txt",
+        "timeout": "4h"
+      }
+    },
+    {
+      "id": "upload_transfer",
+      "action": "poll_service",
+      "service": "cloud-transfer",
+      "messageType": "get-transfer",
+      "expectedTypes": [
+        "cloud-transfer-transfer"
+      ],
+      "payload": {
+        "transferId": "${enqueue_upload.envelope.payload.transfer.id}"
+      },
+      "until": {
+        "path": "envelope.payload.transfer.state",
+        "in": [
+          "completed"
+        ]
+      },
+      "timeoutSec": 120,
+      "intervalSec": 1
+    },
+    {
+      "id": "enqueue_download",
+      "action": "service_request",
+      "service": "cloud-transfer",
+      "messageType": "enqueue-download",
+      "expectedTypes": [
+        "cloud-transfer-transfer"
+      ],
+      "payload": {
+        "localPath": "cloud-transfer-tests/${token}/download/payload.txt",
+        "remotePath": "cloud-transfer-tests/${token}/payload.txt",
+        "timeout": "4h"
+      }
+    },
+    {
+      "id": "download_transfer",
+      "action": "poll_service",
+      "service": "cloud-transfer",
+      "messageType": "get-transfer",
+      "expectedTypes": [
+        "cloud-transfer-transfer"
+      ],
+      "payload": {
+        "transferId": "${enqueue_download.envelope.payload.transfer.id}"
+      },
+      "until": {
+        "path": "envelope.payload.transfer.state",
+        "in": [
+          "completed"
+        ]
+      },
+      "timeoutSec": 120,
+      "intervalSec": 1
+    },
+    {
+      "id": "downloaded_content",
+      "action": "read_text",
+      "path": "${vars.localSharedDir}/cloud-transfer-tests/${token}/download/payload.txt"
+    },
+    {
+      "action": "assert_equals",
+      "left": "${downloaded_content}",
+      "right": "trakrai-cloud-transfer-${token}\n"
+    },
+    {
+      "id": "transfers",
+      "action": "service_request",
+      "service": "cloud-transfer",
+      "messageType": "list-transfers",
+      "expectedTypes": [
+        "cloud-transfer-list"
+      ],
+      "payload": {}
+    },
+    {
+      "id": "stats",
+      "action": "service_request",
+      "service": "cloud-transfer",
+      "messageType": "get-stats",
+      "expectedTypes": [
+        "cloud-transfer-stats"
+      ],
+      "payload": {}
+    },
+    {
+      "action": "assert_nonempty",
+      "value": "${transfers.envelope.payload.items}"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/trakrai/device-services/internal/shared/configjson"
+	"github.com/trakrai/device-services/internal/generatedconfig"
 )
 
 type MQTTConfig struct {
@@ -68,41 +68,61 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
+	raw, err := generatedconfig.LoadCloudCommConfig(path)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{
-		LogLevel: "info",
-		DeviceID: "default",
+		LogLevel: raw.LogLevel,
+		DeviceID: raw.DeviceId,
 		MQTT: MQTTConfig{
-			BrokerURL:    "tcp://localhost:1883",
-			ClientID:     "trakrai-device",
-			KeepAliveSec: 30,
+			BrokerURL:    raw.Mqtt.BrokerUrl,
+			ClientID:     raw.Mqtt.ClientId,
+			KeepAliveSec: raw.Mqtt.KeepAliveSec,
 		},
 		IPC: IPCConfig{
-			SocketPath: "/tmp/trakrai-cloud-comm.sock",
+			SocketPath: raw.Ipc.SocketPath,
 		},
 		Edge: EdgeWebSocketConfig{
-			Enabled:    false,
-			ListenAddr: ":8080",
-			Path:       "/ws",
+			Enabled:        raw.Edge.Enabled,
+			ListenAddr:     raw.Edge.ListenAddr,
+			Path:           raw.Edge.Path,
+			AllowedOrigins: append([]string(nil), raw.Edge.AllowedOrigins...),
 			RateLimit: EdgeRateLimitConfig{
-				MaxCommandMessages: 40,
-				MaxMessages:        120,
-				WindowSec:          5,
+				MaxCommandMessages: raw.Edge.RateLimit.MaxCommandMessages,
+				MaxMessages:        raw.Edge.RateLimit.MaxMessages,
+				WindowSec:          raw.Edge.RateLimit.WindowSec,
 			},
-			WebRTC: EdgeWebRTCConfig{
-				ICEServers: []EdgeICEServerConfig{
-					{URLs: []string{"stun:stun.l.google.com:19302"}},
-				},
-			},
+			WebRTC: EdgeWebRTCConfig{},
 			UI: EdgeUIConfig{
-				DiagnosticsEnabled: true,
-				ManagementService:  "runtime-manager",
-				TransportMode:      "edge",
+				Enabled:            raw.Edge.Ui.Enabled,
+				StaticDir:          raw.Edge.Ui.StaticDir,
+				DiagnosticsEnabled: raw.Edge.Ui.DiagnosticsEnabled,
+				TransportMode:      raw.Edge.Ui.TransportMode,
+				CloudBridgeURL:     raw.Edge.Ui.CloudBridgeUrl,
+				ManagementService:  raw.Edge.Ui.ManagementService,
 			},
 		},
 	}
-
-	if err := configjson.Load(path, cfg); err != nil {
-		return nil, err
+	for _, server := range raw.Edge.Webrtc.IceServers {
+		cfg.Edge.WebRTC.ICEServers = append(
+			cfg.Edge.WebRTC.ICEServers,
+			EdgeICEServerConfig{
+				URLs:       append([]string(nil), server.Urls...),
+				Username:   server.Username,
+				Credential: server.Credential,
+			},
+		)
+	}
+	for _, camera := range raw.Cameras {
+		cfg.Cameras = append(
+			cfg.Cameras,
+			CameraConfig{
+				Name:    camera.Name,
+				Enabled: camera.Enabled,
+			},
+		)
 	}
 
 	if cfg.MQTT.BrokerURL == "" {
