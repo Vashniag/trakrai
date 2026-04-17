@@ -346,6 +346,12 @@ class InferenceBackend:
         for model_index, model_preds in enumerate(all_preds):
             for img_index, img_preds in enumerate(model_preds):
                 if img_preds is not None and len(img_preds):
+                    # YOLOv5's DetectMultiBackend forward pass runs under
+                    # torch.inference_mode(), which flags its output tensors as
+                    # "inference tensors". PyTorch >=1.9 refuses in-place updates
+                    # on those tensors outside an inference_mode block, so clone
+                    # to get a normal tensor before rewriting the class column.
+                    img_preds = img_preds.clone()
                     img_preds[:, 5] += model_index * 1000
                     if isinstance(merged_preds[img_index], list) and not merged_preds[img_index]:
                         merged_preds[img_index] = img_preds
