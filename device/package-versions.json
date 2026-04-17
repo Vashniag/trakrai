@@ -3,16 +3,16 @@
     "audio-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_audio_manager-0.1.1-py3-none-any.whl",
-          "remotePath": "audio-manager/0.1.1/linux-arm64/trakrai_audio_manager-0.1.1-py3-none-any.whl",
-          "sha256": "978bace2ac5dab99eb1880924c7208a982296d318a7df3f2c8019196cea39195",
-          "updatedAt": "2026-04-17T05:58:21Z"
+          "fileName": "trakrai_audio_manager-0.1.2-py3-none-any.whl",
+          "remotePath": "audio-manager/0.1.2/linux-arm64/trakrai_audio_manager-0.1.2-py3-none-any.whl",
+          "sha256": "9f00ae8d5b6591faf83d4b931f753c62ae19f5ae1b9b0cbfca2c0ee1fb767ffb",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "audio-manager",
-      "sourceHash": "sha256:d9c2550bd8192371fcb0987682c7bd046dafc6b0d41e29950cbb657c3afc356e",
+      "sourceHash": "sha256:75ec0a2e70cd7d7a3dffdf8975b63ce8f01b4caa230214d7c3c4e6ee2c728d0f",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/audio_manager/FLOW.md",
@@ -41,21 +41,21 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "cloud-comm": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-comm-linux-arm64-v0.1.1",
-          "remotePath": "cloud-comm/0.1.1/linux-arm64/cloud-comm-linux-arm64-v0.1.1",
-          "sha256": "5f6551ddc678e4f70c0a4d848dfeb2be3bd353dab79340d7fe3cd6de11ed136b",
-          "updatedAt": "2026-04-17T04:09:10Z"
+          "fileName": "cloud-comm-linux-arm64-v0.1.2",
+          "remotePath": "cloud-comm/0.1.2/linux-arm64/cloud-comm-linux-arm64-v0.1.2",
+          "sha256": "3de4538edd4a840c02a751734cab410e219c76ec5ba5b34f5d7157bfa68c3b29",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "cloud-comm",
-      "sourceHash": "sha256:4c08eea6dc81338bd38144180ddc654340ff1687d698aba4a453a10b0691dedc",
+      "sourceHash": "sha256:45ff0a4741599ee28dccbd4fed4c3f28e455294139d0e9a0617d7b12e62a7d4a",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-comm/main.go",
@@ -68,27 +68,28 @@
         "device/internal/cloudcomm/publisher.go",
         "device/internal/cloudcomm/service.go",
         "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "cloud-transfer": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-transfer-linux-arm64-v0.1.0",
-          "remotePath": "cloud-transfer/0.1.0/linux-arm64/cloud-transfer-linux-arm64-v0.1.0",
-          "sha256": "853b1bf80be6c4f4fc932faedd1ca53eabedd5fcd13628bb3dfc914f9ccb38db",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "cloud-transfer-linux-arm64-v0.1.1",
+          "remotePath": "cloud-transfer/0.1.1/linux-arm64/cloud-transfer-linux-arm64-v0.1.1",
+          "sha256": "c4acc35d55fef7b433541c45cc8417a5e95e6c65dd005b6bb972e95b8af852a2",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "cloud-transfer",
-      "sourceHash": "sha256:665314e39bd6fa11209ea5c8de3a38381218916f5890897e4f64f5434a8885fe",
+      "sourceHash": "sha256:ce41ad30cb8def1c565d136867b83cf7a80c22526448ed12b337513514d20c38",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-transfer/main.go",
@@ -99,16 +100,18 @@
         "device/internal/cloudtransfer/config.go",
         "device/internal/cloudtransfer/models.go",
         "device/internal/cloudtransfer/paths.go",
+        "device/internal/cloudtransfer/reply.go",
         "device/internal/cloudtransfer/service.go",
         "device/internal/cloudtransfer/store.go",
         "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/shared/configjson/configjson.go",
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "edge-ui": {
       "artifacts": {
@@ -272,16 +275,16 @@
     "live-feed": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "live-feed-linux-arm64-v0.1.2",
-          "remotePath": "live-feed/0.1.2/linux-arm64/live-feed-linux-arm64-v0.1.2",
-          "sha256": "b20904c7352c1b5bd233ab5a7d5f0ad0dba29db791d91d485f5bf8c5407b8774",
-          "updatedAt": "2026-04-17T04:09:10Z"
+          "fileName": "live-feed-linux-arm64-v0.1.3",
+          "remotePath": "live-feed/0.1.3/linux-arm64/live-feed-linux-arm64-v0.1.3",
+          "sha256": "80297ea89082162ba66fd25ffd9021e52b0f54c5dd35a6b18a4e1a349d00526d",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "live-feed",
-      "sourceHash": "sha256:e142d63059a354005ef3f52c9d5d19b4aef56d276717796ea9457f0a2ac4b47a",
+      "sourceHash": "sha256:ecab1e4387c2d229150104afe61a476d3fb0f7775d252f19870ad0cf187c8ab4",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/live-feed/main.go",
@@ -289,6 +292,7 @@
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
         "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/livefeed/compositor.go",
@@ -305,21 +309,21 @@
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "ptz-control": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "ptz-control-linux-arm64-v0.1.0",
-          "remotePath": "ptz-control/0.1.0/linux-arm64/ptz-control-linux-arm64-v0.1.0",
-          "sha256": "b90335a97bc7b541f73813ef78f1ab834bcbd73914c8db0d2d0f21a223d7fa5d",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "ptz-control-linux-arm64-v0.1.1",
+          "remotePath": "ptz-control/0.1.1/linux-arm64/ptz-control-linux-arm64-v0.1.1",
+          "sha256": "e48044148d0ad50bcd1eaaf1ae5045d89d263271407cc58ba419c00fad0363ef",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "ptz-control",
-      "sourceHash": "sha256:713f2adc27f5e160601e2bc8d5b5171c17384e5285e5f6492ee338f45d161aa0",
+      "sourceHash": "sha256:90022e44b399a377559fc85f26de44c0d40d8780db6aaa287ec26215c6c056dc",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/ptz-control/main.go",
@@ -327,6 +331,7 @@
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
         "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/ptzcontrol/config.go",
@@ -336,21 +341,21 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "roi-config": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "roi-config-linux-arm64-v0.1.1",
-          "remotePath": "roi-config/0.1.1/linux-arm64/roi-config-linux-arm64-v0.1.1",
-          "sha256": "720ae5aa7bf511c948b32cc65d22f44b951e20ee6cd02b7fa68097768047ac86",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "roi-config-linux-arm64-v0.1.2",
+          "remotePath": "roi-config/0.1.2/linux-arm64/roi-config-linux-arm64-v0.1.2",
+          "sha256": "c53fec339d33ce8ea8d4331bf29e584cd233077bd0013eaa1db434d599b82010",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "roi-config",
-      "sourceHash": "sha256:47d18e5066f1e02dc5bba3b9f462b8cdc9ccdddd9501294a17f5d9ba410e2084",
+      "sourceHash": "sha256:2e198adfac322a6b12de4698a5e6a1cd2d29a97c80dc2683c91b0ec84925c93b",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/roi-config/main.go",
@@ -358,6 +363,7 @@
         "device/go.sum",
         "device/internal/buildinfo/buildinfo.go",
         "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/roiconfig/config.go",
@@ -368,7 +374,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "rtsp-feeder": {
       "artifacts": {
@@ -403,16 +409,16 @@
     "runtime-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "runtime-manager-linux-arm64-v0.1.0",
-          "remotePath": "runtime-manager/0.1.0/linux-arm64/runtime-manager-linux-arm64-v0.1.0",
-          "sha256": "4c809360777b06b92527ad200c6cb0ac39e6b5a35fedb6b4a8f39c34bb3ba0f6",
-          "updatedAt": "2026-04-16T15:15:23Z"
+          "fileName": "runtime-manager-linux-arm64-v0.1.1",
+          "remotePath": "runtime-manager/0.1.1/linux-arm64/runtime-manager-linux-arm64-v0.1.1",
+          "sha256": "a308b4afa262e0fcc7ee1223f24af108bae444f5730acf86a1ebca63dee8758d",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "go-binary",
       "kind": "binary",
       "serviceName": "runtime-manager",
-      "sourceHash": "sha256:befc4a06f6b7df1cc97ea94772d301ab068c13b37b4af7cc28b5f75b76f2311e",
+      "sourceHash": "sha256:ad7fe8faa1e5f64e3d00910073e21bcc9db2d90f5e94963a43df01ad2b924446",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/runtime-manager/main.go",
@@ -423,9 +429,11 @@
         "device/internal/cloudtransfer/config.go",
         "device/internal/cloudtransfer/models.go",
         "device/internal/cloudtransfer/paths.go",
+        "device/internal/cloudtransfer/reply.go",
         "device/internal/cloudtransfer/service.go",
         "device/internal/cloudtransfer/store.go",
         "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
         "device/internal/ipc/server.go",
         "device/internal/ipc/types.go",
         "device/internal/runtimemanager/config.go",
@@ -436,21 +444,21 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     "trakrai-ai-inference": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_ai_inference-0.1.1-py3-none-any.whl",
-          "remotePath": "trakrai-ai-inference/0.1.1/linux-arm64/trakrai_ai_inference-0.1.1-py3-none-any.whl",
-          "sha256": "0a6eb6c3e5fe682acf29f3fcd24a3e247e50d4b247a9e16c08efed25043655a3",
-          "updatedAt": "2026-04-17T05:58:21Z"
+          "fileName": "trakrai_ai_inference-0.1.2-py3-none-any.whl",
+          "remotePath": "trakrai-ai-inference/0.1.2/linux-arm64/trakrai_ai_inference-0.1.2-py3-none-any.whl",
+          "sha256": "8125af7099415c65a098f1846a177b2d35faca3a5b9a6b94d8ff194cddace4fd",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "trakrai-ai-inference",
-      "sourceHash": "sha256:7f906a385932fb9b997f5052582c85fd1844a7b2838235c0c012d19d6123c3af",
+      "sourceHash": "sha256:74c8122dedc29238e32f4a27be412e919c79fe95edab728eaaf70eb769c87c71",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/ai_inference/.gitignore",
@@ -472,21 +480,63 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.1"
+      "version": "0.1.2"
+    },
+    "video-recorder": {
+      "artifacts": {
+        "linux/arm64": {
+          "fileName": "video-recorder-linux-arm64-v0.1.0",
+          "remotePath": "video-recorder/0.1.0/linux-arm64/video-recorder-linux-arm64-v0.1.0",
+          "sha256": "8584b4dca996a0d14948f95124e4899a59582b72c29f860bf672d50a34fb4ae7",
+          "updatedAt": "2026-04-17T07:59:13Z"
+        }
+      },
+      "buildTarget": "go-binary",
+      "kind": "binary",
+      "serviceName": "video-recorder",
+      "sourceHash": "sha256:5545f6f9eb49215da08f9330ebea73c3ecdc2602a0ca327a5954b9c5f1ee2e58",
+      "sourceInputs": [
+        "device/Dockerfile",
+        "device/cmd/video-recorder/main.go",
+        "device/go.mod",
+        "device/go.sum",
+        "device/internal/buildinfo/buildinfo.go",
+        "device/internal/cloudtransfer/cloud_api.go",
+        "device/internal/cloudtransfer/config.go",
+        "device/internal/cloudtransfer/models.go",
+        "device/internal/cloudtransfer/paths.go",
+        "device/internal/cloudtransfer/reply.go",
+        "device/internal/cloudtransfer/service.go",
+        "device/internal/cloudtransfer/store.go",
+        "device/internal/ipc/client.go",
+        "device/internal/ipc/requester.go",
+        "device/internal/ipc/server.go",
+        "device/internal/ipc/types.go",
+        "device/internal/shared/configjson/configjson.go",
+        "device/internal/shared/logging/logging.go",
+        "device/internal/shared/redisconfig/config.go",
+        "device/internal/videorecorder/buffer.go",
+        "device/internal/videorecorder/config.go",
+        "device/internal/videorecorder/models.go",
+        "device/internal/videorecorder/service.go",
+        "device/internal/videorecorder/writer.go"
+      ],
+      "targetType": "go-binary",
+      "version": "0.1.0"
     },
     "workflow-engine": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "trakrai_workflow_engine-0.1.1-py3-none-any.whl",
-          "remotePath": "workflow-engine/0.1.1/linux-arm64/trakrai_workflow_engine-0.1.1-py3-none-any.whl",
-          "sha256": "06355c755179c9f38d7b1382f1175faf3dba08c7d3208a98c2e1c62026652e91",
-          "updatedAt": "2026-04-17T05:58:21Z"
+          "fileName": "trakrai_workflow_engine-0.1.2-py3-none-any.whl",
+          "remotePath": "workflow-engine/0.1.2/linux-arm64/trakrai_workflow_engine-0.1.2-py3-none-any.whl",
+          "sha256": "2e24a89c0c2789926d25f0721f4d7eab6a1d913f45f7f6bf2dfc51ecd4951930",
+          "updatedAt": "2026-04-17T07:59:13Z"
         }
       },
       "buildTarget": "python-wheel",
       "kind": "wheel",
       "serviceName": "workflow-engine",
-      "sourceHash": "sha256:1034419ee8b290ccaf228269f1eefc03b81fa6960f99f81561aea7bb13f2ede4",
+      "sourceHash": "sha256:6253688e18faf7b42d8eefcf5bb1cac0e05bd455e14498ef0b14b845cd73263f",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/conftest.py",
@@ -509,9 +559,11 @@
         "device/python/workflow_engine/src/exceptions.py",
         "device/python/workflow_engine/src/mock_feed.py",
         "device/python/workflow_engine/src/models.py",
+        "device/python/workflow_engine/src/node_support.py",
         "device/python/workflow_engine/src/nodes/__init__.py",
         "device/python/workflow_engine/src/nodes/audio_nodes.py",
         "device/python/workflow_engine/src/nodes/detection_nodes.py",
+        "device/python/workflow_engine/src/nodes/violation_nodes.py",
         "device/python/workflow_engine/src/payloads.py",
         "device/python/workflow_engine/src/registry.py",
         "device/python/workflow_engine/src/service.py",
@@ -520,9 +572,9 @@
         "device/python/workflow_engine/tests/test_engine.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.1"
+      "version": "0.1.2"
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-17T05:58:21Z"
+  "updatedAt": "2026-04-17T07:59:13Z"
 }
