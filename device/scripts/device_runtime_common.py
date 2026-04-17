@@ -372,6 +372,16 @@ def prepare_stage(
         dirs_exist_ok=True,
     )
 
+    # Stage device-side maintenance scripts and the package manifest they read
+    # from. These get copied into the runtime root (not /usr/local) so they
+    # travel with the deployment and can be re-read by operators over SSH.
+    tools_dir = stage_dir / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DEVICE_ROOT / "scripts" / "update_control_plane.py", tools_dir / "update_control_plane.py")
+    package_metadata_path = DEVICE_ROOT / "package-versions.json"
+    if package_metadata_path.exists():
+        shutil.copy2(package_metadata_path, tools_dir / "package-versions.json")
+
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
     edge_ui_artifact = artifact_paths.get("edge-ui")
     if edge_ui_artifact is not None:
@@ -682,6 +692,20 @@ def build_manifest(
         start_units = ["trakrai-cloud-comm.service", *dynamic_units]
         verify_units = ["trakrai-runtime-manager.service", *start_units]
 
+    tools = [
+        {
+            "source": "tools/update_control_plane.py",
+            "target": "scripts/update_control_plane.py",
+            "mode": "0755",
+        },
+        {
+            "source": "tools/package-versions.json",
+            "target": "state/package-versions.json",
+            "mode": "0644",
+            "optional": True,
+        },
+    ]
+
     return {
         "runtime_root": runtime_root,
         "runtime_user": options.runtime_user,
@@ -690,6 +714,7 @@ def build_manifest(
         "directories": directories,
         "configs": configs,
         "binaries": binaries,
+        "tools": tools,
         "ui_bundle": {
             "source": "ui/trakrai-device-ui.zip",
             "target_dir": "ui",

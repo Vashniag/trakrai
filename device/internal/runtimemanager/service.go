@@ -50,6 +50,15 @@ type processMetrics struct {
 	MemoryBytes *int64
 }
 
+// cpuSample tracks a prior reading of a PID's cumulative CPU jiffies.
+// We keep one entry per observed PID; when a service restarts it gets a new
+// PID and the old entry is never touched again (bounded by the number of
+// managed services, so no explicit eviction is required).
+type cpuSample struct {
+	cpuJiffies int64
+	sampledAt  time.Time
+}
+
 type Service struct {
 	cfg              *Config
 	ipcClient        *ipc.Client
@@ -71,6 +80,10 @@ type Service struct {
 	statusSnapshotBuildCh chan struct{}
 	systemMetrics         systemMetricsCollector
 	transferResponses     *ipc.ResponseRouter
+
+	cpuSamplesMu sync.Mutex
+	cpuSamples   map[int]cpuSample
+	clkTicks     int64
 
 	execCommand func(context.Context, string, ...string) ([]byte, error)
 	now         func() time.Time
@@ -95,12 +108,27 @@ func NewService(cfg *Config) (*Service, error) {
 		seededFromConfig:  seededFromConfig,
 		systemMetrics:     newHostMetricsCollector(cfg, time.Now),
 		transferResponses: ipc.NewResponseRouter(),
+		cpuSamples:        make(map[int]cpuSample),
+		clkTicks:          detectClkTicks(),
 		execCommand: func(ctx context.Context, command string, args ...string) ([]byte, error) {
 			cmd := exec.CommandContext(ctx, command, args...)
 			return cmd.CombinedOutput()
 		},
 		now: time.Now,
 	}, nil
+}
+
+// detectClkTicks resolves `sysconf(_SC_CLK_TCK)` by exec'ing getconf. On Linux
+// this value has been 100 for years — we use that as a fallback when getconf
+// is unavailable.
+func detectClkTicks() int64 {
+	out, err := exec.Command("getconf", "CLK_TCK").Output()
+	if err == nil {
+		if v, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64); err == nil && v > 0 {
+			return v
+		}
+	}
+	return 100
 }
 
 func (s *Service) Run(ctx context.Context) error {
@@ -1668,16 +1696,151 @@ func (s *Service) readSystemdState(ctx context.Context, unit string) (systemdSta
 	return parseSystemdShowOutput(output), nil
 }
 
+// readProcessMetrics returns a live sample of CPU%, resident memory, and
+// wall-clock elapsed time for the given PID.
+//
+// CPU% is computed as the delta of (utime+stime) against the prior observation
+// for that PID, divided by the wall-clock time between samples. That is an
+// instantaneous "% of one core" figure (so a saturated single thread reports
+// ~100, a saturated 4-thread process on 4 cores reports ~400). On the very
+// first observation of a PID the sample is seeded and CPUPercent is left nil;
+// the next status refresh will produce a real number.
+//
+// This replaces an older `ps -o %cpu=` path which returned `ps(1)`'s lifetime
+// average (total CPU time divided by wall time since the process started),
+// so a process that was busy earlier but is now idle kept reporting its
+// historical average long after real usage had fallen to zero.
 func (s *Service) readProcessMetrics(ctx context.Context, pid int) (processMetrics, error) {
-	commandCtx, cancel := context.WithTimeout(ctx, systemCommandTimeout)
-	defer cancel()
-
-	output, err := s.executeCommand(commandCtx, "ps", "-p", strconv.Itoa(pid), "-o", "%cpu=,rss=,etime=")
+	if pid <= 0 {
+		return processMetrics{}, fmt.Errorf("invalid pid %d", pid)
+	}
+	statBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
 	if err != nil {
-		return processMetrics{}, fmt.Errorf("read process metrics: %s", formatCommandError(err, output))
+		return processMetrics{}, fmt.Errorf("read /proc/%d/stat: %w", pid, err)
+	}
+	utime, stime, startTicks, err := parseProcStat(statBytes)
+	if err != nil {
+		return processMetrics{}, err
 	}
 
-	return parsePSOutput(output), nil
+	totalJiffies := utime + stime
+	now := s.now()
+	metrics := processMetrics{}
+
+	s.cpuSamplesMu.Lock()
+	prior, seen := s.cpuSamples[pid]
+	s.cpuSamples[pid] = cpuSample{cpuJiffies: totalJiffies, sampledAt: now}
+	s.cpuSamplesMu.Unlock()
+
+	if seen && s.clkTicks > 0 {
+		elapsed := now.Sub(prior.sampledAt).Seconds()
+		deltaJiffies := totalJiffies - prior.cpuJiffies
+		if elapsed > 0 && deltaJiffies >= 0 {
+			cpuSeconds := float64(deltaJiffies) / float64(s.clkTicks)
+			pct := (cpuSeconds / elapsed) * 100.0
+			if pct < 0 {
+				pct = 0
+			}
+			metrics.CPUPercent = &pct
+		}
+	}
+
+	if rssKB, err := readVmRSSKB(pid); err == nil {
+		memoryBytes := rssKB * 1024
+		metrics.MemoryBytes = &memoryBytes
+	}
+
+	if s.clkTicks > 0 {
+		if uptimeSec, err := readSystemUptime(); err == nil {
+			procSec := uptimeSec - float64(startTicks)/float64(s.clkTicks)
+			if procSec < 0 {
+				procSec = 0
+			}
+			metrics.Elapsed = formatElapsed(procSec)
+		}
+	}
+
+	return metrics, nil
+}
+
+// parseProcStat extracts utime, stime, and starttime from a /proc/<pid>/stat
+// buffer. The 2nd field (`comm`) is wrapped in parentheses and may contain
+// whitespace or close-parens of its own, so we locate the last ')' before
+// tokenizing.
+func parseProcStat(data []byte) (utime, stime, startTicks int64, err error) {
+	raw := string(data)
+	end := strings.LastIndex(raw, ")")
+	if end < 0 {
+		return 0, 0, 0, fmt.Errorf("malformed /proc/<pid>/stat: no closing paren")
+	}
+	fields := strings.Fields(raw[end+1:])
+	// After the closing paren of `comm`, the first field is `state` (index 3 in
+	// the upstream man page). utime=14, stime=15, starttime=22 ⇒ indices 11,
+	// 12, 19 in this slice.
+	if len(fields) < 20 {
+		return 0, 0, 0, fmt.Errorf("malformed /proc/<pid>/stat: only %d fields after comm", len(fields))
+	}
+	if utime, err = strconv.ParseInt(fields[11], 10, 64); err != nil {
+		return 0, 0, 0, fmt.Errorf("parse utime: %w", err)
+	}
+	if stime, err = strconv.ParseInt(fields[12], 10, 64); err != nil {
+		return 0, 0, 0, fmt.Errorf("parse stime: %w", err)
+	}
+	if startTicks, err = strconv.ParseInt(fields[19], 10, 64); err != nil {
+		return 0, 0, 0, fmt.Errorf("parse starttime: %w", err)
+	}
+	return utime, stime, startTicks, nil
+}
+
+func readVmRSSKB(pid int) (int64, error) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, "VmRSS:") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			return 0, fmt.Errorf("malformed VmRSS line: %q", line)
+		}
+		return strconv.ParseInt(parts[1], 10, 64)
+	}
+	return 0, fmt.Errorf("VmRSS not found in /proc/%d/status", pid)
+}
+
+func readSystemUptime() (float64, error) {
+	data, err := os.ReadFile("/proc/uptime")
+	if err != nil {
+		return 0, err
+	}
+	parts := strings.Fields(string(data))
+	if len(parts) < 1 {
+		return 0, fmt.Errorf("malformed /proc/uptime")
+	}
+	return strconv.ParseFloat(parts[0], 64)
+}
+
+// formatElapsed formats a duration in seconds using the same layout as `ps
+// -o etime`: MM:SS, HH:MM:SS, or D-HH:MM:SS depending on magnitude.
+func formatElapsed(seconds float64) string {
+	total := int64(seconds)
+	if total < 0 {
+		total = 0
+	}
+	days := total / 86400
+	hours := (total % 86400) / 3600
+	minutes := (total % 3600) / 60
+	secs := total % 60
+	switch {
+	case days > 0:
+		return fmt.Sprintf("%d-%02d:%02d:%02d", days, hours, minutes, secs)
+	case hours > 0:
+		return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
+	default:
+		return fmt.Sprintf("%02d:%02d", minutes, secs)
+	}
 }
 
 func (s *Service) runSystemctl(ctx context.Context, action string, unit string) (string, error) {
@@ -1863,25 +2026,6 @@ func parseSystemdShowOutput(output string) systemdState {
 		}
 	}
 	return state
-}
-
-func parsePSOutput(output string) processMetrics {
-	fields := strings.Fields(output)
-	metrics := processMetrics{}
-	if len(fields) < 3 {
-		return metrics
-	}
-
-	if cpuPercent, err := strconv.ParseFloat(fields[0], 64); err == nil {
-		metrics.CPUPercent = &cpuPercent
-	}
-	if rssKB, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
-		memoryBytes := rssKB * 1024
-		metrics.MemoryBytes = &memoryBytes
-	}
-	metrics.Elapsed = fields[2]
-
-	return metrics
 }
 
 func substituteCommandArgs(command []string, serviceConfig ManagedServiceConfig, artifactPath string) []string {

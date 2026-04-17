@@ -21,6 +21,7 @@ Out of scope:
 - `local_device_runtime.py`
 - `deploy_device_runtime.py`
 - `bootstrap_device_runtime.py`
+- `update_control_plane.py` (runs on the target device, not the controller)
 
 ## One-Sentence Model
 
@@ -418,3 +419,29 @@ The bring-up pipeline is intentionally split into:
 - one installer
 
 That keeps local emulation and real deployment aligned. If the staged payload is correct and `bootstrap_device_runtime.py` works, both bring-up paths should converge on the same runtime layout and managed-service behavior.
+
+## Updating runtime-manager and cloud-comm in place
+
+`runtime-manager` and `cloud-comm` together are the control plane for every other service on the device. They cannot update themselves through the managed-service update path the other services use, because that path is driven by `runtime-manager` itself and would be pulling the rug out from under the running process.
+
+`update_control_plane.py` is the escape hatch for that class of update. It runs on the device (as root), reads the device's own `cloud-transfer.json` to authenticate against the cloud package API, downloads a published binary, verifies its SHA-256, installs it into `<runtime-root>/bin/<package>`, writes `<runtime-root>/versions/<package>.txt`, and restarts the associated systemd unit. It is stdlib-only so it runs on a bare Jetson image with no repo checkout.
+
+`bootstrap_device_runtime.py` stages it during every deploy via the manifest's `tools` section:
+
+- `<runtime-root>/scripts/update_control_plane.py` — the script itself (`0755`).
+- `<runtime-root>/state/package-versions.json` — a snapshot of `device/package-versions.json` taken at deploy time, which the script reads to resolve the target version, `remotePath`, and expected SHA-256. Marked optional so a first-time deploy before any release publish does not fail.
+
+Typical on-device usage once a new build has been published by CI:
+
+```
+sudo python3 /home/hacklab/trakrai-device-runtime/scripts/update_control_plane.py
+# or scope to one package
+sudo python3 /home/hacklab/trakrai-device-runtime/scripts/update_control_plane.py --packages runtime-manager
+# or pull a fresh manifest (e.g. committed by the Publish Device Packages workflow)
+sudo python3 /home/hacklab/trakrai-device-runtime/scripts/update_control_plane.py \
+    --metadata-url https://ai.trakr.live/device-packages/package-versions.json
+```
+
+By default the script updates both `runtime-manager` and `cloud-comm` on `linux/arm64`. `--dry-run` prints the plan without downloading; `--skip-restart` installs binaries without touching systemd; `--metadata-path` and `--metadata-url` override where the script looks for release metadata.
+
+The script does **not** touch configs, service unit files, wheels, the UI bundle, or any other managed service. For changes to those, use `deploy_device_runtime.py` from the controller as before.

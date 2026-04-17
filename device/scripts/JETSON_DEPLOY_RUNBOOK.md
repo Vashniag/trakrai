@@ -165,7 +165,44 @@ On the device, logs live under `/home/hacklab/trakrai-device-runtime/logs/*.log`
 4. **PTZ verify race.** On cold boot ONVIF peers can take >10 s to answer; early versions of `verify_units` failed the deploy because ptz-control was still `activating`. The installer now re-probes for up to 20 s before declaring failure.
 5. **Stale cloud bridge URL.** The `--cloud-bridge-url` default used to be a hard-coded VPN host. It is now empty; when empty, the edge UI keeps whatever `cloud_bridge_url` already exists on the device or falls back to `ws://<host>:<http-port>/ws`. Pass the flag only when you genuinely want to change it.
 
-## 9. Roll back
+## 9. Updating the control plane (runtime-manager / cloud-comm) without a full deploy
+
+`runtime-manager` and `cloud-comm` cannot be rolled forward by the managed-service update path the other services use — they *are* that path. `update_control_plane.py` is staged by `bootstrap_device_runtime.py` into `<runtime-root>/scripts/` exactly to cover this case.
+
+After CI's `Publish Device Packages` workflow finishes (it commits an updated `device/package-versions.json` to `main` with `[skip ci]`), update the device with:
+
+```bash
+# on the device, as root
+sudo python3 /home/hacklab/trakrai-device-runtime/scripts/update_control_plane.py
+```
+
+Default behavior: updates both `runtime-manager` and `cloud-comm` for `linux/arm64`, using the `package-versions.json` that was staged alongside the script by the last `deploy_device_runtime.py` run.
+
+To pull a fresher manifest than the one staged last deploy, either:
+
+- `git pull` this repo on the controller, rerun `deploy_device_runtime.py --config-dir … --start-mode core --keep-stage` (fast, only ~30 s since only the staged scripts/metadata change), then run the update script; or
+- copy the up-to-date `device/package-versions.json` onto the device and use `--metadata-path`:
+
+```bash
+# from the controller
+scp device/package-versions.json hacklab@10.8.0.50:/tmp/package-versions.json
+ssh hacklab@10.8.0.50 \
+  sudo python3 /home/hacklab/trakrai-device-runtime/scripts/update_control_plane.py \
+    --metadata-path /tmp/package-versions.json
+```
+
+Useful flags:
+
+- `--packages runtime-manager` — scope the update to just one.
+- `--dry-run` — print the plan (file name, SHA-256 prefix) without touching anything.
+- `--skip-restart` — swap the binary only; don't bounce the unit.
+- `--platform linux/amd64` — override the artifact platform (default is `linux/arm64`).
+
+The script refuses to run without root. It reads `cloud_api.base_url`, `cloud_api.access_token`, `device_id`, and `cloud_api.package_download_presign_path` from `<runtime-root>/configs/cloud-transfer.json`; any of those can be overridden with the matching CLI flag.
+
+Version-file bookkeeping: after a successful swap the script writes `<runtime-root>/versions/<package>.txt` containing the artifact file name, so subsequent `systemctl status trakrai-runtime-manager` and the runtime-config dashboard reflect the new build.
+
+## 10. Roll back
 
 Because step 2 preserves the legacy units and scripts, a full rollback looks like:
 

@@ -52,6 +52,7 @@ def main() -> int:
 
     install_configs(stage_dir, runtime_root, manifest.get("configs", []), uid, gid)
     install_binaries(stage_dir, runtime_root, manifest.get("binaries", []), uid, gid)
+    install_tools(stage_dir, runtime_root, manifest.get("tools", []), uid, gid)
     install_ui_bundle(stage_dir, runtime_root, manifest.get("ui_bundle"))
     install_python_packages(stage_dir, runtime_root, manifest.get("python_packages", []), uid, gid)
     install_python_path_entries(manifest.get("python_path_entries", []))
@@ -133,6 +134,26 @@ def install_binaries(stage_dir: Path, runtime_root: Path, binaries: list[dict[st
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         target.chmod(int(item.get("mode", "0755"), 8))
+        os.chown(target, uid, gid)
+
+
+def install_tools(stage_dir: Path, runtime_root: Path, tools: list[dict[str, Any]], uid: int, gid: int) -> None:
+    """Install auxiliary device-side scripts and files (e.g. update_control_plane.py).
+
+    Items may set "optional": true to be skipped without error when the source
+    is missing (useful for e.g. package-versions.json before the first release
+    publish has happened).
+    """
+    for item in tools:
+        source = stage_dir / item["source"]
+        if not source.exists():
+            if item.get("optional", False):
+                continue
+            raise SystemExit(f"missing tool source: {source}")
+        target = runtime_root / item["target"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        target.chmod(int(item.get("mode", "0644"), 8))
         os.chown(target, uid, gid)
 
 
