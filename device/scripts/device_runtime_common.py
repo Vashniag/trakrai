@@ -15,7 +15,10 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = REPO_ROOT / "web"
 DEVICE_ROOT = REPO_ROOT / "device"
+DEVICE_PYTHON_ROOT = DEVICE_ROOT / "python"
 WEB_DEVICE_APP_ROOT = WEB_ROOT / "apps" / "trakrai-device"
+SHARED_PYTHON_PACKAGE_NAME = "trakrai_service_runtime"
+SHARED_PYTHON_PACKAGE_SOURCE_DIR = DEVICE_PYTHON_ROOT / SHARED_PYTHON_PACKAGE_NAME / "src" / SHARED_PYTHON_PACKAGE_NAME
 DEFAULT_AI_INFERENCE_VERSION = os.environ.get("AI_INFERENCE_VERSION", "0.1.0")
 DEFAULT_AUDIO_MANAGER_VERSION = os.environ.get("AUDIO_MANAGER_VERSION", "0.1.0")
 DEFAULT_WORKFLOW_ENGINE_VERSION = os.environ.get("WORKFLOW_ENGINE_VERSION", "0.1.0")
@@ -314,10 +317,12 @@ def prepare_stage(
 ) -> dict[str, Path]:
     binaries_dir = stage_dir / "binaries"
     configs_dir = stage_dir / "configs"
+    python_dir = stage_dir / "python"
     ui_dir = stage_dir / "ui"
     wheels_dir = stage_dir / "wheels"
     binaries_dir.mkdir(parents=True, exist_ok=True)
     configs_dir.mkdir(parents=True, exist_ok=True)
+    python_dir.mkdir(parents=True, exist_ok=True)
     ui_dir.mkdir(parents=True, exist_ok=True)
     wheels_dir.mkdir(parents=True, exist_ok=True)
 
@@ -348,6 +353,12 @@ def prepare_stage(
                 shutil.copy2(dependency_wheel, wheels_dir / dependency_wheel.name)
                 dependency_names.append(dependency_wheel.name)
         wheel_dependency_names[target.config_name] = dependency_names
+
+    shutil.copytree(
+        SHARED_PYTHON_PACKAGE_SOURCE_DIR,
+        python_dir / SHARED_PYTHON_PACKAGE_NAME,
+        dirs_exist_ok=True,
+    )
 
     ui_zip_path = ui_dir / "trakrai-device-ui.zip"
     create_ui_zip(WEB_DEVICE_APP_ROOT / "out", ui_zip_path)
@@ -575,7 +586,7 @@ def build_manifest(
     wheel_dependency_names: dict[str, list[str]],
 ) -> dict[str, Any]:
     runtime_root = options.runtime_root
-    directories = ["bin", "configs", "downloads", "logs", "scripts", "shared", "state", "ui", "versions"]
+    directories = ["bin", "configs", "downloads", "logs", "python", "scripts", "shared", "state", "ui", "versions"]
     stop_units = [
         "trakrai-runtime-manager.service",
         "trakrai-cloud-comm.service",
@@ -591,6 +602,12 @@ def build_manifest(
         {"source": "binaries/runtime-manager", "target": "bin/runtime-manager", "mode": "0755"},
     ]
     wheels: list[dict[str, Any]] = []
+    python_packages = [
+        {
+            "source": f"python/{SHARED_PYTHON_PACKAGE_NAME}",
+            "target_dir": f"python/{SHARED_PYTHON_PACKAGE_NAME}",
+        }
+    ]
     dynamic_units: list[str] = []
 
     for service_name in ["cloud-transfer", "live-feed", "ptz-control", "roi-config", "rtsp-feeder"]:
@@ -654,6 +671,8 @@ def build_manifest(
             "source": "ui/trakrai-device-ui.zip",
             "target_dir": "ui",
         },
+        "python_packages": python_packages,
+        "python_path_entries": [f"{runtime_root}/python"],
         "wheels": wheels,
         "runtime_manager": {
             "binary_path": "bin/runtime-manager",
@@ -678,6 +697,7 @@ def build_manifest(
             "audio-manager",
             "ai_inference",
             "workflow-engine",
+            "python",
             "configs",
             "state",
             *CONFIG_NAMES,
@@ -741,6 +761,7 @@ def build_wheel_service(target: PythonWheelTarget, options: StageOptions) -> dic
         "group": options.runtime_group,
         "environment": {
             "HOME": f"/home/{options.runtime_user}",
+            "PYTHONPATH": f"{runtime_root}/python",
             "PYTHONUNBUFFERED": "1",
         },
         "working_directory": runtime_root,

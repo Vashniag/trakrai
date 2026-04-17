@@ -17,10 +17,9 @@ class ServiceResponse:
     payload: dict[str, Any]
 
 
-class WorkflowServiceBridge:
-    def __init__(self, ipc: IPCClient, logger: Any) -> None:
+class ServiceRequestBridge:
+    def __init__(self, ipc: IPCClient) -> None:
         self._ipc = ipc
-        self._logger = logger
         self._pending: dict[str, "queue.Queue[ServiceResponse]"] = {}
         self._lock = threading.Lock()
 
@@ -61,7 +60,7 @@ class WorkflowServiceBridge:
         waiter: "queue.Queue[ServiceResponse]" = queue.Queue()
         with self._lock:
             if request_id in self._pending:
-                raise RuntimeError(f"duplicate workflow service request id: {request_id}")
+                raise RuntimeError(f"duplicate service request id: {request_id}")
             self._pending[request_id] = waiter
 
         try:

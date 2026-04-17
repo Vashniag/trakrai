@@ -6,6 +6,7 @@ import json
 import os
 import pwd
 import grp
+import site
 import shutil
 import stat
 import subprocess
@@ -52,6 +53,8 @@ def main() -> int:
     install_configs(stage_dir, runtime_root, manifest.get("configs", []), uid, gid)
     install_binaries(stage_dir, runtime_root, manifest.get("binaries", []), uid, gid)
     install_ui_bundle(stage_dir, runtime_root, manifest.get("ui_bundle"))
+    install_python_packages(stage_dir, runtime_root, manifest.get("python_packages", []), uid, gid)
+    install_python_path_entries(manifest.get("python_path_entries", []))
     install_python_wheels(stage_dir, runtime_root, manifest.get("wheels", []), uid, gid)
 
     runtime_manager = manifest["runtime_manager"]
@@ -145,6 +148,39 @@ def install_ui_bundle(stage_dir: Path, runtime_root: Path, bundle: dict[str, Any
 
     with zipfile.ZipFile(source) as archive:
         archive.extractall(target_dir)
+
+
+def install_python_packages(
+    stage_dir: Path,
+    runtime_root: Path,
+    packages: list[dict[str, Any]],
+    uid: int,
+    gid: int,
+) -> None:
+    for item in packages:
+        source = stage_dir / item["source"]
+        target_dir = runtime_root / item["target_dir"]
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, target_dir)
+        chown_recursive(target_dir, uid, gid)
+
+
+def install_python_path_entries(entries: list[str]) -> None:
+    normalized_entries = [str(Path(entry).resolve()) for entry in entries if str(entry).strip()]
+    if not normalized_entries:
+        return
+
+    site_dirs = []
+    for raw_path in site.getsitepackages():
+        path = Path(raw_path).resolve()
+        if path not in site_dirs:
+            site_dirs.append(path)
+    for site_dir in site_dirs:
+        site_dir.mkdir(parents=True, exist_ok=True)
+        pth_path = site_dir / "trakrai-device-runtime.pth"
+        pth_path.write_text("\n".join(normalized_entries) + "\n", encoding="utf-8")
 
 
 def install_python_wheels(

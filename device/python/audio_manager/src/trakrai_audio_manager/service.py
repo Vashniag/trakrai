@@ -7,8 +7,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from trakrai_service_runtime import IPCClient
+
 from .config import ServiceConfig
-from .ipc import IPCClient
 from .models import AudioJob, parse_audio_request, utc_timestamp
 from .playback import PlaybackManager
 from .speaker import SpeakerClient

@@ -1,36 +1,21 @@
 from __future__ import annotations
 
-import argparse
-import logging
-
+from trakrai_service_runtime import run_service_main
 from ._version import __version__
 from .config import load_config
 from .service import AudioService
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="TrakrAI audio manager service")
-    parser.add_argument("-config", "--config", default="config.json", help="path to the JSON config file")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    args = parser.parse_args(argv)
-
-    config = load_config(args.config)
-    logging.basicConfig(
-        level=_resolve_level(config.log_level),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    return run_service_main(
+        argv,
+        description="TrakrAI audio manager service",
+        version=__version__,
+        logger_name="audio-manager",
+        load_config=load_config,
+        build_service=AudioService,
     )
-    logger = logging.getLogger("audio-manager")
-    logger.info("Starting audio-manager %s", __version__)
-
-    service = AudioService(config, logger)
-    try:
-        service.run_forever()
-    except KeyboardInterrupt:
-        logger.info("Stopping audio-manager")
-        return 0
-
-    return 0
 
 
-def _resolve_level(raw_level: str) -> int:
-    return getattr(logging, raw_level.upper(), logging.INFO)
+if __name__ == "__main__":
+    raise SystemExit(main())

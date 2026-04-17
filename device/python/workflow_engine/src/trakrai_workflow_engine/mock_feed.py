@@ -8,8 +8,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from trakrai_service_runtime import IPCClient
+
 from .config import load_config
-from .ipc import IPCClient
 from .service import SERVICE_NAME, WORKFLOW_ENGINE_ERROR_TYPE, WORKFLOW_ENGINE_RESULT_TYPE
 
 

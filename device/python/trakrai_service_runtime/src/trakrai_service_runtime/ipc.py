@@ -8,7 +8,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .exceptions import IPCError
+
+class IPCError(RuntimeError):
+    pass
 
 
 class IPCClient:

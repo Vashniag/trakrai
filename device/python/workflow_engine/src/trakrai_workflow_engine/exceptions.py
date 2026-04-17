@@ -31,7 +31,3 @@ class CyclicDependencyError(WorkflowError):
         suffix = f" involving nodes: {', '.join(nodes)}" if nodes else ""
         super().__init__("Workflow graph contains a cyclic dependency" + suffix)
         self.involved_nodes = nodes
-
-
-class IPCError(WorkflowError):
-    """Raised when IPC transport calls fail."""

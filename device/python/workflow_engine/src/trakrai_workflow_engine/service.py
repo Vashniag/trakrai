@@ -11,11 +11,11 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from trakrai_service_runtime import IPCClient, ServiceRequestBridge
+
 from .config import ServiceConfig
 from .engine import WorkflowEngine, WorkflowExecutionResult
-from .ipc import IPCClient
 from .payloads import NormalizedDetectionRequest, normalize_detection_request
-from .service_bridge import WorkflowServiceBridge
 from . import nodes  # noqa: F401
 
 SERVICE_NAME = "workflow-engine"
@@ -38,7 +38,7 @@ class WorkflowService:
         self._config = config
         self._logger = logger
         self._ipc = IPCClient(config.ipc.socket_path, SERVICE_NAME, logger)
-        self._service_bridge = WorkflowServiceBridge(self._ipc, logger)
+        self._service_bridge = ServiceRequestBridge(self._ipc)
         self._queue: "queue.Queue[QueuedDetection]" = queue.Queue(maxsize=config.queue.max_pending)
         self._results = deque(maxlen=config.workflow.result_history_size)
         self._stop_event = threading.Event()
