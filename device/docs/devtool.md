@@ -12,6 +12,10 @@ For the exhaustive command reference, tested flows, request-file shapes, and com
 
 - `device/docs/devtool-instructions.md`
 
+For the detailed human developer guide for adding JSONSchema-backed service methods, regenerating bindings, wiring provider/caller code, and verifying the flow, use:
+
+- `device/docs/service-method-contracts-guide.md`
+
 ## Main command groups
 
 ```bash
