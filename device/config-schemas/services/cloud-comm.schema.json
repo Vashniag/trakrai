@@ -119,6 +119,11 @@
             }
           ]
         },
+        "rate_limit": {
+          "max_command_messages": 40,
+          "max_messages": 120,
+          "window_sec": 5
+        },
         "ui": {
           "enabled": true,
           "static_dir": "/home/hacklab/trakrai-device-runtime/ui",
@@ -199,6 +204,35 @@
           "additionalProperties": false,
           "title": "Ui"
         },
+        "rate_limit": {
+          "type": "object",
+          "default": {
+            "max_command_messages": 40,
+            "max_messages": 120,
+            "window_sec": 5
+          },
+          "properties": {
+            "max_command_messages": {
+              "type": "integer",
+              "default": 40
+            },
+            "max_messages": {
+              "type": "integer",
+              "default": 120
+            },
+            "window_sec": {
+              "type": "integer",
+              "default": 5
+            }
+          },
+          "required": [
+            "max_command_messages",
+            "max_messages",
+            "window_sec"
+          ],
+          "additionalProperties": false,
+          "title": "RateLimit"
+        },
         "webrtc": {
           "type": "object",
           "default": {
@@ -274,6 +308,7 @@
         "enabled",
         "listen_addr",
         "path",
+        "rate_limit",
         "ui",
         "webrtc"
       ],

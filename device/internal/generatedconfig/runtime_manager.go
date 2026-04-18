@@ -38,6 +38,7 @@ type RuntimeManagerConfigRuntime struct {
 }
 
 type RuntimeManagerConfigServicesItem struct {
+	After []string `json:"after"`
 	AllowControl bool `json:"allow_control"`
 	AllowUpdate bool `json:"allow_update"`
 	Core bool `json:"core"`
@@ -45,13 +46,24 @@ type RuntimeManagerConfigServicesItem struct {
 	DisplayName string `json:"display_name"`
 	Enabled bool `json:"enabled"`
 	Environment map[string]string `json:"environment"`
+	EnvironmentFiles []string `json:"environment_files"`
 	ExecStart []string `json:"exec_start"`
+	Group string `json:"group"`
 	InstallPath string `json:"install_path"`
 	Kind string `json:"kind"`
+	LogPath string `json:"log_path"`
 	Name string `json:"name"`
+	Requires []string `json:"requires"`
+	Restart string `json:"restart"`
+	RestartSec int `json:"restart_sec"`
+	ScriptPath string `json:"script_path"`
 	SetupCommand []string `json:"setup_command"`
 	SystemdUnit string `json:"systemd_unit"`
+	User string `json:"user"`
 	VersionCommand []string `json:"version_command"`
+	VersionFile string `json:"version_file"`
+	WantedBy string `json:"wanted_by"`
+	WorkingDirectory string `json:"working_directory"`
 }
 
 type RuntimeManagerConfigSystemd struct {

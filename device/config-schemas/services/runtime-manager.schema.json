@@ -726,6 +726,11 @@
           "systemd_unit": "trakrai-cloud-comm.service"
         },
         "properties": {
+          "after": {
+            "type": "array",
+            "default": [],
+            "items": { "type": "string" }
+          },
           "allow_control": {
             "type": "boolean",
             "default": true
@@ -760,6 +765,11 @@
               "type": "string"
             }
           },
+          "environment_files": {
+            "type": "array",
+            "default": [],
+            "items": { "type": "string" }
+          },
           "exec_start": {
             "type": "array",
             "default": [
@@ -772,6 +782,10 @@
               "default": "{{install_path}}"
             }
           },
+          "group": {
+            "type": "string",
+            "default": ""
+          },
           "install_path": {
             "type": "string",
             "default": "/home/hacklab/trakrai-device-runtime/bin/cloud-comm"
@@ -780,9 +794,30 @@
             "type": "string",
             "default": "binary"
           },
+          "log_path": {
+            "type": "string",
+            "default": ""
+          },
           "name": {
             "type": "string",
             "default": "cloud-comm"
+          },
+          "requires": {
+            "type": "array",
+            "default": [],
+            "items": { "type": "string" }
+          },
+          "restart": {
+            "type": "string",
+            "default": "on-failure"
+          },
+          "restart_sec": {
+            "type": "integer",
+            "default": 5
+          },
+          "script_path": {
+            "type": "string",
+            "default": ""
           },
           "setup_command": {
             "type": "array",
@@ -804,6 +839,10 @@
             "type": "string",
             "default": "trakrai-cloud-comm.service"
           },
+          "user": {
+            "type": "string",
+            "default": "hacklab"
+          },
           "version_command": {
             "type": "array",
             "default": [
@@ -814,6 +853,18 @@
               "type": "string",
               "default": "{{install_path}}"
             }
+          },
+          "version_file": {
+            "type": "string",
+            "default": ""
+          },
+          "wanted_by": {
+            "type": "string",
+            "default": "multi-user.target"
+          },
+          "working_directory": {
+            "type": "string",
+            "default": ""
           }
         },
         "required": [
