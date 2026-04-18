@@ -586,10 +586,10 @@
     "runtime-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "runtime-manager-linux-arm64-v0.1.5",
-          "remotePath": "runtime-manager/0.1.5/linux-arm64/runtime-manager-linux-arm64-v0.1.5",
-          "sha256": "f1fea3873b1470de173f7222bd563cfd4164edf93601f40fe52fdc7154a6cd18",
-          "updatedAt": "2026-04-18T04:46:51Z"
+          "fileName": "runtime-manager-linux-arm64-v0.1.6",
+          "remotePath": "runtime-manager/0.1.6/linux-arm64/runtime-manager-linux-arm64-v0.1.6",
+          "sha256": "ba5d8539c49dc472aa838ac3074c11f306a3afe9af4cf23f09d1fa289953ce27",
+          "updatedAt": "2026-04-18T06:49:47Z"
         }
       },
       "buildTarget": "go-binary",
@@ -609,11 +609,19 @@
           "sha256": "f1fea3873b1470de173f7222bd563cfd4164edf93601f40fe52fdc7154a6cd18",
           "updatedAt": "2026-04-18T04:46:51Z",
           "version": "0.1.5"
+        },
+        {
+          "fileName": "runtime-manager-linux-arm64-v0.1.6",
+          "platform": "linux/arm64",
+          "remotePath": "runtime-manager/0.1.6/linux-arm64/runtime-manager-linux-arm64-v0.1.6",
+          "sha256": "ba5d8539c49dc472aa838ac3074c11f306a3afe9af4cf23f09d1fa289953ce27",
+          "updatedAt": "2026-04-18T06:49:47Z",
+          "version": "0.1.6"
         }
       ],
       "kind": "go-binary",
       "serviceName": "runtime-manager",
-      "sourceHash": "sha256:77b36c5f56a2288b2ecb843c0f1203ac989c567a4d9fb9c54f5eba8ab58e92e5",
+      "sourceHash": "sha256:97b00439c2670a5a71b719302ec5c58c2f9f651b9acc63066f0869f42c3af653",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/runtime-manager/main.go",
@@ -647,7 +655,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "trakrai-ai-inference": {
       "artifacts": {
@@ -916,5 +924,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T04:46:51Z"
+  "updatedAt": "2026-04-18T06:49:47Z"
 }
