@@ -1,0 +1,18 @@
+%%{init: {'flowchart':{'curve':'basis','nodeSpacing':32,'rankSpacing':60},'theme':'base','themeVariables':{'fontSize':'14px','fontFamily':'Arial'}}}%%
+%% cloud-transfer queued upload/download lifecycle.
+flowchart TB
+  Producer["On-device producer<br/>(recorder, roi, other service)"] -->|IPC enqueue| Queue["cloud-transfer queue"]
+  Queue --> Pick["Pick next job"]
+  Pick --> Presign["Request presigned URL<br/>from Cloud API"]
+  Presign -->|ok| PutGet["HTTPS PUT / GET<br/>to object store (S3/MinIO)"]
+  Presign -->|error / retry| Backoff["Backoff + retry"]
+  Backoff --> Pick
+  PutGet -->|success| Done["Mark complete<br/>report status via IPC"]
+  PutGet -->|fail| Backoff
+  Done --> Notify["Publish status →<br/>MQTT …/service/cloud-transfer/status"]
+  Notify --> CloudUI["Cloud UI transfers page"]
+
+  classDef dev fill:#EEF9F1,stroke:#2E7D32,color:#123D17;
+  classDef cloud fill:#F4EEFF,stroke:#6A42C2,color:#2D1A57;
+  class Producer,Queue,Pick,Presign,PutGet,Backoff,Done,Notify dev;
+  class CloudUI cloud;

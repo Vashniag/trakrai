@@ -1,0 +1,20 @@
+%%{init: {'theme':'base','themeVariables':{'fontSize':'14px','fontFamily':'Arial'}}}%%
+%% live-feed session state machine.
+stateDiagram-v2
+  [*] --> idle
+  idle --> starting: start-live<br/>(new sessionId)
+  starting --> negotiating: SDP offer sent
+  negotiating --> streaming: answer + ICE,<br/>DTLS connected
+  negotiating --> idle: timeout / error
+  streaming --> streaming: stats + keepalive
+  streaming --> disconnected: transport drop
+  disconnected --> streaming: recovered within<br/>grace window
+  disconnected --> stopped: grace expired
+  streaming --> stopped: stop-live
+  stopped --> idle: teardown done
+  stopped --> [*]
+
+  note right of negotiating
+    Stale answers/ICE for
+    old sessionId are ignored.
+  end note

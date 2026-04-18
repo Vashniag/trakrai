@@ -1,0 +1,26 @@
+%%{init: {'flowchart':{'curve':'basis','nodeSpacing':32,'rankSpacing':60},'theme':'base','themeVariables':{'fontSize':'14px','fontFamily':'Arial'}}}%%
+%% MQTT topic shape and how envelopes reach the right device service.
+flowchart LR
+  subgraph Topics["MQTT Topic Tree"]
+    direction TB
+    Root["trakrai/device/&lt;deviceId&gt;"]
+    Legacy["…/command<br/>…/webrtc/answer<br/>…/webrtc/ice<br/>(legacy live topics)"]
+    Generic["…/service/&lt;service&gt;/command<br/>…/service/&lt;service&gt;/response<br/>…/service/&lt;service&gt;/status"]
+    Heartbeat["…/heartbeat<br/>…/status"]
+    Root --> Legacy
+    Root --> Generic
+    Root --> Heartbeat
+  end
+
+  Cloud["Cloud publisher<br/>(live-gateway, future gateways)"] --> Broker["Mosquitto"]
+  Broker --> CC["cloud-comm<br/>topic router"]
+  CC -->|match service name| Target["Registered service<br/>(via IPC)"]
+  CC -->|no match| Err["publish service-unavailable<br/>on response topic"]
+  Target -->|ack / response / status| CC
+  CC -->|publish| Broker
+  Broker --> Cloud
+
+  classDef topic fill:#FFF5E6,stroke:#B26A00,color:#5B3200;
+  classDef node fill:#EEF9F1,stroke:#2E7D32,color:#123D17;
+  class Root,Legacy,Generic,Heartbeat topic;
+  class Cloud,Broker,CC,Target,Err node;

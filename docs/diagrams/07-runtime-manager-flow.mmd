@@ -1,0 +1,19 @@
+%%{init: {'flowchart':{'curve':'basis','nodeSpacing':32,'rankSpacing':60},'theme':'base','themeVariables':{'fontSize':'14px','fontFamily':'Arial'}}}%%
+%% runtime-manager: how a service is started/stopped from the cloud.
+flowchart LR
+  Op["Operator<br/>(Cloud UI /runtime)"] -->|start/stop/status| GW["live-gateway<br/>(or runtime-manager gateway)"]
+  GW -->|MQTT command| B["Mosquitto"]
+  B --> CC["cloud-comm"]
+  CC -->|IPC| RM["runtime-manager"]
+  RM -->|systemctl start / stop| SD["systemd unit"]
+  SD --> Svc["Target service<br/>(e.g. live-feed)"]
+  Svc -->|exit / active state| SD
+  RM -->|collect status| CC
+  CC -->|MQTT status| B
+  B --> GW
+  GW --> Op
+
+  classDef cloud fill:#F4EEFF,stroke:#6A42C2,color:#2D1A57;
+  classDef device fill:#EEF9F1,stroke:#2E7D32,color:#123D17;
+  class Op,GW,B cloud;
+  class CC,RM,SD,Svc device;
