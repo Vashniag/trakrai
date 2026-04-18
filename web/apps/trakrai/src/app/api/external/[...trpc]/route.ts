@@ -1,8 +1,8 @@
+import { appRouter } from '@trakrai/backend/server/routers';
 import { createOpenApiFetchHandler } from 'trpc-to-openapi';
 
 import { applyCorsHeaders, createCorsPreflightResponse } from '@/lib/cors';
 import { setCookieHeader } from '@/lib/set-cookie-header';
-import { appRouter } from '@/server/routers';
 import { createTRPCContextNext } from '@/server/trpc';
 
 const handler = async (req: Request) =>

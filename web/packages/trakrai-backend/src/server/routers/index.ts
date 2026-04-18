@@ -1,14 +1,15 @@
-import { devicesRouter } from '@/server/routers/devices';
-import { packageArtifactsRouter } from '@/server/routers/package-artifacts';
-import { createCallerFactory, createTRPCRouter, publicProcedure } from '@/server/trpc';
+import { devicesRouter } from './devices';
+import { packageArtifactsRouter } from './package-artifacts';
 
 import type { inferRouterOutputs } from '@trpc/server';
 
+import { createCallerFactory, createTRPCRouter, publicProcedure } from '../trpc';
+
 export const appRouter = createTRPCRouter({
-  devices: devicesRouter,
   health: publicProcedure.query(() => {
     return { status: 'ok' as const, timestamp: new Date() };
   }),
+  devices: devicesRouter,
   packageArtifacts: packageArtifactsRouter,
 });
 

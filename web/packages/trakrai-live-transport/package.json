@@ -19,6 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.99.0",
     "@trakrai/design-system": "workspace:*"
   },
   "peerDependencies": {
@@ -32,9 +33,9 @@
     "@types/react-dom": "^19.2.3",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "eslint": "^10.2.0",
+    "eslint": "^10.2.1",
     "tailwindcss": "^4.2.2",
-    "tsdown": "^0.21.7",
+    "tsdown": "^0.21.9",
     "typescript": "^6"
   },
   "exports": {

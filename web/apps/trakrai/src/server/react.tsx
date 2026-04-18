@@ -16,8 +16,9 @@ import {
 import { createTRPCReact, type CreateTRPCReact } from '@trpc/react-query';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 
-import { type AppRouter } from '@/server/routers';
 import { createQueryClient, links } from '@/server/utils';
+
+import type { AppRouter } from '@trakrai/backend/server/routers';
 
 const { useTRPC, TRPCProvider } = createTRPCContext<AppRouter>();
 

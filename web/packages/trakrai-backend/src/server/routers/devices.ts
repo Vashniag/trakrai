@@ -1,17 +1,26 @@
+import { randomBytes, randomUUID } from 'node:crypto';
+
 import { TRPCError } from '@trpc/server';
+import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { createDevice, deleteDevice, listDevices, updateDevice } from '@/server/devices';
-import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
+import { device } from '../../db/schema';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
 
 const MAX_DESCRIPTION_LENGTH = 500;
 const MAX_NAME_LENGTH = 255;
 const MAX_DEVICE_ID_LENGTH = 255;
+const DEVICE_ACCESS_TOKEN_BYTES = 24;
+const DEVICE_NOT_FOUND_MESSAGE = 'Device not found.';
+const DEVICE_RECORD_ID_MESSAGE = 'Device record ID must be a UUID';
 
 const normalizeOptionalString = (value: string): string | null => {
   const normalized = value.trim();
   return normalized === '' ? null : normalized;
 };
+
+const createDeviceAccessToken = (): string =>
+  `trd_${randomBytes(DEVICE_ACCESS_TOKEN_BYTES).toString('hex')}`;
 
 const createDeviceInputSchema = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).default(''),
@@ -29,7 +38,7 @@ const createDeviceInputSchema = z.object({
 
 const updateDeviceInputSchema = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).default(''),
-  id: z.string().uuid('Device record ID must be a UUID'),
+  id: z.string().uuid(DEVICE_RECORD_ID_MESSAGE),
   isActive: z.boolean(),
   name: z
     .string()
@@ -39,7 +48,11 @@ const updateDeviceInputSchema = z.object({
 });
 
 const deleteDeviceInputSchema = z.object({
-  id: z.string().uuid('Device record ID must be a UUID'),
+  id: z.string().uuid(DEVICE_RECORD_ID_MESSAGE),
+});
+
+const getDeviceInputSchema = z.object({
+  id: z.string().uuid(DEVICE_RECORD_ID_MESSAGE),
 });
 
 const deviceOutputSchema = z.object({
@@ -65,13 +78,24 @@ export const devicesRouter = createTRPCRouter({
   create: protectedProcedure
     .input(createDeviceInputSchema)
     .output(deviceOutputSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
-        return await createDevice({
-          description: normalizeOptionalString(input.description),
-          deviceId: input.deviceId,
-          name: input.name,
-        });
+        const [createdDevice] = await ctx.db
+          .insert(device)
+          .values({
+            accessToken: createDeviceAccessToken(),
+            description: normalizeOptionalString(input.description),
+            deviceId: input.deviceId,
+            id: randomUUID(),
+            name: input.name,
+          })
+          .returning();
+
+        if (createdDevice === undefined) {
+          throw new Error('Failed to create device.');
+        }
+
+        return createdDevice;
       } catch (error) {
         if (isPgUniqueViolation(error, 'device_device_id_unique')) {
           throw new TRPCError({
@@ -86,16 +110,38 @@ export const devicesRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(deleteDeviceInputSchema)
     .output(deviceOutputSchema)
-    .mutation(async ({ input }) => {
-      const deletedDevice = await deleteDevice(input.id);
-      if (deletedDevice === null) {
+    .mutation(async ({ input, ctx }) => {
+      const [deletedDevice] = await ctx.db
+        .delete(device)
+        .where(eq(device.id, input.id))
+        .returning();
+      if (deletedDevice === undefined) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Device not found.',
+          message: DEVICE_NOT_FOUND_MESSAGE,
         });
       }
 
       return deletedDevice;
+    }),
+  getById: protectedProcedure
+    .input(getDeviceInputSchema)
+    .output(deviceOutputSchema)
+    .query(async ({ input, ctx }) => {
+      const [foundDevice] = await ctx.db
+        .select()
+        .from(device)
+        .where(eq(device.id, input.id))
+        .limit(1);
+
+      if (foundDevice === undefined) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: DEVICE_NOT_FOUND_MESSAGE,
+        });
+      }
+
+      return foundDevice;
     }),
   list: protectedProcedure
     .output(
@@ -103,23 +149,29 @@ export const devicesRouter = createTRPCRouter({
         devices: z.array(deviceOutputSchema),
       }),
     )
-    .query(async () => ({
-      devices: await listDevices(),
+    .query(async ({ ctx }) => ({
+      devices: await ctx.db
+        .select()
+        .from(device)
+        .orderBy(desc(device.createdAt), desc(device.deviceId)),
     })),
   update: protectedProcedure
     .input(updateDeviceInputSchema)
     .output(deviceOutputSchema)
-    .mutation(async ({ input }) => {
-      const updatedDevice = await updateDevice({
-        description: normalizeOptionalString(input.description),
-        id: input.id,
-        isActive: input.isActive,
-        name: input.name,
-      });
-      if (updatedDevice === null) {
+    .mutation(async ({ input, ctx }) => {
+      const [updatedDevice] = await ctx.db
+        .update(device)
+        .set({
+          description: normalizeOptionalString(input.description),
+          isActive: input.isActive,
+          name: input.name,
+        })
+        .where(eq(device.id, input.id))
+        .returning();
+      if (updatedDevice === undefined) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Device not found.',
+          message: DEVICE_NOT_FOUND_MESSAGE,
         });
       }
 

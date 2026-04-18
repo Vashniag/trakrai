@@ -2,11 +2,10 @@
 
 import { DeviceRuntimePage } from '@trakrai/live-ui/components/device-runtime-page';
 
-import { CloudConsoleSurface } from '@/components/cloud-console-surface';
 import { cloudAppBuildConfig } from '@/lib/build-config';
 import { useTRPCQuery } from '@/server/react';
 
-const CloudRuntimePageBody = () => {
+const DeviceRuntimeRoutePage = () => {
   const packageCatalogQuery = useTRPCQuery((api) =>
     api.packageArtifacts.listAvailable.queryOptions({}),
   );
@@ -24,13 +23,4 @@ const CloudRuntimePageBody = () => {
   );
 };
 
-const RuntimePage = () => (
-  <CloudConsoleSurface
-    description="Runtime service health, controller actions, and managed binary definitions through the cloud transport."
-    title="Runtime control"
-  >
-    <CloudRuntimePageBody />
-  </CloudConsoleSurface>
-);
-
-export default RuntimePage;
+export default DeviceRuntimeRoutePage;

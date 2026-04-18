@@ -4,10 +4,9 @@ import { useLiveTransport } from '@trakrai/live-transport/providers/live-transpo
 import { DeviceLivePage } from '@trakrai/live-ui/components/device-live-page';
 import { WebRtcProvider } from '@trakrai/webrtc/providers/webrtc-provider';
 
-import { CloudConsoleSurface } from '@/components/cloud-console-surface';
 import { cloudAppBuildConfig } from '@/lib/build-config';
 
-const CloudLiveRoute = () => {
+const DeviceLiveRoutePage = () => {
   const { httpBaseUrl } = useLiveTransport();
 
   return (
@@ -20,13 +19,4 @@ const CloudLiveRoute = () => {
   );
 };
 
-const LivePage = () => (
-  <CloudConsoleSurface
-    description="Focused live monitoring and PTZ controls for cloud-connected devices, with WebRTC only mounted on this route."
-    title="Live feed and PTZ"
-  >
-    <CloudLiveRoute />
-  </CloudConsoleSurface>
-);
-
-export default LivePage;
+export default DeviceLiveRoutePage;

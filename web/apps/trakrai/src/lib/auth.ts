@@ -1,9 +1,9 @@
 import { passkey } from '@better-auth/passkey';
+import * as schema from '@trakrai/backend/db/auth-schema';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 
 import { db } from '@/db';
-import * as schema from '@/db/auth-schema';
 import AuthEmail from '@/emails/auth-email';
 import { env } from '@/lib/env';
 
@@ -14,7 +14,7 @@ const SECONDS_PER_MINUTE = 60;
 
 const resolveTrustedOrigins = (): string[] => {
   if (env.NODE_ENV === 'development') {
-    return ['http://localhost:3000', 'http://localhost:3100'];
+    return ['http://localhost:3000', 'http://localhost:3100', 'http://localhost:3001'];
   }
 
   if (env.VERCEL_URL !== undefined) {

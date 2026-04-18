@@ -19,7 +19,8 @@ import { Copy, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useInvalidateQuery, useTRPCMutation, useTRPCQuery } from '@/server/react';
-import type { RouterOutput } from '@/server/routers';
+
+import type { RouterOutput } from '@trakrai/backend/server/routers';
 
 type ManagedDevice = RouterOutput['devices']['list']['devices'][number];
 type DeviceDraft = Readonly<{
@@ -351,6 +352,12 @@ export const DeviceManagementPage = () => {
                       Active and allowed to authenticate
                     </label>
                     <div className="flex flex-wrap gap-2">
+                      <Button asChild type="button" variant="outline">
+                        <Link href={`/devices/${device.id}`}>Open</Link>
+                      </Button>
+                      <Button asChild type="button" variant="outline">
+                        <Link href={`/devices/${device.id}/live`}>Live</Link>
+                      </Button>
                       <Button
                         disabled={isBusy || draft.name.trim() === ''}
                         type="button"
@@ -361,6 +368,12 @@ export const DeviceManagementPage = () => {
                       >
                         <Save />
                         Save
+                      </Button>
+                      <Button asChild type="button" variant="outline">
+                        <Link href={`/devices/${device.id}/runtime`}>Runtime</Link>
+                      </Button>
+                      <Button asChild type="button" variant="outline">
+                        <Link href={`/devices/${device.id}/transfers`}>Transfers</Link>
                       </Button>
                       <Button
                         disabled={isBusy}

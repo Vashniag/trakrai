@@ -5,8 +5,9 @@ import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink, loggerLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
+import superjson from 'superjson';
 
-import type { CloudPackageApiRouter } from '@trakrai/cloud-api-contract/lib/package-artifacts';
+import type { AppRouter } from '@trakrai/backend/server/routers';
 import type { RuntimeManagerPackageCatalogState } from '@trakrai/runtime-manager-ui/components/runtime-manager-panel';
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/$/, '');
@@ -20,7 +21,7 @@ const createQueryClient = (): QueryClient =>
     },
   });
 
-const cloudPackageApi = createTRPCReact<CloudPackageApiRouter>();
+const cloudPackageApi = createTRPCReact<AppRouter>();
 
 let clientQueryClientSingleton: QueryClient | undefined;
 
@@ -54,6 +55,7 @@ export const CloudPackageApiProvider = ({
             headers.set('x-trpc-source', 'trakrai-device-runtime');
             return headers;
           },
+          transformer: superjson,
           url: `${resolvedBaseUrl}/api/trpc`,
         }),
       ],
