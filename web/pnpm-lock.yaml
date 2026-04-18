@@ -315,10 +315,10 @@ importers:
         specifier: ^11.16.0
         version: 11.16.0(typescript@6.0.3)
       bullmq:
-        specifier: ^5.71.1
+        specifier: ^5.74.1
         version: 5.74.1
       dotenv:
-        specifier: ^17.3.1
+        specifier: ^17.4.2
         version: 17.4.2
       express:
         specifier: ^5.2.1
@@ -346,10 +346,10 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core/typescript-config
       eslint:
-        specifier: ^10.1.0
+        specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
       tsdown:
-        specifier: ^0.21.7
+        specifier: ^0.21.9
         version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       tsx:
         specifier: ^4.21.0
@@ -560,8 +560,8 @@ importers:
         specifier: ^18.0.0 || ^19.0.0
         version: 19.2.5(react@19.2.5)
       react-dropzone:
-        specifier: ^14.3.8
-        version: 14.4.1(react@19.2.5)
+        specifier: ^15.0.0
+        version: 15.0.0(react@19.2.5)
       react-hook-form:
         specifier: 7.72.0
         version: 7.72.0(react@19.2.5)
@@ -995,13 +995,13 @@ importers:
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: ^25.5.0
+        specifier: ^25.6.0
         version: 25.6.0
       '@types/react':
         specifier: ^19.2.10
         version: 19.2.14
       '@vitest/coverage-v8':
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(vitest@4.1.4)
       '@workspace/eslint-config':
         specifier: workspace:*
@@ -1010,16 +1010,16 @@ importers:
         specifier: workspace:*
         version: link:../../core/typescript-config
       eslint:
-        specifier: ^10.1.0
+        specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
       tsdown:
-        specifier: ^0.21.7
+        specifier: ^0.21.9
         version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       typescript:
         specifier: ^6
         version: 6.0.3
       vitest:
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(jsdom@29.0.2(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.3))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/trakrai-apps/trakrai-workflow-inngest:
@@ -1035,10 +1035,10 @@ importers:
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: ^25.5.0
+        specifier: ^25.6.0
         version: 25.6.0
       '@vitest/coverage-v8':
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(vitest@4.1.4)
       '@workspace/eslint-config':
         specifier: workspace:*
@@ -1047,16 +1047,16 @@ importers:
         specifier: workspace:*
         version: link:../../core/typescript-config
       eslint:
-        specifier: ^10.1.0
+        specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
       tsdown:
-        specifier: ^0.21.7
+        specifier: ^0.21.9
         version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       typescript:
         specifier: ^6
         version: 6.0.3
       vitest:
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(jsdom@29.0.2(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.3))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/trakrai-apps/trakrai-workflow-plugins:
@@ -1071,8 +1071,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0(graphql@16.13.2)
       '@json-render/react-email':
-        specifier: ^0.16.0
-        version: 0.16.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(zod@4.3.6)
+        specifier: ^0.18.0
+        version: 0.18.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(zod@4.3.6)
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1141,7 +1141,7 @@ importers:
         version: 4.3.6
     devDependencies:
       '@ai-sdk/react':
-        specifier: ^3.0.143
+        specifier: ^3.0.170
         version: 3.0.170(react@19.2.5)(zod@4.3.6)
       '@tailwindcss/cli':
         specifier: ^4.2.2
@@ -1153,7 +1153,7 @@ importers:
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@types/node':
-        specifier: ^25.5.0
+        specifier: ^25.6.0
         version: 25.6.0
       '@types/png-chunks-encode':
         specifier: ^1.0.2
@@ -1165,7 +1165,7 @@ importers:
         specifier: ^19.2.10
         version: 19.2.14
       '@vitest/coverage-v8':
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(vitest@4.1.4)
       '@workspace/eslint-config':
         specifier: workspace:*
@@ -1174,22 +1174,22 @@ importers:
         specifier: workspace:*
         version: link:../../core/typescript-config
       ai:
-        specifier: ^6.0.141
+        specifier: ^6.0.168
         version: 6.0.168(zod@4.3.6)
       eslint:
-        specifier: ^10.1.0
+        specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
       jsdom:
-        specifier: ^29.0.1
+        specifier: ^29.0.2
         version: 29.0.2(@noble/hashes@2.2.0)
       tsdown:
-        specifier: ^0.21.7
+        specifier: ^0.21.9
         version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       typescript:
         specifier: ^6
         version: 6.0.3
       vitest:
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(jsdom@29.0.2(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.3))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/trakrai-apps/trakrai-workflow-schemas:
@@ -1220,7 +1220,7 @@ importers:
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: ^25.5.0
+        specifier: ^25.6.0
         version: 25.6.0
       '@types/react':
         specifier: ^19.2.10
@@ -1229,7 +1229,7 @@ importers:
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.14)
       '@vitest/coverage-v8':
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(vitest@4.1.4)
       '@workspace/eslint-config':
         specifier: workspace:*
@@ -1238,16 +1238,16 @@ importers:
         specifier: workspace:*
         version: link:../../core/typescript-config
       eslint:
-        specifier: ^10.1.0
+        specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
       tsdown:
-        specifier: ^0.21.7
+        specifier: ^0.21.9
         version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       typescript:
         specifier: ^6
         version: 6.0.3
       vitest:
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(jsdom@29.0.2(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.3))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/trakrai-apps/trakrai-workflow-ui:
@@ -1305,7 +1305,7 @@ importers:
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@types/node':
-        specifier: ^25.5.0
+        specifier: ^25.6.0
         version: 25.6.0
       '@types/react':
         specifier: ^19.2.10
@@ -1314,7 +1314,7 @@ importers:
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.14)
       '@vitest/coverage-v8':
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(vitest@4.1.4)
       '@workspace/eslint-config':
         specifier: workspace:*
@@ -1323,22 +1323,22 @@ importers:
         specifier: workspace:*
         version: link:../../core/typescript-config
       eslint:
-        specifier: ^10.1.0
+        specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
       jsdom:
-        specifier: ^29.0.1
+        specifier: ^29.0.2
         version: 29.0.2(@noble/hashes@2.2.0)
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
       tsdown:
-        specifier: ^0.21.7
+        specifier: ^0.21.9
         version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       typescript:
         specifier: ^6
         version: 6.0.3
       vitest:
-        specifier: ^4.1.2
+        specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(jsdom@29.0.2(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.3))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
 packages:
@@ -2710,13 +2710,13 @@ packages:
   '@jscpd/tokenizer@4.0.5':
     resolution: {integrity: sha512-WzRujQtN5WedxZVDKuoanxmKAFrxcLrHpcA6kaM4z8AhGtWXZ325yseqgL5TZ8OK7Auwu7kQLlqhfk05fGYG7A==}
 
-  '@json-render/core@0.16.0':
-    resolution: {integrity: sha512-qQp8BB/3pWYapTGXBDSBMXRCdrC05VJPLL3drXMPX/QbUB3nuvtyXUGmAZFUz8eLUy7JImODvb3GNIq38dGzhQ==}
+  '@json-render/core@0.18.0':
+    resolution: {integrity: sha512-zm0K9cgxZLGshw5TmdKe3Xc6fpjbONdlj3v+Er+HhCYZ9fSJpv32d9VzQds4bDW36vPfdieAOcsPR9+EcTff7Q==}
     peerDependencies:
       zod: ^4.0.0
 
-  '@json-render/react-email@0.16.0':
-    resolution: {integrity: sha512-GlsXiC/l1jxqnDC70wkmR6rI55aj9lJh+Qq45g/zBMKxPJ+u5iC048iT4bD4o1vrNvHPH2N8vA63ds+H/NgikA==}
+  '@json-render/react-email@0.18.0':
+    resolution: {integrity: sha512-rXNnkUTFxccTjMXeNpDoAovTRT+rnKcAe8qdNSio6KYNJb3vlNOIx7QuHFUhIjCc0EfWONczT1JzrjIYD6RtQA==}
     peerDependencies:
       react: ^19.0.0
       zod: ^4.0.0
@@ -8850,8 +8850,8 @@ packages:
     peerDependencies:
       react: ^19.2.5
 
-  react-dropzone@14.4.1:
-    resolution: {integrity: sha512-QDuV76v3uKbHiH34SpwifZ+gOLi1+RdsCO1kl5vxMT4wW8R82+sthjvBw4th3NHF/XX6FBsqDYZVNN+pnhaw0g==}
+  react-dropzone@15.0.0:
+    resolution: {integrity: sha512-lGjYV/EoqEjEWPnmiSvH4v5IoIAwQM2W4Z1C0Q/Pw2xD0eVzKPS359BQTUMum+1fa0kH2nrKjuavmTPOGhpLPg==}
     engines: {node: '>= 10.13'}
     peerDependencies:
       react: '>= 16.8 || 18.0.0'
@@ -11680,13 +11680,13 @@ snapshots:
       reprism: 0.0.11
       spark-md5: 3.0.2
 
-  '@json-render/core@0.16.0(zod@4.3.6)':
+  '@json-render/core@0.18.0(zod@4.3.6)':
     dependencies:
       zod: 4.3.6
 
-  '@json-render/react-email@0.16.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(zod@4.3.6)':
+  '@json-render/react-email@0.18.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(zod@4.3.6)':
     dependencies:
-      '@json-render/core': 0.16.0(zod@4.3.6)
+      '@json-render/core': 0.18.0(zod@4.3.6)
       '@react-email/components': 1.0.12(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@react-email/render': 2.0.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react: 19.2.5
@@ -18236,7 +18236,7 @@ snapshots:
       react: 19.2.5
       scheduler: 0.27.0
 
-  react-dropzone@14.4.1(react@19.2.5):
+  react-dropzone@15.0.0(react@19.2.5):
     dependencies:
       attr-accept: 2.2.5
       file-selector: 2.1.2

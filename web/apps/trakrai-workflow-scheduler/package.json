@@ -14,8 +14,8 @@
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",
     "@trpc/server": "^11.16.0",
-    "bullmq": "^5.71.1",
-    "dotenv": "^17.3.1",
+    "bullmq": "^5.74.1",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "trpc-to-openapi": "^3.2.0",
     "winston": "^3.19.0",
@@ -26,8 +26,8 @@
     "@types/node": "^25",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "eslint": "^10.1.0",
-    "tsdown": "^0.21.7",
+    "eslint": "^10.2.1",
+    "tsdown": "^0.21.9",
     "tsx": "^4.21.0",
     "typescript": "^6"
   }

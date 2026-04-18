@@ -79,7 +79,7 @@
     "@trakrai-workflow/core": "workspace:*",
     "@trakrai-workflow/ui": "workspace:*",
     "@graphql-typed-document-node/core": "^3.2.0",
-    "@json-render/react-email": "^0.16.0",
+    "@json-render/react-email": "^0.18.0",
     "@monaco-editor/react": "^4.7.0",
     "cronstrue": "^3.14.0",
     "date-fns": "^4.1.0",
@@ -114,22 +114,22 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/react": "^3.0.143",
+    "@ai-sdk/react": "^3.0.170",
     "@tailwindcss/cli": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.6.0",
     "@types/png-chunks-encode": "^1.0.2",
     "@types/png-chunks-extract": "^1.0.2",
     "@types/react": "^19.2.14",
-    "@vitest/coverage-v8": "^4.1.2",
+    "@vitest/coverage-v8": "^4.1.4",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "ai": "^6.0.141",
-    "eslint": "^10.1.0",
-    "jsdom": "^29.0.1",
-    "tsdown": "^0.21.7",
+    "ai": "^6.0.168",
+    "eslint": "^10.2.1",
+    "jsdom": "^29.0.2",
+    "tsdown": "^0.21.9",
     "typescript": "^6",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.4"
   }
 }
