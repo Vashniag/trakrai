@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   logging: {
-    browserToTerminal: false,
+    browserToTerminal: true,
   },
   transpilePackages: [
     '@trakrai/cloud-transfer-ui',

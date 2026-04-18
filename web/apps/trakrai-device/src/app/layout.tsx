@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from '@trakrai/design-system/components/sonner';
 
 import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
 
 import type { Metadata } from 'next';
 
@@ -26,10 +27,12 @@ const RootLayout = ({
 }: Readonly<{
   children: React.ReactNode;
 }>) => (
-  <html lang="en">
+  <html lang="en" suppressHydrationWarning>
     <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      {children}
-      <Toaster />
+      <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
+        {children}
+        <Toaster />
+      </ThemeProvider>
     </body>
   </html>
 );

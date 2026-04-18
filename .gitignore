@@ -2,3 +2,4 @@
 .codex-temp-test
 __pycache__/
 *.pyc
+.vercel
