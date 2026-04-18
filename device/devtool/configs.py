@@ -112,10 +112,12 @@ def clone_camera_entries(camera_config: dict[str, Any], camera_count: int) -> No
     if not isinstance(cameras, list) or not cameras:
         return
     template = deep_copy_json(cameras[0])
+    template_has_id = isinstance(template, dict) and "id" in template
     cloned: list[dict[str, Any]] = []
     for index in range(camera_count):
         payload = deep_copy_json(template)
-        payload["id"] = index + 1
+        if template_has_id:
+            payload["id"] = index + 1
         payload["name"] = f"Camera-{index + 1}"
         payload["enabled"] = True
         cloned.append(payload)
@@ -155,6 +157,7 @@ def patch_config_map(
         mqtt["broker_url"] = f"tcp://{mqtt_host}:{mqtt_port}"
         mqtt["client_id"] = device_id
         cloud_comm["device_id"] = device_id
+        clone_camera_entries(cloud_comm, camera_count)
 
     cloud_transfer = patched.get("cloud-transfer.json")
     if isinstance(cloud_transfer, dict):
@@ -204,10 +207,14 @@ def patch_config_map(
         clone_camera_entries(rtsp_feeder, camera_count)
         cameras = rtsp_feeder.get("cameras")
         if isinstance(cameras, list):
-            for camera in cameras:
+            for index, camera in enumerate(cameras):
                 if not isinstance(camera, dict):
                     continue
-                camera["rtsp_url"] = "rtsp://fake-camera:8554/stream"
+                camera["rtsp_url"] = f"rtsp://fake-camera:8554/stream{index + 1}"
+
+    ai_inference = patched.get("ai-inference.json")
+    if isinstance(ai_inference, dict):
+        clone_camera_entries(ai_inference, camera_count)
     return patched
 
 

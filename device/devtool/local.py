@@ -12,7 +12,7 @@ import urllib.request
 from collections import deque
 from pathlib import Path
 
-from . import manifests, paths
+from . import assets, manifests, paths
 from .build import resolve_local_artifacts
 from .configs import default_webrtc_host_candidate_ip, generate_profile_config_map, parse_host_candidate_ip
 from .request_files import apply_request_overrides, load_request_file, require_argument_values
@@ -20,6 +20,7 @@ from .stage import StageOptions, prepare_stage
 from .utils import DEFAULT_LOCAL_PLATFORM, ensure_clean_dir, run
 
 
+LOCALDEV_GPU_COMPOSE_FILE = paths.DEVICE_ROOT / "localdev" / "docker-compose.gpu.yml"
 HOST_AUDIO_PLAYER_SCRIPT = paths.DEVICE_ROOT / "localdev" / "host-audio-player" / "server.py"
 HOST_AUDIO_DIR = paths.LOCALDEV_ROOT / "host-audio-player"
 HOST_AUDIO_PID_FILE = HOST_AUDIO_DIR / "server.pid"
@@ -169,22 +170,22 @@ def write_compose_env(
     rtsp_port: int,
     webrtc_udp_port_min: int,
     webrtc_udp_port_max: int,
+    camera_count: int,
+    gpu_enabled: bool,
 ) -> None:
-    paths.LOCALDEV_COMPOSE_ENV.write_text(
-        "\n".join(
-            [
-                f"COMPOSE_PROJECT_NAME={compose_project_name}",
-                f"TRAKRAI_LOCAL_STAGE_DIR={compose_bind_path(stage_dir)}",
-                f"TRAKRAI_LOCAL_SHARED_DIR={compose_bind_path(shared_dir)}",
-                f"TRAKRAI_LOCAL_VIDEO_FILE={compose_bind_path(video_path)}",
-                f"TRAKRAI_LOCAL_HTTP_PORT={http_port}",
-                f"TRAKRAI_LOCAL_RTSP_PORT={rtsp_port}",
-                f"TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE={webrtc_udp_port_min}-{webrtc_udp_port_max}",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    lines = [
+        f"COMPOSE_PROJECT_NAME={compose_project_name}",
+        f"TRAKRAI_LOCAL_STAGE_DIR={compose_bind_path(stage_dir)}",
+        f"TRAKRAI_LOCAL_SHARED_DIR={compose_bind_path(shared_dir)}",
+        f"TRAKRAI_LOCAL_VIDEO_FILE={compose_bind_path(video_path)}",
+        f"TRAKRAI_LOCAL_HTTP_PORT={http_port}",
+        f"TRAKRAI_LOCAL_RTSP_PORT={rtsp_port}",
+        f"TRAKRAI_LOCAL_WEBRTC_UDP_PORT_RANGE={webrtc_udp_port_min}-{webrtc_udp_port_max}",
+        f"TRAKRAI_LOCAL_CAMERA_COUNT={camera_count}",
+        f"TRAKRAI_LOCAL_GPU_ENABLED={'1' if gpu_enabled else '0'}",
+        f"TRAKRAI_LOCAL_EMULATOR_DOCKERFILE={'Dockerfile.gpu' if gpu_enabled else 'Dockerfile'}",
+    ]
+    paths.LOCALDEV_COMPOSE_ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def compose_env(project_name: str, platform: str) -> dict[str, str]:
@@ -194,8 +195,12 @@ def compose_env(project_name: str, platform: str) -> dict[str, str]:
     return env
 
 
-def run_compose(command: list[str], *, env: dict[str, str], check: bool = True) -> int:
-    full_command = ["docker", "compose", "--env-file", str(paths.LOCALDEV_COMPOSE_ENV), "-f", str(paths.LOCALDEV_COMPOSE_FILE), *command]
+def run_compose(command: list[str], *, env: dict[str, str], check: bool = True, compose_files: list[Path] | None = None) -> int:
+    files = compose_files if compose_files is not None else [paths.LOCALDEV_COMPOSE_FILE]
+    full_command = ["docker", "compose", "--env-file", str(paths.LOCALDEV_COMPOSE_ENV)]
+    for compose_file in files:
+        full_command.extend(["-f", str(compose_file)])
+    full_command.extend(command)
     result = run(full_command, cwd=paths.DEVICE_ROOT, env=env, check=check)
     return result.returncode
 
@@ -310,8 +315,28 @@ def cmd_up(args: argparse.Namespace) -> int:
             "webrtc_host_candidate_ip",
             "camera_count",
             "cloud_mode",
+            "gpu",
+            "auto_assets",
         ],
     )
+    if args.gpu and args.profile == "local-emulator-all":
+        args.profile = "local-emulator-gpu"
+    # Auto-download sample video + YOLO model when --auto-assets is passed and
+    # no explicit video is provided. Saves a fresh clone the "go find an mp4"
+    # chore on the first emulator up.
+    if args.auto_assets and not args.video:
+        assets.LOCALDEV_ASSET_ROOT.mkdir(parents=True, exist_ok=True)
+        assets.download_to(assets.DEFAULT_VIDEO_PATH, assets.VIDEO_SOURCES, description="sample video")
+        args.video = str(assets.DEFAULT_VIDEO_PATH)
+    if args.auto_assets and args.gpu:
+        model_target = assets.DEFAULT_MODEL_ROOT / "yolov5n.pt"
+        assets.download_to(model_target, assets.MODEL_SOURCES["yolov5n"], description="yolov5n weights")
+        shared_models_dir = paths.LOCALDEV_SHARED_ROOT / "models"
+        shared_models_dir.mkdir(parents=True, exist_ok=True)
+        shared_target = shared_models_dir / "yolov5n.pt"
+        if not shared_target.exists() or shared_target.stat().st_size != model_target.stat().st_size:
+            import shutil
+            shutil.copyfile(model_target, shared_target)
     require_argument_values(args, {"video": "--video"})
     video_path = Path(args.video).expanduser().resolve()
     if not video_path.exists():
@@ -380,19 +405,24 @@ def cmd_up(args: argparse.Namespace) -> int:
         rtsp_port=args.rtsp_port,
         webrtc_udp_port_min=args.webrtc_udp_port_min,
         webrtc_udp_port_max=args.webrtc_udp_port_max,
+        camera_count=args.camera_count,
+        gpu_enabled=args.gpu,
     )
     env = compose_env(args.compose_project_name, args.platform)
     env["TRAKRAI_LOCAL_HTTP_PORT"] = str(args.http_port)
+    compose_files: list[Path] = [paths.LOCALDEV_COMPOSE_FILE]
+    if args.gpu:
+        compose_files.append(LOCALDEV_GPU_COMPOSE_FILE)
     compose_services = [component for component in component_names if manifests.components_by_name().get(component, None) and manifests.components_by_name()[component].kind == "docker-compose-service"]
     if compose_services:
         command = ["up", "-d", "--wait", "--force-recreate", *compose_services]
         if args.skip_compose_build:
-            run_compose(command, env=env)
+            run_compose(command, env=env, compose_files=compose_files)
         else:
-            run_compose(["build", *compose_services], env=env)
-            run_compose(command, env=env)
+            run_compose(["build", *compose_services], env=env, compose_files=compose_files)
+            run_compose(command, env=env, compose_files=compose_files)
     verify_local_stack(env=env, components=component_names, host_audio_port=args.host_audio_port if enable_host_audio and "host-audio-player" in component_names else None)
-    print(json.dumps({"components": component_names, "services": service_names, "httpPort": args.http_port}, indent=2))
+    print(json.dumps({"components": component_names, "services": service_names, "httpPort": args.http_port, "cameraCount": args.camera_count, "gpu": args.gpu}, indent=2))
     return 0
 
 
@@ -464,6 +494,8 @@ def build_parser() -> argparse.ArgumentParser:
     up_parser.add_argument("--webrtc-udp-port-min", type=int, default=paths.DEFAULT_WEBRTC_UDP_PORT_MIN)
     up_parser.add_argument("--webrtc-udp-port-max", type=int, default=paths.DEFAULT_WEBRTC_UDP_PORT_MAX)
     up_parser.add_argument("--webrtc-host-candidate-ip", default=None)
+    up_parser.add_argument("--gpu", action="store_true", help="use the CUDA-enabled emulator Dockerfile and enable GPU reservations")
+    up_parser.add_argument("--auto-assets", action="store_true", help="auto-download sample video and YOLO weights when missing")
     up_parser.set_defaults(func=cmd_up)
 
     down_parser = subparsers.add_parser("down", help="stop the local device stack")

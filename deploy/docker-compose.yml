@@ -2,6 +2,7 @@ services:
   gateway-proxy:
     image: caddy:2.8-alpine
     restart: unless-stopped
+    profiles: ['tls']
     ports:
       - '80:80'
       - '443:443'
@@ -23,13 +24,13 @@ services:
     ports:
       - '5439:5432'
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trakrai
+      POSTGRES_USER: ${POSTGRES_USER:-trakrai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trakrai-local-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-trakrai}
     volumes:
       - trakrai_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-trakrai}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -55,15 +56,15 @@ services:
       context: ../web/services/live-gateway
       dockerfile: Dockerfile
     restart: unless-stopped
-    expose:
-      - '4000'
+    ports:
+      - '4000:4000'
     environment:
       MQTT_BROKER_URL: mqtt://mosquitto:1883
       PORT: '4000'
       CORS_ORIGIN: '*'
       TURN_SERVER_URL: ${TURN_SERVER_URL:-}
-      TURN_USERNAME: trakrai
-      TURN_CREDENTIAL: trakrai-secret
+      TURN_USERNAME: ${TURN_USERNAME:-trakrai}
+      TURN_CREDENTIAL: ${TURN_CREDENTIAL:-trakrai-secret}
       DEVICE_ID: ${DEVICE_ID:-default}
     depends_on:
       mosquitto:

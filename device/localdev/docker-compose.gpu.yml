@@ -1,0 +1,14 @@
+# Overlay applied on top of docker-compose.yml when the emulator is started
+# with `devtool emulator up --gpu`. Splitting the GPU reservation into its
+# own file lets CPU-only laptops keep using the base compose file without
+# failing the NVIDIA device driver lookup.
+services:
+  device-emulator:
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

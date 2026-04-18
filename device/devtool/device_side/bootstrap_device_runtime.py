@@ -227,7 +227,22 @@ def install_python_wheels(
         shutil.copy2(source, target)
         os.chown(target, uid, gid)
         for dependency_target in dependency_targets:
-            run(["python3", "-m", "pip", "install", "--no-deps", "--force-reinstall", str(dependency_target)])
+            # Wheelhouse wheels are pinned to the Python version of the
+            # builder (Jetson runs cp38; the local GPU emulator runs cp310).
+            # If a cross-version binary wheel refuses to install, skip it so
+            # the emulator can fall back to whatever is already installed in
+            # the image. Pure-Python (`py3-none-any`) wheels still install on
+            # both versions.
+            result = subprocess.run(
+                ["python3", "-m", "pip", "install", "--no-deps", "--force-reinstall", str(dependency_target)],
+                check=False,
+            )
+            if result.returncode != 0:
+                print(
+                    f"warning: optional dependency {dependency_target.name} is not compatible with the "
+                    "current Python ABI; leaving it alone and hoping the base image already has it",
+                    flush=True,
+                )
         run(resolve_tokens(item["install_command"], wheel_path=str(target)))
 
 

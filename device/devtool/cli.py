@@ -4,11 +4,13 @@ import argparse
 import json
 import sys
 
-from . import configs, deploy, local, manifests, packages, paths, runtime, testing
+from . import assets, cameras, configs, deploy, local, manifests, packages, paths, runtime, testing
 from .build import build_services
 from .shell_completion import bash_completion, fish_completion, zsh_completion
 
 DELEGATED_COMMANDS = {
+    "assets": assets.main,
+    "cameras": cameras.main,
     "config": configs.main,
     "deploy": deploy.main,
     "emulator": local.main,
@@ -133,6 +135,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     emulator_parser = subparsers.add_parser("emulator", help="manage local emulator components and staged runtime")
     emulator_parser.set_defaults(delegate="emulator")
+
+    assets_parser = subparsers.add_parser("assets", help="download sample video and YOLO model weights")
+    assets_parser.set_defaults(delegate="assets")
+
+    cameras_parser = subparsers.add_parser("cameras", help="probe and manage mock cameras served by fake-camera")
+    cameras_parser.set_defaults(delegate="cameras")
 
     package_parser = subparsers.add_parser("package", help="plan, release, list, and pull packages")
     package_parser.set_defaults(delegate="package")

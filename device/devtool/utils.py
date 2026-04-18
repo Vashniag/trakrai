@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -23,6 +24,23 @@ def detect_local_platform() -> str:
 DEFAULT_LOCAL_PLATFORM = detect_local_platform()
 
 
+def _resolve_executable(command: list[str]) -> list[str]:
+    """Windows-friendly command resolution.
+
+    Python's subprocess on Windows does not auto-resolve `*.cmd` / `*.bat`
+    shims (the common shape for Node CLIs installed by corepack/pnpm). We
+    resolve the first token via `shutil.which` so that invoking `pnpm`,
+    `npx`, or `docker` from the devtool works identically on Linux and
+    Windows without needing `shell=True`.
+    """
+    if os.name != "nt" or not command:
+        return command
+    resolved = shutil.which(command[0])
+    if resolved is None:
+        return command
+    return [resolved, *command[1:]]
+
+
 def run(
     command: list[str],
     *,
@@ -32,8 +50,9 @@ def run(
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     print("+", " ".join(command))
+    resolved = _resolve_executable(command)
     result = subprocess.run(
-        command,
+        resolved,
         cwd=cwd,
         env=env,
         text=True,
@@ -72,19 +91,33 @@ def create_zip_from_directory(source_dir: Path, destination: Path) -> None:
             archive.write(path, path.relative_to(source_dir))
 
 
+_SKIP_MTIME_DIRNAMES = {"node_modules", ".next", "dist", "out", "build", "__pycache__", ".git", ".turbo"}
+
+
 def latest_tree_mtime(path: Path) -> float:
     if not path.exists():
         return 0.0
     latest = path.stat().st_mtime
     if path.is_file():
         return latest
-    for child in path.rglob("*"):
+    stack: list[Path] = [path]
+    while stack:
+        current = stack.pop()
         try:
-            child_mtime = child.stat().st_mtime
-        except FileNotFoundError:
+            for entry in current.iterdir():
+                if entry.is_dir():
+                    if entry.name in _SKIP_MTIME_DIRNAMES:
+                        continue
+                    stack.append(entry)
+                    continue
+                try:
+                    mtime = entry.stat().st_mtime
+                except FileNotFoundError:
+                    continue
+                if mtime > latest:
+                    latest = mtime
+        except (FileNotFoundError, PermissionError):
             continue
-        if child_mtime > latest:
-            latest = child_mtime
     return latest
 
 

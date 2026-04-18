@@ -1,0 +1,88 @@
+# syntax=docker/dockerfile:1.7
+#
+# GPU-capable device emulator.
+#
+# This image mirrors the bare-metal Jetson device layout closely enough to run
+# the staged runtime end-to-end, but adds CUDA + a modern Python so the AI
+# inference service can exercise real GPU acceleration on a developer laptop.
+#
+# The CPU-only `Dockerfile` next to this one is kept unchanged so Mac/ARM and
+# CI environments that lack a GPU keep working. Select this one via the
+# `--gpu` flag on `devtool emulator up` (or directly by overriding the compose
+# build context).
+
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      bash \
+      ca-certificates \
+      curl \
+      espeak \
+      file \
+      iproute2 \
+      libgl1 \
+      libglib2.0-0 \
+      libsm6 \
+      libxext6 \
+      libxrender1 \
+      procps \
+      python3 \
+      python3-dev \
+      python3-pip \
+      python3-venv \
+      python3-distutils \
+      redis-tools \
+      wget; \
+    apt-get install -y --no-install-recommends \
+      gstreamer1.0-libav \
+      gstreamer1.0-plugins-bad \
+      gstreamer1.0-plugins-base \
+      gstreamer1.0-plugins-good \
+      gstreamer1.0-plugins-ugly \
+      gstreamer1.0-tools \
+      libgstreamer-plugins-base1.0-0 \
+      libgstreamer1.0-0; \
+    rm -rf /var/lib/apt/lists/*
+
+# Pre-install the torch stack matched to CUDA 12.1 plus the OpenCV / Redis / NumPy
+# pins the ai_inference service expects at runtime. We do this in the image so
+# the "managed service setup" step (`pip install --no-deps`) is fast and does
+# not need to redownload multi-GB torch wheels on every emulator `up`.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install --upgrade pip setuptools wheel \
+ && python3 -m pip install --index-url https://download.pytorch.org/whl/cu121 \
+      torch==2.1.2 \
+      torchvision==0.16.2 \
+ && python3 -m pip install \
+      numpy==1.26.4 \
+      opencv-python==4.10.0.84 \
+      redis==6.1.1 \
+      matplotlib==3.7.5 \
+      pandas==2.0.3 \
+      Pillow==10.4.0 \
+      PyYAML==6.0.2 \
+      requests==2.32.4 \
+      scipy==1.10.1 \
+      seaborn==0.13.2 \
+      tqdm==4.67.1 \
+      gTTS==2.5.4
+
+RUN groupadd --system hacklab \
+    && useradd --system --gid hacklab --create-home --home-dir /home/hacklab hacklab
+
+COPY fake_systemctl.py /usr/local/bin/systemctl
+COPY entrypoint.sh /usr/local/bin/trakrai-local-device-entrypoint.sh
+
+RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/trakrai-local-device-entrypoint.sh \
+    && chmod +x /usr/local/bin/systemctl /usr/local/bin/trakrai-local-device-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/trakrai-local-device-entrypoint.sh"]

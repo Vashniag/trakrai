@@ -1,0 +1,28 @@
+{
+  "name": "local-emulator-gpu",
+  "displayName": "Local Emulator (GPU inference)",
+  "description": "Full local emulator with the GPU-accelerated AI inference service enabled. Requires nvidia-container-runtime on the host.",
+  "target": "local-emulator",
+  "baseConfigDir": "device/localdev/configs",
+  "overlays": [],
+  "services": [
+    "cloud-comm",
+    "runtime-manager",
+    "edge-ui",
+    "cloud-transfer",
+    "live-feed",
+    "ptz-control",
+    "roi-config",
+    "rtsp-feeder",
+    "video-recorder",
+    "audio-manager",
+    "workflow-engine",
+    "trakrai-ai-inference"
+  ],
+  "components": [
+    "device-emulator",
+    "cloud-api",
+    "mock-speaker",
+    "host-audio-player"
+  ]
+}

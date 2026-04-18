@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage build for the trakrai Next.js cloud app.
+
+FROM node:20-bookworm-slim AS base
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable
+
+WORKDIR /workspace
+
+FROM base AS deps
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm fetch --frozen-lockfile
+
+FROM base AS builder
+
+COPY --from=deps /workspace/package.json ./package.json
+COPY --from=deps /workspace/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=deps /workspace/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=deps /workspace/turbo.json ./turbo.json
+COPY . .
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile --ignore-scripts --offline
+
+# Build the trakrai app plus its workspace deps via turbo.
+ENV SKIP_ENV_VALIDATION=true
+RUN pnpm --filter trakrai... build
+
+FROM base AS runner
+
+ENV NODE_ENV=production
+ENV PORT=3010
+
+COPY --from=builder /workspace/apps/trakrai/.next /workspace/apps/trakrai/.next
+COPY --from=builder /workspace/apps/trakrai/package.json /workspace/apps/trakrai/package.json
+COPY --from=builder /workspace/apps/trakrai/next.config.ts /workspace/apps/trakrai/next.config.ts
+COPY --from=builder /workspace/apps/trakrai/drizzle /workspace/apps/trakrai/drizzle
+COPY --from=builder /workspace/apps/trakrai/drizzle.config.ts /workspace/apps/trakrai/drizzle.config.ts
+
+COPY --from=builder /workspace/package.json /workspace/package.json
+COPY --from=builder /workspace/pnpm-lock.yaml /workspace/pnpm-lock.yaml
+COPY --from=builder /workspace/pnpm-workspace.yaml /workspace/pnpm-workspace.yaml
+COPY --from=builder /workspace/turbo.json /workspace/turbo.json
+COPY --from=builder /workspace/packages /workspace/packages
+COPY --from=builder /workspace/node_modules /workspace/node_modules
+COPY --from=builder /workspace/apps/trakrai/node_modules /workspace/apps/trakrai/node_modules
+
+EXPOSE 3010
+
+WORKDIR /workspace/apps/trakrai
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=6 \
+  CMD curl -fsS http://127.0.0.1:3010/ >/dev/null || exit 1
+
+CMD ["pnpm", "--filter", "trakrai", "start", "--", "--port", "3010"]
