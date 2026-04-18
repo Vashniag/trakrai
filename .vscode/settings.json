@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.turbo": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.mypy_cache": true,
+    "**/__pycache__": true
+  }
+}

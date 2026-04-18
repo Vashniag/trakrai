@@ -7,6 +7,7 @@
     "build:device": "pnpm --filter trakrai-device build",
     "build:device:bundle": "docker buildx build --output type=local,dest=./out/trakrai-device-ui-bundle -f ./Dockerfile.trakrai-device-bundle .",
     "dev": "turbo run dev",
+    "dev:workspace": "turbo run dev --filter=!trakrai-device --filter=!@trakrai/live-gateway",
     "dev:device": "pnpm --filter trakrai-device dev",
     "lint": "turbo run lint --continue=always",
     "lint:device": "pnpm --filter trakrai-device lint",

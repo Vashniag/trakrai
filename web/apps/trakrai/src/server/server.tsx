@@ -12,13 +12,13 @@ import {
   HydrationBoundary,
   type QueryKey,
 } from '@tanstack/react-query';
+import { appRouter } from '@trakrai/backend/server/routers';
 import {
   createTRPCOptionsProxy,
   type ResolverDef,
   type TRPCQueryOptions,
 } from '@trpc/tanstack-react-query';
 
-import { appRouter } from '@/server/routers';
 import { createTRPCContext } from '@/server/trpc';
 import { createQueryClient } from '@/server/utils';
 

@@ -19,6 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.96.0",
     "@trakrai/design-system": "workspace:*"
   },
   "peerDependencies": {

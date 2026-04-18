@@ -1,9 +1,9 @@
+import { AzureBlobStorageProvider } from '@trakrai/backend/lib/storage/azure-provider';
+import { S3CompatibleStorageProvider } from '@trakrai/backend/lib/storage/s3-compatible-provider';
+
 import { env } from '@/lib/env';
 
-import { AzureBlobStorageProvider } from './azure-provider';
-import { S3CompatibleStorageProvider } from './s3-compatible-provider';
-
-import type { StorageProvider } from './interface';
+import type { StorageProvider } from '@trakrai/backend/lib/storage/interface';
 
 const normalizeOptional = (value: string | undefined): string | undefined => {
   const normalized = value?.trim();

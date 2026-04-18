@@ -1,7 +1,7 @@
+import { appRouter } from '@trakrai/backend/server/routers';
 import { generateOpenApiDocument } from 'trpc-to-openapi';
 
 import { getBaseUrl } from '@/lib/getBaseUrl';
-import { appRouter } from '@/server/routers';
 
 export const GET = async () => {
   const openApiDocument = generateOpenApiDocument(appRouter, {

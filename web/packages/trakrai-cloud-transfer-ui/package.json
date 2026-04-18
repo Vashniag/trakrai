@@ -37,8 +37,7 @@
   },
   "exports": {
     "./components/*": "./src/components/*.tsx",
-    "./hooks/*": "./src/hooks/*.ts",
-    "./lib/*": "./src/lib/*.ts"
+    "./types": "./src/types.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -47,13 +46,9 @@
         "import": "./dist/components/*.js",
         "types": "./dist/components/*.d.ts"
       },
-      "./hooks/*": {
-        "import": "./dist/hooks/*.js",
-        "types": "./dist/hooks/*.d.ts"
-      },
-      "./lib/*": {
-        "import": "./dist/lib/*.js",
-        "types": "./dist/lib/*.d.ts"
+      "./types": {
+        "import": "./dist/types.js",
+        "types": "./dist/types.d.ts"
       }
     }
   }

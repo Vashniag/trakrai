@@ -1,7 +1,7 @@
+import { withRequestContext } from '@trakrai/backend/lib/request-context';
 import { toNextJsHandler } from 'better-auth/next-js';
 
 import { auth } from '@/lib/auth';
-import { withRequestContext } from '@/lib/request-context';
 
 const { POST: RAW_POST, GET: RAW_GET } = toNextJsHandler(auth);
 
