@@ -20,6 +20,7 @@ import (
 
 	"github.com/trakrai/device-services/internal/cloudtransfer"
 	"github.com/trakrai/device-services/internal/ipc"
+	"github.com/trakrai/device-services/internal/ipc/contracts"
 )
 
 const (
@@ -83,6 +84,7 @@ type Service struct {
 	statusSnapshotBuildCh chan struct{}
 	systemMetrics         systemMetricsCollector
 	transferResponses     *ipc.ResponseRouter
+	transferClient        *contracts.CloudTransferClient
 
 	cpuSamplesMu sync.Mutex
 	cpuSamples   map[int]cpuSample
@@ -103,14 +105,18 @@ func NewService(cfg *Config) (*Service, error) {
 		managed[strings.ToLower(service.Name)] = service
 	}
 
+	ipcClient := ipc.NewClient(cfg.IPC.SocketPath, ServiceName)
+	transferResponses := ipc.NewResponseRouter()
+
 	return &Service{
 		cfg:               cfg,
-		ipcClient:         ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
+		ipcClient:         ipcClient,
 		log:               slog.With("component", ServiceName),
 		managed:           managed,
 		seededFromConfig:  seededFromConfig,
 		systemMetrics:     newHostMetricsCollector(cfg, time.Now),
-		transferResponses: ipc.NewResponseRouter(),
+		transferResponses: transferResponses,
+		transferClient:    contracts.NewCloudTransferClient(ipcClient, transferResponses, cfg.Updates.DownloadService),
 		cpuSamples:        make(map[int]cpuSample),
 		clkTicks:          detectClkTicks(),
 		execCommand: func(ctx context.Context, command string, args ...string) ([]byte, error) {
@@ -214,39 +220,144 @@ func (s *Service) handleNotifications(ctx context.Context) {
 }
 
 func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
-	switch env.Type {
-	case "get-status":
-		s.handleGetStatus(ctx, ipc.ReadRequestID(env.Payload))
-	case "get-config":
-		s.handleGetConfig(env)
-	case "list-configs":
-		s.handleListConfigs(env)
-	case "get-service-definition":
-		s.handleGetServiceDefinition(env)
-	case "get-service-log":
-		s.handleLogRequest(ctx, env)
-	case "put-config":
-		s.handlePutConfig(ctx, env)
-	case "put-runtime-file":
-		s.handlePutRuntimeFile(env)
-	case "remove-service":
-		s.handleRemoveService(ctx, env)
-	case "restart-service":
-		s.handleServiceAction(ctx, env, "restart")
-	case "start-service":
-		s.handleServiceAction(ctx, env, "start")
-	case "stop-service":
-		s.handleServiceAction(ctx, env, "stop")
-	case "update-service":
-		s.handleUpdateService(ctx, env)
-	case "upsert-service":
-		s.handleUpsertService(ctx, env)
-	default:
+	handled, err := contracts.DispatchRuntimeManager(ctx, "", "command", env, s)
+	if err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action: "command",
+			Error:  err.Error(),
+		})
+		return
+	}
+	if !handled {
 		s.publishError(RuntimeErrorPayload{
 			Action: "command",
 			Error:  fmt.Sprintf("unsupported runtime-manager command %q", env.Type),
 		})
 	}
+}
+
+func (s *Service) HandleGetStatus(ctx context.Context, _ string, request contracts.RuntimeManagerConfigListRequest) error {
+	s.handleGetStatus(ctx, request.RequestId)
+	return nil
+}
+
+func (s *Service) HandleGetConfig(_ context.Context, _ string, request contracts.RuntimeManagerConfigRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerGetConfigMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleGetConfig(env)
+	return nil
+}
+
+func (s *Service) HandleListConfigs(_ context.Context, _ string, request contracts.RuntimeManagerConfigListRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerListConfigsMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleListConfigs(env)
+	return nil
+}
+
+func (s *Service) HandleGetServiceDefinition(_ context.Context, _ string, request contracts.RuntimeManagerServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerGetServiceDefinitionMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleGetServiceDefinition(env)
+	return nil
+}
+
+func (s *Service) HandleGetServiceLog(ctx context.Context, _ string, request contracts.RuntimeManagerLogRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerGetServiceLogMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleLogRequest(ctx, env)
+	return nil
+}
+
+func (s *Service) HandlePutConfig(ctx context.Context, _ string, request contracts.RuntimeManagerPutConfigRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerPutConfigMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handlePutConfig(ctx, env)
+	return nil
+}
+
+func (s *Service) HandlePutRuntimeFile(_ context.Context, _ string, request contracts.RuntimeManagerPutRuntimeFileRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerPutRuntimeFileMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handlePutRuntimeFile(env)
+	return nil
+}
+
+func (s *Service) HandleRemoveService(ctx context.Context, _ string, request contracts.RuntimeManagerRemoveServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerRemoveServiceMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleRemoveService(ctx, env)
+	return nil
+}
+
+func (s *Service) HandleRestartService(ctx context.Context, _ string, request contracts.RuntimeManagerServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerRestartServiceMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleServiceAction(ctx, env, "restart")
+	return nil
+}
+
+func (s *Service) HandleStartService(ctx context.Context, _ string, request contracts.RuntimeManagerServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerStartServiceMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleServiceAction(ctx, env, "start")
+	return nil
+}
+
+func (s *Service) HandleStopService(ctx context.Context, _ string, request contracts.RuntimeManagerServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerStopServiceMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleServiceAction(ctx, env, "stop")
+	return nil
+}
+
+func (s *Service) HandleUpdateService(ctx context.Context, _ string, request contracts.RuntimeManagerUpdateServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerUpdateServiceMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleUpdateService(ctx, env)
+	return nil
+}
+
+func (s *Service) HandleUpsertService(ctx context.Context, _ string, request contracts.RuntimeManagerUpsertServiceRequest) error {
+	env, err := runtimeEnvelope(contracts.RuntimeManagerUpsertServiceMethod, request)
+	if err != nil {
+		return err
+	}
+	s.handleUpsertService(ctx, env)
+	return nil
+}
+
+func runtimeEnvelope(messageType string, payload interface{}) (ipc.MQTTEnvelope, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return ipc.MQTTEnvelope{}, fmt.Errorf("encode %s payload: %w", messageType, err)
+	}
+	return ipc.MQTTEnvelope{
+		Type:    messageType,
+		Payload: data,
+	}, nil
 }
 
 func (s *Service) handleGetStatus(ctx context.Context, requestID string) {
@@ -1389,28 +1500,25 @@ func (s *Service) downloadArtifactViaTransfer(
 	localPath := filepath.Join(s.cfg.Runtime.SharedDir, "package-downloads", serviceConfig.Name, artifactName)
 	timeoutWindow := fmt.Sprintf("%ds", s.cfg.Updates.WaitTimeoutSec)
 
-	initial, err := s.requestTransfer(updateCtx, "enqueue-download", cloudtransfer.EnqueueDownloadRequest{
+	initial, err := s.transferClient.EnqueueDownload(updateCtx, contracts.CloudTransferEnqueueDownloadRequest{
 		LocalPath:  localPath,
 		RemotePath: remotePath,
-		RequestID:  fmt.Sprintf("runtime-update-%d", s.now().UnixNano()),
-		Scope:      cloudtransfer.ScopePackage,
+		RequestId:  fmt.Sprintf("runtime-update-%d", s.now().UnixNano()),
+		Scope:      string(cloudtransfer.ScopePackage),
 		Timeout:    timeoutWindow,
 	})
 	if err != nil {
 		return "", "", err
 	}
 
-	transfer, err := decodeTransferReply(initial)
-	if err != nil {
-		return "", "", err
-	}
+	transfer := initial.Transfer
 
 	ticker := time.NewTicker(time.Duration(s.cfg.Updates.PollIntervalMs) * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		switch transfer.State {
-		case cloudtransfer.StateCompleted:
+		case string(cloudtransfer.StateCompleted):
 			if request.ArtifactSHA256 != "" {
 				actualSHA, err := sha256File(localPath)
 				if err != nil {
@@ -1430,7 +1538,7 @@ func (s *Service) downloadArtifactViaTransfer(
 				return localPath, "", nil
 			}
 			return localPath, actualSHA, nil
-		case cloudtransfer.StateFailed:
+		case string(cloudtransfer.StateFailed):
 			message := strings.TrimSpace(transfer.LastError)
 			if message == "" {
 				message = "download manager marked the package transfer as failed"
@@ -1444,26 +1552,15 @@ func (s *Service) downloadArtifactViaTransfer(
 		case <-ticker.C:
 		}
 
-		nextReply, err := s.requestTransfer(updateCtx, "get-transfer", cloudtransfer.GetTransferRequest{
-			RequestID:  fmt.Sprintf("runtime-update-poll-%d", s.now().UnixNano()),
-			TransferID: transfer.ID,
+		nextReply, err := s.transferClient.GetTransfer(updateCtx, contracts.CloudTransferGetTransferRequest{
+			RequestId:  fmt.Sprintf("runtime-update-poll-%d", s.now().UnixNano()),
+			TransferId: transfer.Id,
 		})
 		if err != nil {
 			return "", "", err
 		}
-		transfer, err = decodeTransferReply(nextReply)
-		if err != nil {
-			return "", "", err
-		}
+		transfer = nextReply.Transfer
 	}
-}
-
-func (s *Service) requestTransfer(ctx context.Context, requestType string, payload interface{}) (ipc.ServiceMessageNotification, error) {
-	return s.transferResponses.Request(ctx, s.ipcClient, s.cfg.Updates.DownloadService, requestType, payload)
-}
-
-func decodeTransferReply(message ipc.ServiceMessageNotification) (cloudtransfer.Transfer, error) {
-	return cloudtransfer.DecodeServiceMessage(message)
 }
 
 func sha256File(path string) (string, error) {

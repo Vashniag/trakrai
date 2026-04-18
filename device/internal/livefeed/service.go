@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/trakrai/device-services/internal/ipc"
+	"github.com/trakrai/device-services/internal/ipc/contracts"
 	"github.com/trakrai/device-services/internal/shared/redisconfig"
 )
 
@@ -19,6 +20,11 @@ type liveLayoutPayload struct {
 	LayoutMode  string   `json:"layoutMode"`
 	RequestID   string   `json:"requestId"`
 	SessionID   string   `json:"sessionId"`
+}
+
+type liveFeedCommandHandler struct {
+	ipcClient *ipc.Client
+	sessions  *SessionManager
 }
 
 func Run(ctx context.Context, cfg *Config) error {
@@ -62,6 +68,10 @@ func Run(ctx context.Context, cfg *Config) error {
 }
 
 func handleNotifications(ctx context.Context, ipcClient *ipc.Client, sessions *SessionManager) {
+	handler := liveFeedCommandHandler{
+		ipcClient: ipcClient,
+		sessions:  sessions,
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,86 +91,16 @@ func handleNotifications(ctx context.Context, ipcClient *ipc.Client, sessions *S
 				continue
 			}
 
-			switch msg.Subtopic {
-			case "command":
-				handleCommand(ipcClient, sessions, msg.Envelope)
-			case "webrtc/answer":
-				handleWebRTCAnswer(msg.Envelope, sessions)
-			case "webrtc/ice":
-				handleWebRTCIce(msg.Envelope, sessions)
-			default:
+			handled, err := contracts.DispatchLiveFeed(ctx, "", msg.Subtopic, msg.Envelope, handler)
+			if err != nil {
+				slog.Warn("live-feed notification handling failed", "subtopic", msg.Subtopic, "type", msg.Envelope.Type, "error", err)
+				_ = ipcClient.ReportError(err.Error(), false)
+				continue
+			}
+			if !handled {
 				slog.Debug("ignoring IPC notification", "subtopic", msg.Subtopic)
 			}
 		}
-	}
-}
-
-func handleCommand(ipcClient *ipc.Client, sessions *SessionManager, env ipc.MQTTEnvelope) {
-	switch env.Type {
-	case "start-live", "start":
-		var payload liveLayoutPayload
-		if err := json.Unmarshal(env.Payload, &payload); err != nil {
-			slog.Warn("invalid start-live payload", "error", err)
-			_ = ipcClient.ReportError(fmt.Sprintf("invalid start-live payload: %v", err), false)
-			return
-		}
-
-		plan, err := layoutPlanFromPayload(payload)
-		if err != nil {
-			slog.Warn("start-live payload invalid", "error", err)
-			_ = ipcClient.ReportError(fmt.Sprintf("invalid start-live payload: %v", err), false)
-			return
-		}
-
-		if err := ipcClient.ReportStatus("starting", mergeLayoutDetails(plan, map[string]interface{}{
-			"camera": plan.PrimaryCamera(),
-		})); err != nil {
-			slog.Debug("status report failed", "error", err)
-		}
-		go sessions.StartSession(plan, payload.RequestID)
-
-	case "update-live-layout":
-		var payload liveLayoutPayload
-		if err := json.Unmarshal(env.Payload, &payload); err != nil {
-			slog.Warn("invalid update-live-layout payload", "error", err)
-			_ = ipcClient.ReportError(fmt.Sprintf("invalid update-live-layout payload: %v", err), false)
-			return
-		}
-
-		plan, err := layoutPlanFromPayload(payload)
-		if err != nil {
-			slog.Warn("update-live-layout payload invalid", "error", err)
-			_ = ipcClient.ReportError(fmt.Sprintf("invalid update-live-layout payload: %v", err), false)
-			return
-		}
-
-		if err := sessions.UpdateSessionLayout(payload.SessionID, payload.RequestID, plan); err != nil {
-			slog.Warn("update-live-layout failed", "error", err)
-			_ = ipcClient.ReportError(fmt.Sprintf("update-live-layout failed: %v", err), false)
-		}
-
-	case "stop-live", "stop":
-		var payload struct {
-			SessionID string `json:"sessionId"`
-			RequestID string `json:"requestId"`
-		}
-		if len(env.Payload) > 0 {
-			if err := json.Unmarshal(env.Payload, &payload); err != nil {
-				slog.Warn("invalid stop-live payload", "error", err)
-			}
-		}
-
-		switch {
-		case strings.TrimSpace(payload.SessionID) != "":
-			sessions.StopSession(payload.SessionID)
-		case strings.TrimSpace(payload.RequestID) != "":
-			sessions.StopSessionByRequestID(payload.RequestID)
-		default:
-			sessions.StopSession("")
-		}
-
-	default:
-		slog.Warn("unknown live-feed command", "type", env.Type)
 	}
 }
 
@@ -178,26 +118,71 @@ func layoutPlanFromPayload(payload liveLayoutPayload) (LiveLayoutPlan, error) {
 	)
 }
 
-func handleWebRTCAnswer(env ipc.MQTTEnvelope, sessions *SessionManager) {
-	var payload struct {
-		SDP       string `json:"sdp"`
-		SessionID string `json:"sessionId"`
+func (h liveFeedCommandHandler) HandleStartLive(_ context.Context, _ string, request contracts.LiveFeedLiveLayoutRequest) error {
+	payload := liveLayoutPayload{
+		Camera:      request.Camera,
+		CameraName:  request.CameraName,
+		CameraNames: request.CameraNames,
+		FrameSource: request.FrameSource,
+		LayoutMode:  request.LayoutMode,
+		RequestID:   request.RequestId,
+		SessionID:   request.SessionId,
 	}
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		slog.Warn("invalid SDP answer payload", "error", err)
-		return
+	plan, err := layoutPlanFromPayload(payload)
+	if err != nil {
+		return fmt.Errorf("invalid start-live payload: %w", err)
 	}
-	sessions.SetRemoteAnswer(payload.SessionID, payload.SDP)
+	if err := h.ipcClient.ReportStatus("starting", mergeLayoutDetails(plan, map[string]interface{}{
+		"camera": plan.PrimaryCamera(),
+	})); err != nil {
+		slog.Debug("status report failed", "error", err)
+	}
+	go h.sessions.StartSession(plan, payload.RequestID)
+	return nil
 }
 
-func handleWebRTCIce(env ipc.MQTTEnvelope, sessions *SessionManager) {
-	var payload struct {
-		Candidate json.RawMessage `json:"candidate"`
-		SessionID string          `json:"sessionId"`
+func (h liveFeedCommandHandler) HandleUpdateLiveLayout(_ context.Context, _ string, request contracts.LiveFeedLiveLayoutRequest) error {
+	payload := liveLayoutPayload{
+		Camera:      request.Camera,
+		CameraName:  request.CameraName,
+		CameraNames: request.CameraNames,
+		FrameSource: request.FrameSource,
+		LayoutMode:  request.LayoutMode,
+		RequestID:   request.RequestId,
+		SessionID:   request.SessionId,
 	}
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		slog.Warn("invalid ICE candidate payload", "error", err)
-		return
+	plan, err := layoutPlanFromPayload(payload)
+	if err != nil {
+		return fmt.Errorf("invalid update-live-layout payload: %w", err)
 	}
-	sessions.AddICECandidate(payload.SessionID, payload.Candidate)
+	if err := h.sessions.UpdateSessionLayout(payload.SessionID, payload.RequestID, plan); err != nil {
+		return fmt.Errorf("update-live-layout failed: %w", err)
+	}
+	return nil
+}
+
+func (h liveFeedCommandHandler) HandleStopLive(_ context.Context, _ string, request contracts.LiveFeedStopLiveRequest) error {
+	switch {
+	case strings.TrimSpace(request.SessionId) != "":
+		h.sessions.StopSession(request.SessionId)
+	case strings.TrimSpace(request.RequestId) != "":
+		h.sessions.StopSessionByRequestID(request.RequestId)
+	default:
+		h.sessions.StopSession("")
+	}
+	return nil
+}
+
+func (h liveFeedCommandHandler) HandleSdpAnswer(_ context.Context, _ string, request contracts.LiveFeedSdpAnswerRequest) error {
+	h.sessions.SetRemoteAnswer(request.SessionId, request.Sdp)
+	return nil
+}
+
+func (h liveFeedCommandHandler) HandleIceCandidate(_ context.Context, _ string, request contracts.LiveFeedIceCandidateRequest) error {
+	candidate, err := json.Marshal(request.Candidate)
+	if err != nil {
+		return fmt.Errorf("encode ICE candidate: %w", err)
+	}
+	h.sessions.AddICECandidate(request.SessionId, candidate)
+	return nil
 }

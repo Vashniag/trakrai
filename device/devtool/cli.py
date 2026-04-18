@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from . import assets, cameras, configs, deploy, local, manifests, packages, paths, runtime, services, testing
+from . import assets, cameras, configs, contracts, deploy, local, manifests, packages, paths, runtime, services, testing
 from .build import build_services
 from .shell_completion import bash_completion, fish_completion, zsh_completion
 
@@ -12,6 +12,7 @@ DELEGATED_COMMANDS = {
     "assets": assets.main,
     "cameras": cameras.main,
     "config": configs.main,
+    "contract": contracts.main,
     "deploy": deploy.main,
     "emulator": local.main,
     "package": packages.main,
@@ -130,6 +131,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     config_parser = subparsers.add_parser("config", help="generate, validate, and codegen config assets")
     config_parser.set_defaults(delegate="config")
+
+    contract_parser = subparsers.add_parser("contract", help="validate and codegen service method contracts")
+    contract_parser.set_defaults(delegate="contract")
 
     deploy_parser = subparsers.add_parser("deploy", help="deploy the staged runtime to remote targets")
     deploy_parser.set_defaults(delegate="deploy")

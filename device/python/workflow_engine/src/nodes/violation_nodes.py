@@ -4,6 +4,16 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from trakrai_service_runtime.generated_contracts.cloud_transfer import (
+    CloudTransferClient,
+    CloudTransferEnqueueUploadRequest,
+)
+from trakrai_service_runtime.generated_contracts.video_recorder import (
+    VideoRecorderCapturePhotoRequest,
+    VideoRecorderClient,
+    VideoRecorderRecordClipRequest,
+)
+
 from ..models import NodeCategory, PortDefinition, t_any, t_boolean, t_number, t_string
 from ..node_support import bool_value, float_value, int_value, parse_frame_time, sanitize_path_component, string_value
 from ..registry import register_node
@@ -52,6 +62,8 @@ def send_violation_to_cloud(inputs: NodeInputs) -> NodeOutputs:
     service_bridge = get_service_bridge_from_inputs(inputs)
     if service_bridge is None:
         raise RuntimeError("workflow execution context does not include a service bridge")
+    cloud_transfer = CloudTransferClient(service_bridge)
+    video_recorder = VideoRecorderClient(service_bridge)
 
     detection_metadata = get_detection_metadata_from_inputs(inputs)
     detection_data = get_detection_data_from_inputs(inputs)
@@ -122,77 +134,51 @@ def send_violation_to_cloud(inputs: NodeInputs) -> NodeOutputs:
 
     photo_transfer_id = ""
     if photo_enabled:
-        photo_capture = service_bridge.request(
-            target_service="video-recorder",
-            message_type="capture-photo",
-            payload={
-                "cameraId": camera_id,
-                "cameraName": camera_name,
-                "imageId": image_id,
-                "localPath": photo_local_path,
-            },
-            expected_types={"video-recorder-photo", "video-recorder-error"},
+        photo_capture = video_recorder.capture_photo(
+            VideoRecorderCapturePhotoRequest(
+                camera_id=camera_id,
+                camera_name=camera_name,
+                image_id=image_id,
+                local_path=photo_local_path,
+            ),
             timeout_sec=wait_timeout_sec,
         )
-        if photo_capture["type"] == "video-recorder-error":
-            raise RuntimeError(str(photo_capture["payload"].get("error", "video-recorder photo capture failed")))
-
-        photo = photo_capture["payload"].get("photo")
-        if not isinstance(photo, dict):
-            raise RuntimeError("video-recorder photo response did not include a photo payload")
-
-        photo_local_path = string_value(photo.get("localPath"))
-        transfer = service_bridge.request(
-            target_service="cloud-transfer",
-            message_type="enqueue-upload",
-            payload={
-                "contentType": "image/jpeg",
-                "localPath": photo_local_path,
-                "metadata": {**metadata, "assetType": "photo"},
-                "remotePath": photo_remote_path,
-                "scope": "device",
-                "timeout": upload_timeout,
-            },
-            expected_types={"cloud-transfer-transfer", "cloud-transfer-error"},
+        photo_local_path = photo_capture.photo.local_path
+        transfer = cloud_transfer.enqueue_upload(
+            CloudTransferEnqueueUploadRequest(
+                content_type="image/jpeg",
+                local_path=photo_local_path,
+                metadata={**metadata, "assetType": "photo"},
+                remote_path=photo_remote_path,
+                scope="device",
+                timeout=upload_timeout or None,
+            ),
             timeout_sec=wait_timeout_sec,
         )
-        if transfer["type"] == "cloud-transfer-error":
-            raise RuntimeError(str(transfer["payload"].get("error", "photo upload enqueue failed")))
-        transfer_payload = transfer["payload"].get("transfer")
-        if not isinstance(transfer_payload, dict):
-            raise RuntimeError("cloud-transfer response did not include a transfer payload")
-        photo_transfer_id = string_value(transfer_payload.get("id"))
+        photo_transfer_id = transfer.transfer.id
 
     video_job_id = ""
     if video_enabled:
-        video_response = service_bridge.request(
-            target_service="video-recorder",
-            message_type="record-clip",
-            payload={
-                "cameraId": camera_id,
-                "cameraName": camera_name,
-                "codec": video_codec,
-                "contentType": "video/mp4",
-                "frameRate": frame_rate,
-                "imageId": image_id,
-                "localPath": video_local_path,
-                "metadata": {**metadata, "assetType": "video"},
-                "postSeconds": post_seconds,
-                "preSeconds": pre_seconds,
-                "remotePath": video_remote_path,
-                "scope": "device",
-                "timeout": upload_timeout,
-            },
-            expected_types={"video-recorder-job", "video-recorder-error"},
+        video_response = video_recorder.record_clip(
+            VideoRecorderRecordClipRequest(
+                camera_id=camera_id,
+                camera_name=camera_name,
+                codec=video_codec,
+                content_type="video/mp4",
+                frame_rate=frame_rate,
+                image_id=image_id,
+                local_path=video_local_path,
+                metadata={**metadata, "assetType": "video"},
+                post_seconds=post_seconds,
+                pre_seconds=pre_seconds,
+                remote_path=video_remote_path,
+                scope="device",
+                timeout=upload_timeout or None,
+            ),
             timeout_sec=wait_timeout_sec,
         )
-        if video_response["type"] == "video-recorder-error":
-            raise RuntimeError(str(video_response["payload"].get("error", "video-recorder clip enqueue failed")))
-        job = video_response["payload"].get("job")
-        if not isinstance(job, dict):
-            raise RuntimeError("video-recorder response did not include a job payload")
-        video_job_id = string_value(job.get("id"))
-        video_local_path = string_value(job.get("localPath")) or video_local_path
+        video_job_id = video_response.job.id
+        video_local_path = video_response.job.local_path or video_local_path
 
     return {
         "eventPublished": True,
