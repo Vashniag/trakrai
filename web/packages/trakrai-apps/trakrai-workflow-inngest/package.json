@@ -1,0 +1,53 @@
+{
+  "name": "@trakrai-workflow/inngest",
+  "version": "0.0.1-beta.1",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && pnpm run build:types",
+    "build:types": "tsc -p tsconfig.build.json",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./dist/index.d.ts"
+      }
+    }
+  },
+  "dependencies": {
+    "@trakrai-workflow/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "inngest": "^4.1.0",
+    "zod": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^10.1.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^6",
+    "vitest": "^4.1.2"
+  }
+}

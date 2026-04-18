@@ -1,0 +1,69 @@
+{
+  "name": "@trakrai-workflow/core",
+  "version": "0.0.1-beta.1",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && pnpm run build:types",
+    "build:types": "tsc -p tsconfig.build.json",
+    "dev": "tsdown --watch",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./utils": "./src/core/utils/index.ts",
+    "./node-runtime": "./src/core/node-runtime.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./dist/index.d.ts"
+      },
+      "./utils": {
+        "import": "./dist/core/utils.js",
+        "types": "./dist/core/utils.d.ts"
+      },
+      "./node-runtime": {
+        "import": "./dist/core/node-runtime.js",
+        "types": "./dist/core/node-runtime.d.ts"
+      }
+    }
+  },
+  "dependencies": {
+    "@trpc/server": "^11.16.0",
+    "superjson": "^2.2.6"
+  },
+  "peerDependencies": {
+    "@xyflow/react": "^12.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "zod": ">=4.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@trpc/tanstack-react-query": "^11.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^10.1.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^6",
+    "vitest": "^4.1.2"
+  }
+}

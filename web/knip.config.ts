@@ -16,6 +16,13 @@ const config: KnipConfig = {
       entry: ['test/**/*.test.ts'],
       project: ['src/**/*.{ts,tsx}', 'test/**/*.ts'],
     },
+    'apps/trakrai-workflow': {
+      project: ['src/**/*.{ts,tsx}'],
+      ignoreDependencies: ['@tailwindcss/postcss'],
+    },
+    'apps/trakrai-workflow-scheduler': {
+      project: ['src/**/*.ts'],
+    },
     'packages/core/trakrai-backend': {
       project: ['src/**/*.{ts,tsx}'],
     },
@@ -39,6 +46,21 @@ const config: KnipConfig = {
       project: ['src/**/*.{ts,tsx}'],
     },
     'packages/trakrai-apps/trakrai-runtime-manager-ui': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-apps/trakrai-workflow-core': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-apps/trakrai-workflow-inngest': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-apps/trakrai-workflow-plugins': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-apps/trakrai-workflow-schemas': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-apps/trakrai-workflow-ui': {
       project: ['src/**/*.{ts,tsx}'],
     },
     'packages/core/trakrai-webrtc': {

@@ -35,6 +35,81 @@ services:
       timeout: 5s
       retries: 5
 
+  inngest-postgres:
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - '5440:5432'
+    environment:
+      POSTGRES_DB: ${INNGEST_POSTGRES_DB:-inngest}
+      POSTGRES_USER: ${INNGEST_POSTGRES_USER:-inngest}
+      POSTGRES_PASSWORD: ${INNGEST_POSTGRES_PASSWORD:-password}
+    volumes:
+      - trakrai_inngest_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${INNGEST_POSTGRES_USER:-inngest} -d ${INNGEST_POSTGRES_DB:-inngest}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  inngest-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+    volumes:
+      - trakrai_inngest_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  inngest:
+    image: inngest/inngest:v1.17.4
+    restart: unless-stopped
+    command: 'inngest start'
+    ports:
+      - '8288:8288'
+      - '8289:8289'
+    environment:
+      INNGEST_REDIS_URI: redis://inngest-redis:6379
+      INNGEST_POSTGRES_URI: postgres://${INNGEST_POSTGRES_USER:-inngest}:${INNGEST_POSTGRES_PASSWORD:-password}@inngest-postgres:5432/${INNGEST_POSTGRES_DB:-inngest}
+    depends_on:
+      inngest-postgres:
+        condition: service_healthy
+      inngest-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8288/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  trakrai-workflow-scheduler:
+    build:
+      context: ../web
+      dockerfile: apps/trakrai-workflow-scheduler/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3010:3010'
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: inngest-redis
+      REDIS_PORT: '6379'
+      SCHEDULER_HOST: 0.0.0.0
+      SCHEDULER_PORT: '3010'
+      WEB_APP_BASE_URL: ${TRAKRAI_WORKFLOW_BASE_URL:-http://host.docker.internal:3000}
+      LOG_LEVEL: ${TRAKRAI_WORKFLOW_SCHEDULER_LOG_LEVEL:-info}
+    depends_on:
+      inngest-redis:
+        condition: service_healthy
+
   mosquitto:
     image: eclipse-mosquitto:2
     restart: unless-stopped
@@ -97,5 +172,7 @@ volumes:
   caddy_data:
   caddy_config:
   trakrai_postgres_data:
+  trakrai_inngest_postgres_data:
+  trakrai_inngest_redis_data:
   mosquitto_data:
   mosquitto_log:

@@ -1,0 +1,47 @@
+{
+  "nodes": [
+    {
+      "id": "http-request_1",
+      "type": "httpRequest",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "label": "HTTP Request",
+        "configuration": {
+          "url": "https://jsonplaceholder.typicode.com/posts/1"
+        }
+      },
+      "measured": { "width": 224, "height": 139 }
+    },
+    {
+      "id": "http-request_2",
+      "type": "httpRequest",
+      "position": { "x": 300, "y": 0 },
+      "data": {
+        "label": "HTTP POST Request",
+        "configuration": {
+          "url": "https://jsonplaceholder.typicode.com/posts",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "title": "Test Post",
+            "body": "This is a test",
+            "userId": 1
+          }
+        }
+      },
+      "measured": { "width": 224, "height": 139 }
+    }
+  ],
+  "edges": [
+    {
+      "source": "http-request_1",
+      "sourceHandle": "data",
+      "target": "http-request_2",
+      "targetHandle": "body",
+      "id": "xy-edge__http-request_1data-http-request_2body",
+      "animated": true
+    }
+  ]
+}
