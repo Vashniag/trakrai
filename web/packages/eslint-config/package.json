@@ -12,11 +12,11 @@
     "@eslint/compat": "^2.0.5",
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "^16.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.58.1",
-    "@typescript-eslint/parser": "^8.58.1",
+    "@next/eslint-plugin-next": "^16.2.4",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
     "eslint": "^10",
-    "eslint-config-next": "16.2.3",
+    "eslint-config-next": "16.2.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
@@ -24,13 +24,13 @@
     "eslint-plugin-prefer-arrow-functions": "^3.9.1",
     "eslint-plugin-promise": "^7.2.1",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-prefer-function-component": "^5.0.0",
     "eslint-plugin-security": "^4.0.0",
-    "eslint-plugin-sonarjs": "^4.0.2",
+    "eslint-plugin-sonarjs": "^4.0.3",
     "eslint-plugin-turbo": "^2.9.6",
     "globals": "^17.5.0",
     "typescript": "^6",
-    "typescript-eslint": "^8.58.1"
+    "typescript-eslint": "^8.58.2"
   }
 }

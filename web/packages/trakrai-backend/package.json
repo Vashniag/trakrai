@@ -15,12 +15,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@azure/storage-blob": "^12.29.1",
-    "@aws-sdk/client-s3": "^3.913.0",
-    "@aws-sdk/s3-request-presigner": "^3.913.0",
+    "@azure/storage-blob": "^12.31.0",
+    "@aws-sdk/client-s3": "^3.1032.0",
+    "@aws-sdk/s3-request-presigner": "^3.1032.0",
     "@trpc/server": "^11.16.0",
     "drizzle-orm": "1.0.0-beta.15-859cf75",
-    "next": "16.2.3",
+    "next": "16.2.4",
     "pg": "^8.20.0",
     "superjson": "^2.2.6",
     "trpc-to-openapi": "^3.2.0",
@@ -32,8 +32,8 @@
     "@types/pg": "^8.20.0",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "eslint": "^10.2.0",
-    "tsdown": "^0.21.7",
+    "eslint": "^10.2.1",
+    "tsdown": "^0.21.9",
     "typescript": "^6"
   },
   "exports": {

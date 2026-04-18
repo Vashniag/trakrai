@@ -33,11 +33,11 @@
     "jscpd": "^4.0.9",
     "knip": "^6.4.1",
     "lint-staged": "^16.4.0",
-    "npm-check-updates": "^20.0.1",
-    "prettier": "^3.8.2",
+    "npm-check-updates": "^21.0.2",
+    "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "turbo": "^2.9.6",
-    "typescript": "6.0.2"
+    "typescript": "6.0.3"
   },
   "pnpm": {
     "overrides": {
