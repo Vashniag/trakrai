@@ -74,6 +74,12 @@ python3 -m device.devtool
     config-list
     config-get
     config-set
+    put-file
+    update-service
+    upsert-service
+    remove-service
+  service
+    push
   test
     list
     run
@@ -1520,6 +1526,298 @@ Important note:
 - when `config-set` restarts `cloud-comm`, the websocket used by the command is expected to drop and can report `unexpected websocket EOF` or a transient reset/timeout while the transport restarts
 - this behavior was observed and the runtime recovered afterward
 
+#### `runtime put-file`
+
+Command:
+
+```bash
+python3 -m device.devtool runtime put-file [--request <json>] [--url <ws-url>] [--device-id <id>] [--timeout-sec <sec>] --path <runtime-path> --content-file <path> [--mode 0644]
+```
+
+What it does:
+
+- writes a text file underneath the managed runtime root
+- creates parent directories as needed
+- is used by the high-level `service push` flow to sync Python runtime support modules and generated config bindings
+
+Request-file keys:
+
+```json
+{
+  "url": "ws://127.0.0.1:18080/ws",
+  "device_id": "",
+  "timeout_sec": 15,
+  "path": "/home/hacklab/trakrai-device-runtime/shared/devtool-smoke/runtime-file.txt",
+  "content_file": "device/configs/cloud-comm.sample.json",
+  "mode": 420
+}
+```
+
+Verified commands:
+
+```bash
+python3 -m device.devtool runtime put-file --url ws://127.0.0.1:18080/ws --path /home/hacklab/trakrai-device-runtime/shared/devtool-smoke/runtime-file.txt --content-file device/configs/cloud-comm.sample.json
+```
+
+Verification:
+
+- `Verified end-to-end`
+
+Important notes:
+
+- `mode` is parsed as octal on the CLI, so `0644` maps to JSON integer `420`
+- paths must stay inside the runtime-managed root; arbitrary filesystem writes are rejected by `runtime-manager`
+
+#### `runtime update-service`
+
+Command:
+
+```bash
+python3 -m device.devtool runtime update-service [--request <json>] [--url <ws-url>] [--device-id <id>] [--timeout-sec <sec>] --service-name <name> [--remote-path <cloud-path> | --local-path <runtime-path>] [--artifact-sha256 <sha256>]
+```
+
+What it does:
+
+- updates one already-managed service through `runtime-manager`
+- accepts either:
+  - `--remote-path` for cloud-transfer driven download and install
+  - `--local-path` for an already-staged artifact in the runtime shared/download area
+- is the low-level primitive used by the higher-level `service push` command
+
+Request-file keys:
+
+```json
+{
+  "url": "ws://127.0.0.1:18080/ws",
+  "device_id": "",
+  "timeout_sec": 15,
+  "service_name": "audio-manager",
+  "remote_path": "dev-service-updates/audio-manager/linux-arm64/audio-manager.whl",
+  "local_path": "",
+  "artifact_sha256": "deadbeef"
+}
+```
+
+Verified commands:
+
+```bash
+python3 -m device.devtool runtime update-service --url ws://127.0.0.1:18080/ws --service-name audio-manager --remote-path dev-service-updates/.../trakrai_audio_manager-0.1.0-py3-none-any.whl --artifact-sha256 <sha256>
+```
+
+Verification:
+
+- `Verified end-to-end`
+
+Important notes:
+
+- `--remote-path` and `--local-path` are mutually exclusive
+- `runtime-manager` itself cannot be updated through this API
+- `cloud-comm` is intentionally handled by the staged control-plane updater instead of the in-band update API
+
+#### `runtime upsert-service`
+
+Command:
+
+```bash
+python3 -m device.devtool runtime upsert-service [--request <json>] [--url <ws-url>] [--device-id <id>] [--timeout-sec <sec>] --definition-file <path>
+```
+
+What it does:
+
+- loads a complete managed-service definition from JSON
+- stores it in the runtime-manager state file
+- reconciles the wrapper script and systemd unit on the target
+
+Request-file keys:
+
+```json
+{
+  "url": "ws://127.0.0.1:18080/ws",
+  "device_id": "",
+  "timeout_sec": 15,
+  "definition_file": "/tmp/service-definition.json"
+}
+```
+
+Verified commands:
+
+```bash
+python3 -m device.devtool runtime upsert-service --url ws://127.0.0.1:18080/ws --definition-file /tmp/service-definition.json
+```
+
+Verification:
+
+- `Verified end-to-end`
+
+Important note:
+
+- this is the low-level definition API; prefer `service push` for manifest-backed rollout because it keeps config, definition, artifact, and start behavior together
+
+#### `runtime remove-service`
+
+Command:
+
+```bash
+python3 -m device.devtool runtime remove-service [--request <json>] [--url <ws-url>] [--device-id <id>] [--timeout-sec <sec>] --service-name <name> [--purge-files]
+```
+
+What it does:
+
+- removes one managed-service definition from `runtime-manager`
+- stops and disables the systemd unit when present
+- optionally purges managed install/log/version files when `--purge-files` is passed
+
+Request-file keys:
+
+```json
+{
+  "url": "ws://127.0.0.1:18080/ws",
+  "device_id": "",
+  "timeout_sec": 15,
+  "service_name": "edge-ui",
+  "purge_files": false
+}
+```
+
+Verified commands:
+
+```bash
+python3 -m device.devtool runtime remove-service --url ws://127.0.0.1:18080/ws --service-name edge-ui
+```
+
+Verification:
+
+- `Verified end-to-end`
+
+Important notes:
+
+- `runtime-manager` cannot remove itself
+- config files are not deleted by this command; it removes the managed service definition and runtime artifacts only
+
+### `service`
+
+Purpose:
+
+- provide the one-command developer workflow for updating a single service across supported targets
+- keep config sync, definition sync, artifact transfer, runtime-manager update, and start behavior in one manifest-backed command
+- make brand-new services work as soon as they are added to the central manifests and have build artifacts/config schema support
+
+#### `service push`
+
+Command:
+
+```bash
+python3 -m device.devtool service push [--request <json>] --service <name> [--target emulator|runtime|ssh] [--url <ws-url>] [--device-id <id>] [--timeout-sec <sec>] [--artifact-source local|release] [--platform <platform>] [--skip-build] [--skip-ui-build] [--metadata <path>] [--version <value>] [--cloud-api-base-url <url>] [--cloud-api-token <token>] [--package-download-path <path>] [--publish-target cloud-api|s3] [--package-prefix <prefix>] [--s3-bucket <bucket>] [--s3-region <region>] [--config-source auto|current|profile|sample|schema|file|skip] [--config-file <path>] [--profile <name>] [--enable] [--disable] [--interactive] [--host <host>] [--port <port>] [--user <user>] [--password <password>] [--runtime-root <path>]
+```
+
+What it does:
+
+- resolves the target connection:
+  - `emulator`: local websocket runtime on `ws://127.0.0.1:18080/ws`
+  - `runtime`: arbitrary websocket runtime, defaulting to the local emulator URL if `--url` is omitted
+  - `ssh`: remote runtime reached through SSH plus the runtime-manager request helper
+- loads current target status and runtime layout from `runtime-manager`
+- renders the manifest-backed service definition for the target runtime root, config dir, user, group, and script paths
+- resolves config content from:
+  - current live config
+  - profile output
+  - sample config
+  - schema defaults
+  - explicit file
+  - skip
+- creates missing config files when the service has not been provisioned before
+- creates or updates the runtime-manager definition, including wrapper script/systemd unit wiring
+- for Python services, syncs:
+  - `trakrai_service_runtime`
+  - generated config runtime support files
+  - the service-specific generated config module
+- resolves the artifact from local build output or release metadata
+- chooses the artifact transport automatically:
+  - `runtime` target uses a cloud path and `runtime-manager update-service --remote-path`
+  - `emulator` target stages a local runtime file and uses `--local-path`
+  - `ssh` target uploads the artifact into the runtime shared path and uses `--local-path`
+- starts the service when it is enabled, controllable, and not already running after the update
+- prints the final service snapshot from a fresh runtime-manager status call
+
+Supported target and artifact combinations:
+
+- `--target emulator --artifact-source local`: build or reuse a local artifact, stage it into the emulator runtime, then update in place
+- `--target emulator --artifact-source release`: pull the released artifact locally, stage it into the emulator runtime, then update in place
+- `--target runtime --artifact-source local`: publish the dev artifact to the configured cloud API/S3 target, then tell the runtime to fetch it
+- `--target runtime --artifact-source release`: resolve the release metadata and tell the runtime to fetch that artifact directly
+- `--target ssh --artifact-source local`: build locally, upload into the remote runtime shared area, then update through the remote helper
+- `--target ssh --artifact-source release`: pull the release locally, upload into the remote runtime shared area, then update through the remote helper
+
+Special control-plane handling:
+
+- `runtime-manager` and `cloud-comm` are handled by the staged `update_control_plane.py` helper instead of the normal in-band `update-service` API
+- those control-plane updates are supported for `--target emulator` and `--target ssh`
+- they are intentionally rejected for plain `--target runtime` because replacing the live transport/control plane in-band is not reliable
+
+Request-file keys:
+
+```json
+{
+  "service": "audio-manager",
+  "target": "runtime",
+  "url": "ws://127.0.0.1:18080/ws",
+  "device_id": "",
+  "timeout_sec": 30,
+  "artifact_source": "local",
+  "platform": "linux/arm64",
+  "skip_build": true,
+  "skip_ui_build": false,
+  "metadata": "device/out/package-versions.json",
+  "version": "",
+  "cloud_api_base_url": "",
+  "cloud_api_token": "",
+  "package_download_path": "/api/device/packages/download",
+  "publish_target": "cloud-api",
+  "package_prefix": "trakrai",
+  "s3_bucket": "",
+  "s3_region": "",
+  "config_source": "current",
+  "config_file": "",
+  "profile": "",
+  "enable": false,
+  "disable": false,
+  "host": "",
+  "port": 22,
+  "user": "",
+  "password": "",
+  "runtime_root": "/home/hacklab/trakrai-device-runtime"
+}
+```
+
+Verified commands:
+
+```bash
+python3 -m device.devtool service push --service audio-manager --target emulator --config-source current --skip-build
+python3 -m device.devtool service push --service audio-manager --target runtime --config-source current --skip-build
+python3 -m device.devtool service push --service audio-manager --target runtime --artifact-source release --metadata /tmp/package-metadata.json --config-source current --skip-build
+python3 -m device.devtool service push --service edge-ui --target runtime --skip-build --config-source skip
+python3 -m device.devtool service push --service runtime-manager --target emulator --artifact-source local --cloud-api-base-url http://127.0.0.1:3000
+```
+
+Verification:
+
+- emulator local-artifact flow: `Verified end-to-end`
+- runtime local-artifact flow: `Verified end-to-end`
+- runtime release-artifact flow: `Verified end-to-end`
+- brand-new runtime provisioning flow:
+  - `edge-ui` was removed from `runtime-manager`
+  - `service push --service edge-ui --target runtime --skip-build --config-source skip` recreated the managed definition and reinstalled the UI bundle
+  - `Verified end-to-end`
+- emulator control-plane update flow for `runtime-manager`: `Verified end-to-end`
+- ssh transport flow: `Verified structurally`
+
+Important notes:
+
+- the final JSON output now includes `serviceSnapshot`, which is pulled from a fresh post-update runtime status call
+- Python services do not rely only on the wheel artifact anymore; the required generated config module and shared Python runtime support are synced as part of the same command
+- if `--config-source current` is used for a brand-new service, the command fails because there is no live config yet; use `profile`, `sample`, `schema`, `file`, or `skip`
+- SSH end-to-end execution remained blocked in this environment because `10.8.0.50:22` timed out during connectivity checks
+
 ### `test`
 
 Purpose:
@@ -1952,4 +2250,3 @@ For most local development cycles:
    python3 -m device.devtool runtime config-get ...
    python3 -m device.devtool runtime config-set ...
    ```
-

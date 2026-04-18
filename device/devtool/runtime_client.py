@@ -79,3 +79,145 @@ class RuntimeWsClient:
                 continue
             return message
         raise SystemExit(f"timed out waiting for websocket response from {service}:{message_type}")
+
+    def get_status(self, *, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="get-status",
+            payload={},
+            expected_types={"runtime-manager-status"},
+            timeout_sec=timeout_sec,
+        )
+
+    def service_action(self, action: str, service_name: str, *, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type=f"{action}-service",
+            payload={"serviceName": service_name},
+            expected_types={"runtime-manager-service-action", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def get_service_definition(self, service_name: str, *, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="get-service-definition",
+            payload={"serviceName": service_name},
+            expected_types={"runtime-manager-service-definition", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def get_service_log(self, service_name: str, *, lines: int = 120, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="get-service-log",
+            payload={"serviceName": service_name, "lines": lines},
+            expected_types={"runtime-manager-log", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def list_configs(self, *, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="list-configs",
+            payload={},
+            expected_types={"runtime-manager-config-list", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def get_config(self, config_name: str, *, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="get-config",
+            payload={"configName": config_name},
+            expected_types={"runtime-manager-config", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def put_config(
+        self,
+        config_name: str,
+        content: object,
+        *,
+        restart_services: list[str] | None = None,
+        create_if_missing: bool = False,
+        timeout_sec: float | None = None,
+    ) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="put-config",
+            payload={
+                "configName": config_name,
+                "content": content,
+                "restartServices": list(restart_services or []),
+                "createIfMissing": create_if_missing,
+            },
+            expected_types={"runtime-manager-config", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def update_service(
+        self,
+        service_name: str,
+        *,
+        remote_path: str = "",
+        local_path: str = "",
+        artifact_sha256: str = "",
+        timeout_sec: float | None = None,
+    ) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="update-service",
+            payload={
+                "serviceName": service_name,
+                "remotePath": remote_path,
+                "localPath": local_path,
+                "artifactSha256": artifact_sha256,
+            },
+            expected_types={"runtime-manager-update", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def put_runtime_file(
+        self,
+        path: str,
+        content: str,
+        *,
+        mode: int = 0o644,
+        timeout_sec: float | None = None,
+    ) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="put-runtime-file",
+            payload={
+                "path": path,
+                "content": content,
+                "mode": mode,
+            },
+            expected_types={"runtime-manager-file", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def upsert_service(self, definition: dict[str, object], *, timeout_sec: float | None = None) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="upsert-service",
+            payload={"definition": definition},
+            expected_types={"runtime-manager-service-action", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )
+
+    def remove_service(
+        self,
+        service_name: str,
+        *,
+        purge_files: bool = False,
+        timeout_sec: float | None = None,
+    ) -> dict[str, object]:
+        return self.request(
+            service="runtime-manager",
+            message_type="remove-service",
+            payload={"serviceName": service_name, "purgeFiles": purge_files},
+            expected_types={"runtime-manager-service-action", "runtime-manager-error"},
+            timeout_sec=timeout_sec,
+        )

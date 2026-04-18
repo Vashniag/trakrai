@@ -39,6 +39,16 @@ python3 -m device.devtool runtime status --url ws://127.0.0.1:18080/ws
 python3 -m device.devtool runtime config-list --url ws://127.0.0.1:18080/ws
 python3 -m device.devtool runtime config-get --config-name cloud-comm.json --output /tmp/cloud-comm.json
 python3 -m device.devtool runtime config-set --config-name cloud-comm.json --content-file /tmp/cloud-comm.json --restart-service cloud-comm
+python3 -m device.devtool runtime put-file --url ws://127.0.0.1:18080/ws --path /home/hacklab/trakrai-device-runtime/shared/devtool-smoke/runtime-file.txt --content-file device/configs/cloud-comm.sample.json
+python3 -m device.devtool runtime update-service --url ws://127.0.0.1:18080/ws --service-name audio-manager --remote-path dev-service-updates/.../trakrai_audio_manager-0.1.0-py3-none-any.whl --artifact-sha256 <sha256>
+python3 -m device.devtool runtime upsert-service --url ws://127.0.0.1:18080/ws --definition-file /tmp/service-definition.json
+python3 -m device.devtool runtime remove-service --url ws://127.0.0.1:18080/ws --service-name smoke-runtime-asset
+
+python3 -m device.devtool service push --service audio-manager --target emulator --config-source current --skip-build
+python3 -m device.devtool service push --service audio-manager --target runtime --config-source current --skip-build
+python3 -m device.devtool service push --service audio-manager --target runtime --artifact-source release --metadata /tmp/package-metadata.json --config-source current --skip-build
+python3 -m device.devtool service push --service edge-ui --target runtime --skip-build --config-source skip
+python3 -m device.devtool service push --service runtime-manager --target emulator --artifact-source local --cloud-api-base-url http://127.0.0.1:3000
 
 python3 -m device.devtool deploy ssh --host 10.8.0.50 --user hacklab --password 'HACK@LAB'
 
@@ -71,6 +81,16 @@ Then run:
 ```bash
 python3 -m device.devtool config generate --request /path/to/request.json
 ```
+
+For single-service dev rollout, `service push` is now the primary entrypoint. It handles:
+
+- manifest-backed definition generation
+- config creation or update
+- Python runtime support sync when needed
+- artifact publish/stage by target
+- runtime-manager update and start behavior
+
+That includes brand-new services already declared in `device/manifests/services.json`; the command will provision the runtime-manager definition and any missing config before installing the artifact.
 
 ## Central sources of truth
 

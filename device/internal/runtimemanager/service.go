@@ -29,6 +29,7 @@ const (
 	runtimeManagerConfigType     = "runtime-manager-config"
 	runtimeManagerDefinitionType = "runtime-manager-service-definition"
 	runtimeManagerErrorType      = "runtime-manager-error"
+	runtimeManagerFileType       = "runtime-manager-file"
 	runtimeManagerLogType        = "runtime-manager-log"
 	runtimeManagerStatusType     = "runtime-manager-status"
 	runtimeManagerUpdateType     = "runtime-manager-update"
@@ -226,6 +227,8 @@ func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
 		s.handleLogRequest(ctx, env)
 	case "put-config":
 		s.handlePutConfig(ctx, env)
+	case "put-runtime-file":
+		s.handlePutRuntimeFile(env)
 	case "remove-service":
 		s.handleRemoveService(ctx, env)
 	case "restart-service":
@@ -368,7 +371,7 @@ func (s *Service) handlePutConfig(ctx context.Context, env ipc.MQTTEnvelope) {
 		return
 	}
 
-	entry, normalizedContent, err := s.normalizeConfigWrite(request.ConfigName, request.Content)
+	entry, normalizedContent, err := s.normalizeConfigWrite(request.ConfigName, request.Content, request.CreateIfMissing)
 	if err != nil {
 		s.publishError(RuntimeErrorPayload{
 			Action:    "put-config",
@@ -439,6 +442,52 @@ func (s *Service) handlePutConfig(ctx context.Context, env ipc.MQTTEnvelope) {
 		RestartedServices: restarted,
 	}); err != nil {
 		s.log.Warn("publish runtime-manager config update failed", "error", err)
+	}
+}
+
+func (s *Service) handlePutRuntimeFile(env ipc.MQTTEnvelope) {
+	var request putRuntimeFileRequest
+	if err := unmarshalPayload(env.Payload, &request); err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action: "put-runtime-file",
+			Error:  fmt.Sprintf("invalid runtime file request: %v", err),
+		})
+		return
+	}
+
+	targetPath, err := s.resolveRuntimeFilePath(request.Path)
+	if err != nil {
+		s.publishError(RuntimeErrorPayload{
+			Action:    "put-runtime-file",
+			Error:     err.Error(),
+			RequestID: request.RequestID,
+		})
+		return
+	}
+
+	mode := os.FileMode(request.Mode)
+	if mode == 0 {
+		mode = 0o644
+	}
+
+	if err := writeAtomicFile(targetPath, []byte(request.Content), mode); err != nil {
+		s.recordAction(fmt.Sprintf("write runtime file %s", filepath.Base(targetPath)), err)
+		s.publishError(RuntimeErrorPayload{
+			Action:    "put-runtime-file",
+			Error:     fmt.Sprintf("write runtime file %s: %v", targetPath, err),
+			RequestID: request.RequestID,
+		})
+		return
+	}
+
+	s.recordAction(fmt.Sprintf("write runtime file %s", filepath.Base(targetPath)), nil)
+	if err := s.publishResponse(runtimeManagerFileType, RuntimeFilePayload{
+		Message:   fmt.Sprintf("saved runtime file %s", targetPath),
+		Mode:      int(mode),
+		Path:      targetPath,
+		RequestID: request.RequestID,
+	}); err != nil {
+		s.log.Warn("publish runtime-manager runtime file response failed", "error", err)
 	}
 }
 
@@ -606,10 +655,21 @@ func (s *Service) handleUpdateService(ctx context.Context, env ipc.MQTTEnvelope)
 		})
 		return
 	}
-	if strings.TrimSpace(request.RemotePath) == "" {
+	remotePath := strings.TrimSpace(request.RemotePath)
+	localPath := strings.TrimSpace(request.LocalPath)
+	if remotePath == "" && localPath == "" {
 		s.publishError(RuntimeErrorPayload{
 			Action:      "update-service",
-			Error:       "remotePath is required",
+			Error:       "either remotePath or localPath is required",
+			RequestID:   request.RequestID,
+			ServiceName: serviceConfig.Name,
+		})
+		return
+	}
+	if remotePath != "" && localPath != "" {
+		s.publishError(RuntimeErrorPayload{
+			Action:      "update-service",
+			Error:       "remotePath and localPath are mutually exclusive",
 			RequestID:   request.RequestID,
 			ServiceName: serviceConfig.Name,
 		})
@@ -634,7 +694,11 @@ func (s *Service) handleUpdateService(ctx context.Context, env ipc.MQTTEnvelope)
 	s.opMu.Lock()
 	defer s.opMu.Unlock()
 
-	snapshot, message, err := s.applyUpdate(ctx, serviceConfig, artifactPath, request.RemotePath, artifactSHA)
+	sourceRef := remotePath
+	if sourceRef == "" {
+		sourceRef = localPath
+	}
+	snapshot, message, err := s.applyUpdate(ctx, serviceConfig, artifactPath, sourceRef, artifactSHA)
 	if err != nil {
 		s.recordAction(fmt.Sprintf("update %s", serviceConfig.Name), err)
 		s.publishError(RuntimeErrorPayload{
@@ -1263,7 +1327,50 @@ func (s *Service) prepareUpdateArtifact(
 	serviceConfig ManagedServiceConfig,
 	request updateServiceRequest,
 ) (string, string, error) {
+	if strings.TrimSpace(request.LocalPath) != "" {
+		return s.resolveLocalUpdateArtifact(request)
+	}
 	return s.downloadArtifactViaTransfer(ctx, serviceConfig, request)
+}
+
+func (s *Service) resolveLocalUpdateArtifact(request updateServiceRequest) (string, string, error) {
+	localPath := strings.TrimSpace(request.LocalPath)
+	if localPath == "" {
+		return "", "", fmt.Errorf("localPath is required")
+	}
+	candidate := localPath
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(s.cfg.Runtime.SharedDir, candidate)
+	}
+	candidate = filepath.Clean(candidate)
+	withinShared := isPathWithinRoot(s.cfg.Runtime.SharedDir, candidate)
+	withinDownloads := isPathWithinRoot(s.cfg.Runtime.DownloadDir, candidate)
+	if !withinShared && !withinDownloads {
+		return "", "", fmt.Errorf(
+			"localPath %q must be within %s or %s",
+			localPath,
+			s.cfg.Runtime.SharedDir,
+			s.cfg.Runtime.DownloadDir,
+		)
+	}
+	info, err := os.Stat(candidate)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", "", fmt.Errorf("local artifact %q does not exist", candidate)
+		}
+		return "", "", fmt.Errorf("stat local artifact %q: %w", candidate, err)
+	}
+	if info.IsDir() {
+		return "", "", fmt.Errorf("local artifact %q must be a file", candidate)
+	}
+	actualSHA, err := sha256File(candidate)
+	if err != nil {
+		return "", "", err
+	}
+	if expected := strings.TrimSpace(request.ArtifactSHA256); expected != "" && !strings.EqualFold(expected, actualSHA) {
+		return "", "", fmt.Errorf("artifact SHA-256 mismatch: expected %s, got %s", expected, actualSHA)
+	}
+	return candidate, actualSHA, nil
 }
 
 func (s *Service) downloadArtifactViaTransfer(
@@ -1377,6 +1484,7 @@ func (s *Service) ensureRuntimeLayout() error {
 	directories := []string{
 		s.cfg.Runtime.RootDir,
 		s.cfg.Runtime.BinaryDir,
+		s.cfg.Runtime.ConfigDir,
 		s.cfg.Runtime.DownloadDir,
 		s.cfg.Runtime.LogDir,
 		s.cfg.Runtime.ScriptDir,
@@ -1497,7 +1605,7 @@ func (s *Service) listConfigEntries() ([]RuntimeConfigEntry, error) {
 }
 
 func (s *Service) readConfigEntry(configName string) (RuntimeConfigEntry, json.RawMessage, error) {
-	configPath, err := s.resolveConfigPath(configName)
+	configPath, err := s.resolveConfigPath(configName, false)
 	if err != nil {
 		return RuntimeConfigEntry{}, nil, err
 	}
@@ -1516,8 +1624,8 @@ func (s *Service) readConfigEntry(configName string) (RuntimeConfigEntry, json.R
 	}, normalized, nil
 }
 
-func (s *Service) normalizeConfigWrite(configName string, content json.RawMessage) (RuntimeConfigEntry, []byte, error) {
-	configPath, err := s.resolveConfigPath(configName)
+func (s *Service) normalizeConfigWrite(configName string, content json.RawMessage, createIfMissing bool) (RuntimeConfigEntry, []byte, error) {
+	configPath, err := s.resolveConfigPath(configName, createIfMissing)
 	if err != nil {
 		return RuntimeConfigEntry{}, nil, err
 	}
@@ -1540,7 +1648,7 @@ func (s *Service) normalizeConfigWrite(configName string, content json.RawMessag
 	}, normalized, nil
 }
 
-func (s *Service) resolveConfigPath(configName string) (string, error) {
+func (s *Service) resolveConfigPath(configName string, createIfMissing bool) (string, error) {
 	name := filepath.Base(strings.TrimSpace(configName))
 	if name == "" || strings.Contains(name, string(filepath.Separator)) || name == "." {
 		return "", fmt.Errorf("configName is required")
@@ -1555,11 +1663,33 @@ func (s *Service) resolveConfigPath(configName string) (string, error) {
 	}
 	if _, err := os.Stat(configPath); err != nil {
 		if os.IsNotExist(err) {
+			if createIfMissing {
+				return configPath, nil
+			}
 			return "", fmt.Errorf("config %q does not exist", name)
 		}
 		return "", fmt.Errorf("stat config %q: %w", name, err)
 	}
 	return configPath, nil
+}
+
+func (s *Service) resolveRuntimeFilePath(rawPath string) (string, error) {
+	cleaned := strings.TrimSpace(rawPath)
+	if cleaned == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	candidate := cleaned
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(s.cfg.Runtime.RootDir, candidate)
+	}
+	candidate = filepath.Clean(candidate)
+	if !isPathWithinRoot(s.cfg.Runtime.RootDir, candidate) {
+		return "", fmt.Errorf("runtime file %q must be within %s", rawPath, s.cfg.Runtime.RootDir)
+	}
+	if candidate == s.cfg.Runtime.RootDir {
+		return "", fmt.Errorf("runtime file path must point to a file within %s", s.cfg.Runtime.RootDir)
+	}
+	return candidate, nil
 }
 
 func (s *Service) configConsumers(configName string) []string {

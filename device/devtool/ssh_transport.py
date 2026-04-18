@@ -17,11 +17,11 @@ def _run_expect(script: str, *, timeout_sec: int, cwd: Path | None = None, captu
     )
 
 
-def _expect_login_script(command: str, *, password: str, timeout_sec: int) -> str:
+def _expect_login_script(command: str, *, password: str, timeout_sec: int, log_output: bool) -> str:
     quoted_password = password.replace("\\", "\\\\").replace('"', '\\"')
     return f"""
 set timeout {timeout_sec}
-log_user 1
+log_user {1 if log_output else 0}
 spawn bash -lc "{command}"
 expect {{
   -re "Are you sure you want to continue connecting.*" {{
@@ -63,7 +63,12 @@ class ExpectSSHClient:
             f"{shlex.quote(command)}"
         )
         result = _run_expect(
-            _expect_login_script(ssh_command, password=self.connection.password, timeout_sec=timeout_sec),
+            _expect_login_script(
+                ssh_command,
+                password=self.connection.password,
+                timeout_sec=timeout_sec,
+                log_output=not capture_output,
+            ),
             timeout_sec=timeout_sec + 5,
             capture_output=capture_output,
         )
@@ -79,7 +84,12 @@ class ExpectSSHClient:
             f"{shlex.quote(f'{self.connection.target}:{remote_path}')}"
         )
         result = _run_expect(
-            _expect_login_script(scp_command, password=self.connection.password, timeout_sec=timeout_sec),
+            _expect_login_script(
+                scp_command,
+                password=self.connection.password,
+                timeout_sec=timeout_sec,
+                log_output=True,
+            ),
             timeout_sec=timeout_sec + 5,
         )
         if result.returncode != 0:
@@ -93,7 +103,12 @@ class ExpectSSHClient:
             f"{shlex.quote(f'{self.connection.target}:{remote_root}')}"
         )
         result = _run_expect(
-            _expect_login_script(scp_command, password=self.connection.password, timeout_sec=timeout_sec),
+            _expect_login_script(
+                scp_command,
+                password=self.connection.password,
+                timeout_sec=timeout_sec,
+                log_output=True,
+            ),
             timeout_sec=timeout_sec + 5,
         )
         if result.returncode != 0:

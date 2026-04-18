@@ -303,7 +303,11 @@ func TestNormalizeConfigWriteFormatsJSON(t *testing.T) {
 		},
 	}
 
-	entry, normalized, err := service.normalizeConfigWrite("cloud-comm.json", json.RawMessage(`{"device_id":"edge-2","mqtt":{"broker_url":"tcp://broker:1883"}}`))
+	entry, normalized, err := service.normalizeConfigWrite(
+		"cloud-comm.json",
+		json.RawMessage(`{"device_id":"edge-2","mqtt":{"broker_url":"tcp://broker:1883"}}`),
+		false,
+	)
 	if err != nil {
 		t.Fatalf("normalize config write failed: %v", err)
 	}

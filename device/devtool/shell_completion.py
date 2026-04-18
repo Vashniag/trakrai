@@ -12,6 +12,7 @@ TOP_LEVEL_COMMANDS = [
     "manifest",
     "package",
     "runtime",
+    "service",
     "test",
 ]
 

@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from . import assets, cameras, configs, deploy, local, manifests, packages, paths, runtime, testing
+from . import assets, cameras, configs, deploy, local, manifests, packages, paths, runtime, services, testing
 from .build import build_services
 from .shell_completion import bash_completion, fish_completion, zsh_completion
 
@@ -16,6 +16,7 @@ DELEGATED_COMMANDS = {
     "emulator": local.main,
     "package": packages.main,
     "runtime": runtime.main,
+    "service": services.main,
     "test": testing.main,
 }
 
@@ -147,6 +148,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     runtime_parser = subparsers.add_parser("runtime", help="manage a running device runtime over websocket")
     runtime_parser.set_defaults(delegate="runtime")
+
+    service_parser = subparsers.add_parser("service", help="push and manage a single service across runtime targets")
+    service_parser.set_defaults(delegate="service")
 
     test_parser = subparsers.add_parser("test", help="run JSON-defined verification workflows")
     test_parser.set_defaults(delegate="test")

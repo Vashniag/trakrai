@@ -118,8 +118,8 @@ type RuntimeConfigEntry struct {
 }
 
 type RuntimeConfigListPayload struct {
-	Configs    []RuntimeConfigEntry `json:"configs"`
-	RequestID  string               `json:"requestId,omitempty"`
+	Configs   []RuntimeConfigEntry `json:"configs"`
+	RequestID string               `json:"requestId,omitempty"`
 }
 
 type RuntimeConfigPayload struct {
@@ -128,6 +128,13 @@ type RuntimeConfigPayload struct {
 	Message           string             `json:"message,omitempty"`
 	RequestID         string             `json:"requestId,omitempty"`
 	RestartedServices []string           `json:"restartedServices,omitempty"`
+}
+
+type RuntimeFilePayload struct {
+	Message   string `json:"message,omitempty"`
+	Mode      int    `json:"mode,omitempty"`
+	Path      string `json:"path"`
+	RequestID string `json:"requestId,omitempty"`
 }
 
 type versionRecord struct {
@@ -152,6 +159,7 @@ type logRequest struct {
 
 type updateServiceRequest struct {
 	ArtifactSHA256 string `json:"artifactSha256,omitempty"`
+	LocalPath      string `json:"localPath,omitempty"`
 	RemotePath     string `json:"remotePath,omitempty"`
 	RequestID      string `json:"requestId,omitempty"`
 	ServiceName    string `json:"serviceName"`
@@ -180,8 +188,16 @@ type configRequest struct {
 type putConfigRequest struct {
 	ConfigName      string          `json:"configName"`
 	Content         json.RawMessage `json:"content"`
+	CreateIfMissing bool            `json:"createIfMissing,omitempty"`
 	RequestID       string          `json:"requestId,omitempty"`
 	RestartServices []string        `json:"restartServices,omitempty"`
+}
+
+type putRuntimeFileRequest struct {
+	Content   string `json:"content"`
+	Mode      int    `json:"mode,omitempty"`
+	Path      string `json:"path"`
+	RequestID string `json:"requestId,omitempty"`
 }
 
 type managedServiceStateFile struct {
