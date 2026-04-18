@@ -20,10 +20,12 @@
   },
   "dependencies": {},
   "peerDependencies": {
+    "@tanstack/react-query": "^5.96.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
+    "@tanstack/react-query": "^5.99.0",
     "@tailwindcss/cli": "^4.2.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
@@ -35,6 +37,7 @@
     "typescript": "^6"
   },
   "exports": {
+    "./generated-contracts/*": "./src/generated-contracts/*.ts",
     "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",
     "./providers/*": "./src/providers/*.tsx",
@@ -43,6 +46,10 @@
   "publishConfig": {
     "access": "public",
     "exports": {
+      "./generated-contracts/*": {
+        "import": "./dist/generated-contracts/*.js",
+        "types": "./dist/generated-contracts/*.d.ts"
+      },
       "./hooks/*": {
         "import": "./dist/hooks/*.js",
         "types": "./dist/hooks/*.d.ts"

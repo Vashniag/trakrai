@@ -12,19 +12,21 @@ import {
 } from '@trakrai/design-system/components/card';
 import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
-import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
+import { cloud_transferContract } from '@trakrai/live-transport/generated-contracts/cloud_transfer';
+import {
+  useDeviceServiceMutation,
+  useTypedDeviceService,
+} from '@trakrai/live-transport/hooks/use-typed-device-service';
 import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
 import {
   DEFAULT_SERVICE_NAME,
-  RESPONSE_SUBTOPIC,
-  TRANSFER_RESPONSE_TYPES,
   createEmptyUploadDraft,
   readRequestErrorMessage,
   toUploadInput,
 } from './cloud-transfer-utils';
 
-import type { CloudTransferItem, CloudTransferTransferPayload } from '../types';
+import type { CloudTransferItem } from '../types';
 
 export type EnqueueUploadCardProps = Readonly<{
   onQueued?: (transfer: CloudTransferItem) => void;
@@ -36,38 +38,38 @@ export const EnqueueUploadCard = ({
   serviceName = DEFAULT_SERVICE_NAME,
 }: EnqueueUploadCardProps) => {
   const normalizedServiceName = serviceName.trim();
-  const transferService = useDeviceService(normalizedServiceName);
+  const transferService = useTypedDeviceService(cloud_transferContract, {
+    serviceName: normalizedServiceName,
+  });
   const { appendLog, transportState } = useLiveTransport();
   const [draft, setDraft] = useState(createEmptyUploadDraft);
-  const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
+  const enqueueUploadMutation = useDeviceServiceMutation(transferService, 'enqueue-upload', {
+    onSuccess: (payload) => {
+      appendLog('info', `Queued upload ${payload.transfer.id}`);
+      setDraft(createEmptyUploadDraft());
+      onQueued?.(payload.transfer);
+      void transferService.invalidateQueries('get-status');
+      void transferService.invalidateQueries('list-transfers');
+      void transferService.invalidateQueries('get-transfer', {
+        transferId: payload.transfer.id,
+      });
+    },
+  });
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (normalizedServiceName === '' || transportState !== 'connected') {
       return;
     }
 
-    try {
-      setError(null);
-      setIsBusy(true);
-
-      const response = await transferService.request<
-        ReturnType<typeof toUploadInput>,
-        CloudTransferTransferPayload
-      >('enqueue-upload', toUploadInput(draft), {
-        responseSubtopics: [RESPONSE_SUBTOPIC],
-        responseTypes: TRANSFER_RESPONSE_TYPES,
-      });
-
-      appendLog('info', `Queued upload ${response.payload.transfer.id}`);
-      setDraft(createEmptyUploadDraft());
-      setIsBusy(false);
-      onQueued?.(response.payload.transfer);
-    } catch (nextError) {
-      setError(readRequestErrorMessage(nextError));
-      setIsBusy(false);
-    }
+    enqueueUploadMutation.reset();
+    void enqueueUploadMutation.mutateAsync(toUploadInput(draft));
   };
+
+  const error =
+    enqueueUploadMutation.error !== null
+      ? readRequestErrorMessage(enqueueUploadMutation.error)
+      : null;
+  const isBusy = enqueueUploadMutation.isPending;
 
   return (
     <Card className="border">
@@ -144,7 +146,9 @@ export const EnqueueUploadCard = ({
         <Button
           disabled={isBusy || transportState !== 'connected'}
           type="button"
-          onClick={() => void handleSubmit()}
+          onClick={() => {
+            handleSubmit();
+          }}
         >
           Queue upload
         </Button>

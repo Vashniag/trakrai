@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
+import { live_feedContract } from '@trakrai/live-transport/generated-contracts/live_feed';
+import { useTypedDeviceService } from '@trakrai/live-transport/hooks/use-typed-device-service';
 import {
   createClientRequestId,
   normalizeOptionalString,
@@ -28,35 +29,6 @@ import {
 } from '../lib/live-viewer-transport';
 
 const DEFAULT_LIVE_FRAME_SOURCE: LiveFrameSource = 'raw';
-
-type StartLiveResponsePayload = Readonly<{
-  cameraName?: string;
-  error?: string;
-  ok?: boolean;
-  requestId?: string;
-  sessionId?: string;
-}>;
-
-type LiveLayoutUpdatedPayload = Readonly<{
-  cameraName?: string;
-  frameSource?: string;
-  layoutMode?: string;
-  requestId?: string;
-  sessionId?: string;
-}>;
-
-type WebRtcOfferPayload = Readonly<{
-  cameraName?: string;
-  requestId?: string;
-  sdp: string;
-  sessionId?: string;
-}>;
-
-type WebRtcIcePayload = Readonly<{
-  candidate: RTCIceCandidateInit;
-  requestId?: string;
-  sessionId?: string;
-}>;
 
 type StopLiveSessionOptions = Readonly<{
   clearViewerState?: boolean;
@@ -122,7 +94,9 @@ const mapTransportStateToConnectionState = (
 };
 
 export const useLiveViewer = (): LiveViewerState => {
-  const liveFeedService = useDeviceService(LIVE_VIEWER_SERVICE_NAME);
+  const liveFeedService = useTypedDeviceService(live_feedContract, {
+    serviceName: LIVE_VIEWER_SERVICE_NAME,
+  });
   const {
     appendLog,
     deviceId,
@@ -166,74 +140,80 @@ export const useLiveViewer = (): LiveViewerState => {
   }, [deviceId]);
 
   useEffect(() => {
-    const unsubscribeOffer = liveFeedService.subscribe<WebRtcOfferPayload>(
-      ({ payload }) => {
-        const offeredRequestId = normalizeOptionalString(payload.requestId);
-        if (
-          offeredRequestId !== null &&
-          activeRequestIdRef.current !== null &&
-          offeredRequestId !== activeRequestIdRef.current
-        ) {
-          appendLog('warn', `Ignoring SDP offer for another request ${offeredRequestId}`);
-          return;
-        }
+    const unsubscribeOffer = liveFeedService.subscribeEvent('sdp-offer', ({ payload }) => {
+      if (payload === undefined) {
+        return;
+      }
 
-        const offeredSessionId = normalizeOptionalString(payload.sessionId);
-        const expectedSessionId = pendingSessionIdRef.current ?? currentSessionId;
-        if (
-          offeredSessionId !== null &&
-          expectedSessionId !== null &&
-          offeredSessionId !== expectedSessionId
-        ) {
-          appendLog('warn', `Ignoring stale SDP offer for session ${offeredSessionId}`);
-          return;
-        }
+      const offeredRequestId = normalizeOptionalString(payload.requestId);
+      if (
+        offeredRequestId !== null &&
+        activeRequestIdRef.current !== null &&
+        offeredRequestId !== activeRequestIdRef.current
+      ) {
+        appendLog('warn', `Ignoring SDP offer for another request ${offeredRequestId}`);
+        return;
+      }
 
-        void handleSdpOffer({
-          cameraName: payload.cameraName,
-          sdp: payload.sdp,
-          sendSignal: (type: 'ice-candidate' | 'sdp-answer', signalPayload: unknown) => {
-            if (type === 'sdp-answer') {
-              liveFeedService.notify('sdp-answer', signalPayload as Record<string, unknown>, {
-                subtopic: 'webrtc/answer',
-              });
-              return;
-            }
+      const offeredSessionId = normalizeOptionalString(payload.sessionId);
+      const expectedSessionId = pendingSessionIdRef.current ?? currentSessionId;
+      if (
+        offeredSessionId !== null &&
+        expectedSessionId !== null &&
+        offeredSessionId !== expectedSessionId
+      ) {
+        appendLog('warn', `Ignoring stale SDP offer for session ${offeredSessionId}`);
+        return;
+      }
 
-            liveFeedService.notify('ice-candidate', signalPayload as Record<string, unknown>, {
-              subtopic: 'webrtc/ice',
-            });
-          },
-          sessionId: payload.sessionId,
-        });
-      },
-      {
-        subtopics: ['webrtc/offer'],
-        types: ['sdp-offer'],
-      },
-    );
+      void handleSdpOffer({
+        cameraName: payload.cameraName,
+        sdp: payload.sdp,
+        sendSignal: (type: 'ice-candidate' | 'sdp-answer', signalPayload: unknown) => {
+          if (type === 'sdp-answer') {
+            liveFeedService.notify(
+              'sdp-answer',
+              signalPayload as {
+                requestId?: string;
+                sdp: string;
+                sessionId: string;
+              },
+            );
+            return;
+          }
 
-    const unsubscribeIce = liveFeedService.subscribe<WebRtcIcePayload>(
-      ({ payload }) => {
-        const candidateRequestId = normalizeOptionalString(payload.requestId);
-        if (
-          candidateRequestId !== null &&
-          activeRequestIdRef.current !== null &&
-          candidateRequestId !== activeRequestIdRef.current
-        ) {
-          return;
-        }
+          liveFeedService.notify(
+            'ice-candidate',
+            signalPayload as {
+              candidate: Record<string, unknown>;
+              requestId?: string;
+              sessionId: string;
+            },
+          );
+        },
+        sessionId: payload.sessionId,
+      });
+    });
 
-        void handleRemoteIceCandidate({
-          candidate: payload.candidate,
-          sessionId: payload.sessionId,
-        });
-      },
-      {
-        subtopics: ['webrtc/ice'],
-        types: ['ice-candidate'],
-      },
-    );
+    const unsubscribeIce = liveFeedService.subscribeEvent('ice-candidate', ({ payload }) => {
+      if (payload === undefined) {
+        return;
+      }
+
+      const candidateRequestId = normalizeOptionalString(payload.requestId);
+      if (
+        candidateRequestId !== null &&
+        activeRequestIdRef.current !== null &&
+        candidateRequestId !== activeRequestIdRef.current
+      ) {
+        return;
+      }
+
+      void handleRemoteIceCandidate({
+        candidate: payload.candidate,
+        sessionId: payload.sessionId,
+      });
+    });
 
     return () => {
       unsubscribeOffer();
@@ -366,26 +346,16 @@ export const useLiveViewer = (): LiveViewerState => {
         } camera${normalizedSelection.cameraNames.length === 1 ? '' : 's'}`,
       );
       void liveFeedService
-        .request<
-          {
-            cameraName: string | null;
-            cameraNames: string[];
-            frameSource: LiveFrameSource;
-            layoutMode: LiveLayoutSelection['mode'];
-          },
-          StartLiveResponsePayload
-        >(
+        .request(
           'start-live',
           {
-            cameraName: normalizedSelection.cameraNames[0] ?? null,
+            cameraName: normalizedSelection.cameraNames[0] ?? undefined,
             cameraNames: normalizedSelection.cameraNames,
             frameSource: normalizedSelection.frameSource,
             layoutMode: normalizedSelection.mode,
           },
           {
             requestId: activeRequestIdRef.current,
-            responseSubtopics: ['response'],
-            responseTypes: ['start-live-ack'],
           },
         )
         .then((response) => {
@@ -448,19 +418,10 @@ export const useLiveViewer = (): LiveViewerState => {
         `Updating live layout to ${normalizedSelection.frameSource} ${normalizedSelection.mode} (${normalizedSelection.cameraNames.length} cameras)`,
       );
       void liveFeedService
-        .request<
-          {
-            cameraName: string | null;
-            cameraNames: string[];
-            frameSource: LiveFrameSource;
-            layoutMode: LiveLayoutSelection['mode'];
-            sessionId: string;
-          },
-          LiveLayoutUpdatedPayload
-        >(
+        .request(
           'update-live-layout',
           {
-            cameraName: normalizedSelection.cameraNames[0] ?? null,
+            cameraName: normalizedSelection.cameraNames[0] ?? undefined,
             cameraNames: normalizedSelection.cameraNames,
             frameSource: normalizedSelection.frameSource,
             layoutMode: normalizedSelection.mode,
@@ -468,8 +429,6 @@ export const useLiveViewer = (): LiveViewerState => {
           },
           {
             requestId,
-            responseSubtopics: ['response'],
-            responseTypes: ['live-layout-updated'],
           },
         )
         .then((response) => {

@@ -113,7 +113,6 @@ export const getPtzStopButtonClasses = (): string => STOP_BUTTON_CLASSES;
 const isRangeAvailable = (
   range: PtzCapabilities['panRange'] | PtzCapabilities['tiltRange'] | PtzCapabilities['zoomRange'],
 ): range is NonNullable<typeof range> =>
-  range !== null &&
   range !== undefined &&
   Number.isFinite(range.min) &&
   Number.isFinite(range.max) &&

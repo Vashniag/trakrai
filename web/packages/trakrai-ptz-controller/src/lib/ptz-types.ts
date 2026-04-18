@@ -1,33 +1,20 @@
 'use client';
 
-export type PtzVelocityCommand = {
-  pan: number;
-  tilt: number;
-  zoom: number;
-};
+import type {
+  PtzControl_CommandAckPayload,
+  PtzControl_GetStatus_Output,
+  PtzControl_PtzCapabilities,
+  PtzControl_PtzRange,
+  PtzControl_VelocityCommand,
+} from '@trakrai/live-transport/generated-contracts/ptz_control';
 
-export type PtzMoveStatus = {
+export type PtzCapabilities = PtzControl_PtzCapabilities;
+export type PtzMoveStatus = Readonly<{
   panTilt?: string | null;
   zoom?: string | null;
-};
-
-export type PtzRange = {
-  max: number;
-  min: number;
-};
-
-export type PtzCapabilities = {
-  canAbsolutePanTilt: boolean;
-  canAbsoluteZoom: boolean;
-  canContinuousPanTilt: boolean;
-  canContinuousZoom: boolean;
-  canGoHome: boolean;
-  panRange?: PtzRange | null;
-  tiltRange?: PtzRange | null;
-  zoomRange?: PtzRange | null;
-};
-
-export type PtzPosition = {
+}>;
+export type PtzRange = PtzControl_PtzRange | null;
+export type PtzPosition = Readonly<{
   capabilities?: PtzCapabilities | null;
   cameraName: string;
   moveStatus?: PtzMoveStatus | null;
@@ -35,20 +22,18 @@ export type PtzPosition = {
   tilt: number;
   updatedAt?: string | null;
   zoom: number;
-};
+}>;
+export type PtzTargetPosition = Pick<PtzPosition, 'pan' | 'tilt' | 'zoom'>;
+export type PtzVelocityCommand = PtzControl_VelocityCommand;
+export type PtzCommandAckPayload = PtzControl_CommandAckPayload;
+export type PtzStatusPayload = PtzControl_GetStatus_Output;
 
-export type PtzState = {
+export type PtzState = Readonly<{
   activeCamera: string | null;
-  capabilities?: PtzCapabilities | null;
+  capabilities: PtzCapabilities | null;
   configuredCameras: string[];
   lastCommand: string | null;
   lastError: string | null;
   position: PtzPosition | null;
   status: string | null;
-};
-
-export type PtzTargetPosition = {
-  pan: number;
-  tilt: number;
-  zoom: number;
-};
+}>;

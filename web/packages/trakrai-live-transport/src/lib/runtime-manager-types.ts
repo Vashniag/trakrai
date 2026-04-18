@@ -1,180 +1,47 @@
 'use client';
 
-export type ManagedRuntimeService = {
-  activeState?: string;
-  allowControl: boolean;
-  allowUpdate: boolean;
-  core: boolean;
-  cpuPercent?: number;
-  description?: string;
-  displayName: string;
-  enabled: boolean;
-  installPath?: string;
-  kind: string;
-  loadState?: string;
-  logPath?: string;
-  mainPid?: number;
-  memoryBytes?: number;
-  message?: string;
-  name: string;
-  processElapsed?: string;
-  scriptPath?: string;
-  state: string;
-  subState?: string;
-  systemdUnit?: string;
-  unitFileState?: string;
-  version?: string;
-  versionFile?: string;
-  versionSource?: string;
-  versionUpdatedAt?: string;
-  workingDirectory?: string;
-};
+import type {
+  RuntimeManager_ManagedServiceDefinition,
+  RuntimeManager_ManagedServiceSnapshot,
+  RuntimeManager_RuntimeActionPayload,
+  RuntimeManager_RuntimeCPUStats,
+  RuntimeManager_RuntimeDefinitionPayload,
+  RuntimeManager_RuntimeDiskStats,
+  RuntimeManager_RuntimeErrorPayload,
+  RuntimeManager_RuntimeGPUStats,
+  RuntimeManager_RuntimeLoadStats,
+  RuntimeManager_RuntimeLogPayload,
+  RuntimeManager_RuntimeMemoryStats,
+  RuntimeManager_RuntimeNetworkInterfaceStats,
+  RuntimeManager_RuntimeNetworkStats,
+  RuntimeManager_RuntimeStatusPayload,
+  RuntimeManager_RuntimeSystemSnapshot,
+} from '../generated-contracts/runtime_manager';
 
-export type ManagedRuntimeServiceDefinition = {
-  after?: string[];
-  allowControl: boolean;
-  allowUpdate: boolean;
-  core: boolean;
-  description?: string;
-  displayName?: string;
-  enabled: boolean;
-  environment?: Record<string, string>;
-  environmentFiles?: string[];
-  execStart?: string[];
-  group?: string;
-  installPath?: string;
-  kind?: string;
-  logPath?: string;
-  name: string;
-  requires?: string[];
-  restart?: string;
-  restartSec?: number;
-  scriptPath?: string;
-  setupCommand?: string[];
-  systemdUnit?: string;
-  user?: string;
-  versionCommand?: string[];
-  versionFile?: string;
-  wantedBy?: string;
-  workingDirectory?: string;
-};
-
-export type RuntimeManagerSystemCPU = {
-  coreCount: number;
-  usagePercent?: number;
-};
-
-export type RuntimeManagerSystemLoad = {
-  fifteenMinute?: number;
-  fiveMinute?: number;
-  oneMinute?: number;
-};
-
-export type RuntimeManagerSystemMemory = {
-  availableBytes?: number;
-  swapTotalBytes?: number;
-  swapUsedBytes?: number;
-  totalBytes?: number;
-  usedBytes?: number;
-  usedPercent?: number;
-};
-
-export type RuntimeManagerSystemDisk = {
-  freeBytes?: number;
-  label: string;
-  path: string;
-  totalBytes?: number;
-  usedBytes?: number;
-  usedPercent?: number;
-};
-
-export type RuntimeManagerSystemNetworkInterface = {
-  name: string;
-  rxBytes?: number;
-  rxBytesPerSecond?: number;
-  txBytes?: number;
-  txBytesPerSecond?: number;
-};
-
-export type RuntimeManagerSystemNetwork = {
-  interfaces?: RuntimeManagerSystemNetworkInterface[];
-  rxBytes?: number;
-  rxBytesPerSecond?: number;
-  txBytes?: number;
-  txBytesPerSecond?: number;
-};
-
-export type RuntimeManagerSystemGPU = {
-  decoderUtilizationPercent?: number;
-  encoderUtilizationPercent?: number;
-  memoryTotalBytes?: number;
-  memoryUsedBytes?: number;
-  source: string;
-  temperatureCelsius?: number;
-  utilizationPercent?: number;
-};
-
-export type RuntimeManagerSystemMetrics = {
-  collectedAt: string;
-  cpu: RuntimeManagerSystemCPU;
-  disks?: RuntimeManagerSystemDisk[];
-  gpu?: RuntimeManagerSystemGPU;
-  load: RuntimeManagerSystemLoad;
-  memory: RuntimeManagerSystemMemory;
-  network: RuntimeManagerSystemNetwork;
-  uptimeSeconds?: number;
-};
-
-export type RuntimeManagerStatusPayload = {
-  binaryDir: string;
-  coreCount: number;
-  downloadDir: string;
-  generatedAt: string;
-  lastAction?: string;
-  lastError?: string;
-  logDir: string;
-  managedCount: number;
-  requestId?: string;
-  scriptDir: string;
-  sharedDir: string;
-  services: ManagedRuntimeService[];
-  stateFile: string;
-  system: RuntimeManagerSystemMetrics;
-  versionDir: string;
-};
-
-export type RuntimeManagerActionPayload = {
-  action: string;
-  definition?: ManagedRuntimeServiceDefinition;
-  message?: string;
-  removed?: boolean;
-  requestId?: string;
-  service?: ManagedRuntimeService;
-  serviceName: string;
-};
-
-export type RuntimeManagerDefinitionPayload = {
-  definition: ManagedRuntimeServiceDefinition;
-  requestId?: string;
-  serviceName: string;
-};
-
-export type RuntimeManagerLogPayload = {
-  lines: string[];
-  logPath?: string;
-  requestId?: string;
-  serviceName: string;
-  truncated: boolean;
-};
-
-export type RuntimeManagerErrorPayload = {
-  action?: string;
-  error: string;
-  requestId?: string;
-  serviceName?: string;
-};
+export type ManagedRuntimeService = RuntimeManager_ManagedServiceSnapshot;
+export type ManagedRuntimeServiceDefinition = RuntimeManager_ManagedServiceDefinition;
+export type RuntimeManagerSystemCPU = RuntimeManager_RuntimeCPUStats;
+export type RuntimeManagerSystemLoad = RuntimeManager_RuntimeLoadStats;
+export type RuntimeManagerSystemMemory = RuntimeManager_RuntimeMemoryStats;
+export type RuntimeManagerSystemDisk = RuntimeManager_RuntimeDiskStats;
+export type RuntimeManagerSystemNetworkInterface = RuntimeManager_RuntimeNetworkInterfaceStats;
+export type RuntimeManagerSystemNetwork = RuntimeManager_RuntimeNetworkStats;
+export type RuntimeManagerSystemGPU = RuntimeManager_RuntimeGPUStats;
+export type RuntimeManagerSystemMetrics = RuntimeManager_RuntimeSystemSnapshot;
+export type RuntimeManagerStatusPayload = RuntimeManager_RuntimeStatusPayload;
+export type RuntimeManagerActionPayload = RuntimeManager_RuntimeActionPayload;
+export type RuntimeManagerDefinitionPayload = RuntimeManager_RuntimeDefinitionPayload;
+export type RuntimeManagerLogPayload = RuntimeManager_RuntimeLogPayload;
+export type RuntimeManagerErrorPayload = RuntimeManager_RuntimeErrorPayload;
 
 export type RuntimeManagerPaths = Pick<
   RuntimeManagerStatusPayload,
-  'binaryDir' | 'downloadDir' | 'logDir' | 'scriptDir' | 'sharedDir' | 'stateFile' | 'versionDir'
+  | 'binaryDir'
+  | 'configDir'
+  | 'downloadDir'
+  | 'logDir'
+  | 'scriptDir'
+  | 'sharedDir'
+  | 'stateFile'
+  | 'versionDir'
 >;

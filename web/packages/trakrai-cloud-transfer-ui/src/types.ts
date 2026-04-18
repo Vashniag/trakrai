@@ -1,83 +1,29 @@
 'use client';
 
-export type TransferDirection = 'download' | 'upload';
-export type TransferState = 'completed' | 'failed' | 'queued' | 'retry_wait' | 'running';
+import type {
+  CloudTransfer_EnqueueDownload_Input,
+  CloudTransfer_EnqueueUpload_Input,
+  CloudTransfer_GetStats_Output,
+  CloudTransfer_GetStatus_Output,
+  CloudTransfer_GetTransfer_Output,
+  CloudTransfer_ListTransfers_Output,
+  CloudTransfer_QueueStats,
+  CloudTransfer_Transfer,
+} from '@trakrai/live-transport/generated-contracts/cloud_transfer';
 
-export type CloudTransferQueueStats = {
-  completed: number;
-  downloadQueued: number;
-  downloadsCompleted: number;
-  downloadsFailed: number;
-  failed: number;
-  nextAttemptAt?: string | null;
-  pending: number;
-  running: number;
-  total: number;
-  uploadQueued: number;
-  uploadsCompleted: number;
-  uploadsFailed: number;
-};
-
-export type CloudTransferItem = {
-  attempts: number;
-  completedAt?: string | null;
-  contentType?: string;
-  createdAt: string;
-  deadlineAt?: string | null;
-  deviceId: string;
-  direction: TransferDirection;
-  id: string;
-  lastError?: string;
-  localPath: string;
-  metadata?: Record<string, string>;
-  nextAttemptAt?: string | null;
-  objectKey?: string;
-  remotePath: string;
-  startedAt?: string | null;
-  state: TransferState;
-  updatedAt: string;
-};
-
-export type CloudTransferStatusPayload = {
-  databasePath: string;
-  deviceId: string;
-  requestId?: string;
-  sharedDir: string;
-  stats: CloudTransferQueueStats;
-};
-
-export type CloudTransferTransferPayload = {
-  requestId?: string;
-  transfer: CloudTransferItem;
-};
-
-export type CloudTransferTransferListPayload = {
-  items: CloudTransferItem[];
-  requestId?: string;
-};
-
-export type CloudTransferStatsPayload = {
-  requestId?: string;
-  stats: CloudTransferQueueStats;
-};
+export type EnqueueDownloadInput = CloudTransfer_EnqueueDownload_Input;
+export type EnqueueUploadInput = CloudTransfer_EnqueueUpload_Input;
+export type CloudTransferItem = CloudTransfer_Transfer;
+export type CloudTransferQueueStats = CloudTransfer_QueueStats;
+export type CloudTransferStatusPayload = CloudTransfer_GetStatus_Output;
+export type CloudTransferStatsPayload = CloudTransfer_GetStats_Output;
+export type CloudTransferTransferListPayload = CloudTransfer_ListTransfers_Output;
+export type CloudTransferTransferPayload = CloudTransfer_GetTransfer_Output;
+export type TransferDirection = CloudTransfer_Transfer['direction'];
+export type TransferState = CloudTransfer_Transfer['state'];
 
 export type CloudTransferFilter = Readonly<{
   direction?: TransferDirection | 'all';
   limit?: number;
   state?: TransferState | 'all';
-}>;
-
-export type EnqueueUploadInput = Readonly<{
-  contentType?: string;
-  localPath: string;
-  metadata?: Record<string, string>;
-  remotePath: string;
-  timeout?: string;
-}>;
-
-export type EnqueueDownloadInput = Readonly<{
-  localPath: string;
-  metadata?: Record<string, string>;
-  remotePath: string;
-  timeout?: string;
 }>;

@@ -27,6 +27,10 @@ This guide is intentionally explicit. It covers the full currently supported com
 - Generated config bindings are emitted only for the languages each service declares:
   - Go bindings under `device/internal/generatedconfig/`
   - Python bindings under `device/python/generated_configs/`
+- Generated service-contract bindings are emitted from `device/manifests/service-methods.json`:
+  - Go bindings under `device/internal/ipc/contracts/`
+  - Python bindings under `device/python/trakrai_service_runtime/src/generated_contracts/`
+  - TypeScript bindings under `web/packages/trakrai-live-transport/src/generated-contracts/`
 
 ## Full Command Tree
 
@@ -47,10 +51,16 @@ python3 -m device.devtool
     bash
     zsh
     fish
+  generate
+    config
+    contract
   config
     generate
     validate
     scaffold-schemas
+    codegen
+  contract
+    validate
     codegen
   deploy
     ssh
@@ -630,6 +640,125 @@ Verification:
 Important note:
 
 - Python generated bindings were corrected in this pass to emit `List[...]` and `Dict[...]`, because the actual local emulator runtime is on Python 3.8 and does not support `list[str]` and `dict[str, str]`
+
+### `contract`
+
+Purpose:
+
+- validate the shared service-method manifest
+- generate typed service-contract bindings for runtime, tooling, and web consumers
+- keep transport shapes aligned across Go, Python, and TypeScript
+
+#### `contract validate`
+
+Command shape:
+
+```bash
+python3 -m device.devtool contract validate
+```
+
+What it does:
+
+- loads `device/manifests/service-methods.json`
+- validates service, method, payload, and output definitions
+- prints a JSON object with `issues`
+
+Verified command:
+
+```bash
+python3 -m device.devtool contract validate
+```
+
+Verification:
+
+- manifest validation: `Verified end-to-end`
+
+#### `contract codegen`
+
+Command shape:
+
+```bash
+python3 -m device.devtool contract codegen \
+  [--request <json>] \
+  [--service <name> ...] \
+  [--go] \
+  [--python] \
+  [--typescript] \
+  [--interactive]
+```
+
+Alias command shape:
+
+```bash
+python3 -m device.devtool generate contract \
+  [--request <json>] \
+  [--service <name> ...] \
+  [--go] \
+  [--python] \
+  [--typescript] \
+  [--interactive]
+```
+
+What it does:
+
+- reads the shared service-method manifest
+- emits one generated file per service for each selected language target
+- writes an `index.ts` barrel for TypeScript consumers
+- prunes stale generated files that no longer belong to a declared service set
+
+Interactive behavior:
+
+- if `--interactive` is used without `--service`, it prompts for which services to generate
+
+Request-file keys:
+
+```json
+{
+  "service": [
+    "runtime-manager"
+  ],
+  "go": false,
+  "python": false,
+  "typescript": true
+}
+```
+
+Supported modes:
+
+- no language flags:
+  - generate Go, Python, and TypeScript bindings for the selected services
+- `--go`:
+  - only emit Go bindings
+- `--python`:
+  - only emit Python bindings
+- `--typescript`:
+  - only emit TypeScript bindings
+- multiple language flags:
+  - emit only the explicitly selected targets
+
+Outputs:
+
+- Go:
+  - `device/internal/ipc/contracts/`
+- Python:
+  - `device/python/trakrai_service_runtime/src/generated_contracts/`
+- TypeScript:
+  - `web/packages/trakrai-live-transport/src/generated-contracts/`
+  - includes one file per service plus `index.ts`
+
+Verified commands:
+
+```bash
+python3 -m device.devtool contract codegen
+python3 -m device.devtool contract codegen --service runtime-manager --typescript
+python3 -m device.devtool generate contract --service runtime-manager --typescript
+```
+
+Verification:
+
+- full codegen: `Verified end-to-end`
+- subset TypeScript codegen: `Verified end-to-end`
+- alias path: `Verified end-to-end`
 
 ### `deploy`
 
@@ -1990,6 +2119,18 @@ Use this when:
 - a new service schema was added
 - Go or Python service config structs/classes need regeneration
 
+### Flow: Regenerate Typed Service Contracts
+
+```bash
+python3 -m device.devtool generate contract
+```
+
+Use this when:
+
+- `device/manifests/service-methods.json` changed
+- a service added, removed, or renamed a method
+- the web or runtime bindings need to stay aligned with the shared contract manifest
+
 ### Flow: Release And Pull A Single Package Through The Local Cloud API
 
 ```bash
@@ -2225,26 +2366,32 @@ For most local development cycles:
    python3 -m device.devtool config codegen
    ```
 
-3. Build only the services you changed:
+3. Regenerate service contracts if the shared service-method manifest changed:
+
+   ```bash
+   python3 -m device.devtool generate contract
+   ```
+
+4. Build only the services you changed:
 
    ```bash
    python3 -m device.devtool build service --service runtime-manager
    ```
 
-4. Bring up the smallest emulator profile or subset you need:
+5. Bring up the smallest emulator profile or subset you need:
 
    ```bash
    python3 -m device.devtool emulator up --request /path/to/request.json
    ```
 
-5. Validate the runtime and tests:
+6. Validate the runtime and tests:
 
    ```bash
    python3 -m device.devtool runtime status --url ws://127.0.0.1:18080/ws
    python3 -m device.devtool test run --test-name cloud-transfer-local
    ```
 
-6. If you need live config iteration, use:
+7. If you need live config iteration, use:
 
    ```bash
    python3 -m device.devtool runtime config-get ...

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import {
   Card,
@@ -9,17 +9,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@trakrai/design-system/components/card';
-import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
+import { cloud_transferContract } from '@trakrai/live-transport/generated-contracts/cloud_transfer';
+import {
+  useDeviceServiceQuery,
+  useTypedDeviceService,
+} from '@trakrai/live-transport/hooks/use-typed-device-service';
 import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
-import {
-  DEFAULT_SERVICE_NAME,
-  RESPONSE_SUBTOPIC,
-  TRANSFER_RESPONSE_TYPES,
-  readRequestErrorMessage,
-} from './cloud-transfer-utils';
+import { DEFAULT_SERVICE_NAME, readRequestErrorMessage } from './cloud-transfer-utils';
 
-import type { CloudTransferItem, CloudTransferTransferPayload } from '../types';
+import type { CloudTransferItem } from '../types';
 
 export type CloudTransferSelectedTransferCardProps = Readonly<{
   refreshKey?: number;
@@ -33,59 +32,34 @@ export const CloudTransferSelectedTransferCard = ({
   transferId,
 }: CloudTransferSelectedTransferCardProps) => {
   const normalizedServiceName = serviceName.trim();
-  const transferService = useDeviceService(normalizedServiceName);
+  const transferService = useTypedDeviceService(cloud_transferContract, {
+    serviceName: normalizedServiceName,
+  });
   const { transportState } = useLiveTransport();
-  const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [transfer, setTransfer] = useState<CloudTransferItem | null>(null);
+  const normalizedTransferId = transferId?.trim() ?? '';
+  const transferQuery = useDeviceServiceQuery(
+    transferService,
+    'get-transfer',
+    { transferId: normalizedTransferId },
+    {
+      enabled:
+        normalizedServiceName !== '' &&
+        transportState === 'connected' &&
+        normalizedTransferId !== '',
+    },
+  );
 
   useEffect(() => {
-    if (
-      normalizedServiceName === '' ||
-      transportState !== 'connected' ||
-      transferId === null ||
-      transferId.trim() === ''
-    ) {
-      if (transferId === null || transferId.trim() === '') {
-        const timer = window.setTimeout(() => {
-          setTransfer(null);
-          setError(null);
-        }, 0);
-
-        return () => {
-          window.clearTimeout(timer);
-        };
-      }
+    if (refreshKey === 0 || normalizedTransferId === '') {
       return;
     }
 
-    const loadTransfer = async () => {
-      try {
-        setError(null);
-        setIsBusy(true);
+    void transferQuery.refetch();
+  }, [normalizedTransferId, refreshKey, transferQuery]);
 
-        const response = await transferService.request<
-          { transferId: string },
-          CloudTransferTransferPayload
-        >(
-          'get-transfer',
-          { transferId: transferId.trim() },
-          {
-            responseSubtopics: [RESPONSE_SUBTOPIC],
-            responseTypes: TRANSFER_RESPONSE_TYPES,
-          },
-        );
-
-        setTransfer(response.payload.transfer);
-        setIsBusy(false);
-      } catch (nextError) {
-        setError(readRequestErrorMessage(nextError));
-        setIsBusy(false);
-      }
-    };
-
-    void loadTransfer();
-  }, [normalizedServiceName, refreshKey, transferId, transferService, transportState]);
+  const error = transferQuery.error !== null ? readRequestErrorMessage(transferQuery.error) : null;
+  const isBusy = transferQuery.isFetching;
+  const transfer = (transferQuery.data?.transfer ?? null) as CloudTransferItem | null;
 
   return (
     <Card className="border">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import {
   Card,
@@ -9,14 +9,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@trakrai/design-system/components/card';
-import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
+import { cloud_transferContract } from '@trakrai/live-transport/generated-contracts/cloud_transfer';
+import {
+  useDeviceServiceQuery,
+  useTypedDeviceService,
+} from '@trakrai/live-transport/hooks/use-typed-device-service';
 import { getServiceStatusClasses } from '@trakrai/live-transport/lib/live-display-utils';
 import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
 import {
   AUTO_REFRESH_MS,
   DEFAULT_SERVICE_NAME,
-  RESPONSE_SUBTOPIC,
   formatTimestamp,
   readRequestErrorMessage,
 } from './cloud-transfer-utils';
@@ -33,69 +36,37 @@ export const CloudTransferStatusCard = ({
   serviceName = DEFAULT_SERVICE_NAME,
 }: CloudTransferStatusCardProps) => {
   const normalizedServiceName = serviceName.trim();
-  const transferService = useDeviceService(normalizedServiceName);
+  const transferService = useTypedDeviceService(cloud_transferContract, {
+    serviceName: normalizedServiceName,
+  });
   const { deviceStatus, transportState } = useLiveTransport();
-  const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
-  const [status, setStatus] = useState<CloudTransferStatusPayload | null>(null);
-
   const serviceStatus = deviceStatus?.services?.[normalizedServiceName];
   const statusLabel = serviceStatus?.status ?? 'offline';
   const statusClasses = getServiceStatusClasses(statusLabel);
+  const statusQuery = useDeviceServiceQuery(
+    transferService,
+    'get-status',
+    {},
+    {
+      enabled: normalizedServiceName !== '',
+      refetchInterval: transportState === 'connected' ? AUTO_REFRESH_MS : false,
+      refetchIntervalInBackground: true,
+    },
+  );
 
-  const refresh = useCallback(async () => {
-    if (normalizedServiceName === '' || transportState !== 'connected') {
+  useEffect(() => {
+    if (refreshKey === 0) {
       return;
     }
 
-    setError(null);
-    setIsBusy(true);
+    void statusQuery.refetch();
+  }, [refreshKey, statusQuery]);
 
-    try {
-      const response = await transferService.request<
-        Record<string, never>,
-        CloudTransferStatusPayload
-      >(
-        'get-status',
-        {},
-        {
-          responseSubtopics: [RESPONSE_SUBTOPIC],
-          responseTypes: ['cloud-transfer-status'],
-        },
-      );
-      setStatus(response.payload);
-      setLastRefreshedAt(new Date().toISOString());
-      setIsBusy(false);
-    } catch (nextError) {
-      setError(readRequestErrorMessage(nextError));
-      setIsBusy(false);
-    }
-  }, [normalizedServiceName, transferService, transportState]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void refresh();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [refresh, refreshKey]);
-
-  useEffect(() => {
-    if (normalizedServiceName === '' || transportState !== 'connected') {
-      return undefined;
-    }
-
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, AUTO_REFRESH_MS);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [normalizedServiceName, refresh, transportState]);
+  const error = statusQuery.error !== null ? readRequestErrorMessage(statusQuery.error) : null;
+  const isBusy = statusQuery.isFetching;
+  const lastRefreshedAt =
+    statusQuery.dataUpdatedAt > 0 ? new Date(statusQuery.dataUpdatedAt).toISOString() : null;
+  const status = (statusQuery.data ?? null) as CloudTransferStatusPayload | null;
 
   return (
     <Card className="border">

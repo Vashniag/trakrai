@@ -53,6 +53,7 @@ const createEntries = (directory: string, extension: '.ts' | '.tsx') => {
 export default defineConfig({
   entry: {
     ...createEntries('components', '.tsx'),
+    ...createEntries('generated-contracts', '.ts'),
     ...createEntries('hooks', '.ts'),
     ...createEntries('lib', '.ts'),
     ...createEntries('providers', '.tsx'),

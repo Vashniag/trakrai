@@ -54,9 +54,9 @@ const readPtzCapabilities = (value: unknown): PtzCapabilities | null => {
     canContinuousPanTilt: capabilities['canContinuousPanTilt'] === true,
     canContinuousZoom: capabilities['canContinuousZoom'] === true,
     canGoHome: capabilities['canGoHome'] === true,
-    panRange: readPtzRange(capabilities['panRange']),
-    tiltRange: readPtzRange(capabilities['tiltRange']),
-    zoomRange: readPtzRange(capabilities['zoomRange']),
+    panRange: readPtzRange(capabilities['panRange']) ?? undefined,
+    tiltRange: readPtzRange(capabilities['tiltRange']) ?? undefined,
+    zoomRange: readPtzRange(capabilities['zoomRange']) ?? undefined,
   };
 };
 

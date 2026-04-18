@@ -36,6 +36,9 @@ PYTHON_GENERATED_CONFIG_ROOT = DEVICE_PYTHON_ROOT / "generated_configs"
 PYTHON_GENERATED_SERVICE_CONTRACT_ROOT = (
     DEVICE_PYTHON_ROOT / "trakrai_service_runtime" / "src" / "generated_contracts"
 )
+WEB_GENERATED_SERVICE_CONTRACT_ROOT = (
+    WEB_ROOT / "packages" / "trakrai-live-transport" / "src" / "generated-contracts"
+)
 WEB_DEVICE_APP_ROOT = WEB_ROOT / "apps" / "trakrai-device"
 
 DEFAULT_RUNTIME_ROOT = "/home/hacklab/trakrai-device-runtime"

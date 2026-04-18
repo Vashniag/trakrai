@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@trakrai/design-system/components/button';
 import {
@@ -10,7 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@trakrai/design-system/components/card';
-import { useDeviceService } from '@trakrai/live-transport/hooks/use-device-service';
+import { cloud_transferContract } from '@trakrai/live-transport/generated-contracts/cloud_transfer';
+import {
+  useDeviceServiceQuery,
+  useTypedDeviceService,
+} from '@trakrai/live-transport/hooks/use-typed-device-service';
 import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
 
 import {
@@ -18,7 +22,6 @@ import {
   DEFAULT_SERVICE_NAME,
   FILTER_DIRECTIONS,
   FILTER_STATES,
-  RESPONSE_SUBTOPIC,
   formatTimestamp,
   formatTransferLabel,
   normalizeFilter,
@@ -28,7 +31,6 @@ import {
 import type {
   CloudTransferFilter,
   CloudTransferItem,
-  CloudTransferTransferListPayload,
   TransferDirection,
   TransferState,
 } from '../types';
@@ -47,78 +49,50 @@ export const CloudTransferQueueBrowser = ({
   serviceName = DEFAULT_SERVICE_NAME,
 }: CloudTransferQueueBrowserProps) => {
   const normalizedServiceName = serviceName.trim();
-  const transferService = useDeviceService(normalizedServiceName);
+  const transferService = useTypedDeviceService(cloud_transferContract, {
+    serviceName: normalizedServiceName,
+  });
   const { transportState } = useLiveTransport();
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<CloudTransferFilter>({
     direction: 'all',
     limit: 20,
     state: 'all',
   });
-  const [isBusy, setIsBusy] = useState(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
-  const [transfers, setTransfers] = useState<CloudTransferItem[]>([]);
-
-  const refresh = useCallback(
-    async (nextFilter: CloudTransferFilter = filter) => {
-      if (normalizedServiceName === '' || transportState !== 'connected') {
-        return;
-      }
-
-      setError(null);
-      setIsBusy(true);
-
-      try {
-        const response = await transferService.request<
-          { direction?: TransferDirection; limit?: number; state?: TransferState },
-          CloudTransferTransferListPayload
-        >('list-transfers', normalizeFilter(nextFilter), {
-          responseSubtopics: [RESPONSE_SUBTOPIC],
-          responseTypes: ['cloud-transfer-list'],
-        });
-
-        setTransfers(response.payload.items);
-        setLastRefreshedAt(new Date().toISOString());
-        setIsBusy(false);
-      } catch (nextError) {
-        setError(readRequestErrorMessage(nextError));
-        setIsBusy(false);
-      }
-    },
-    [filter, normalizedServiceName, transferService, transportState],
+  const queryInput = useMemo(
+    () =>
+      normalizeFilter(filter) as {
+        direction?: TransferDirection;
+        limit?: number;
+        state?: TransferState;
+      },
+    [filter],
   );
+  const transfersQuery = useDeviceServiceQuery(transferService, 'list-transfers', queryInput, {
+    enabled: normalizedServiceName !== '',
+    refetchInterval: transportState === 'connected' ? AUTO_REFRESH_MS : false,
+    refetchIntervalInBackground: true,
+  });
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void refresh();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [refresh, refreshKey]);
-
-  useEffect(() => {
-    if (normalizedServiceName === '' || transportState !== 'connected') {
-      return undefined;
+    if (refreshKey === 0) {
+      return;
     }
 
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, AUTO_REFRESH_MS);
+    void transfersQuery.refetch();
+  }, [refreshKey, transfersQuery]);
 
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [normalizedServiceName, refresh, transportState]);
+  const error =
+    transfersQuery.error !== null ? readRequestErrorMessage(transfersQuery.error) : null;
+  const isBusy = transfersQuery.isFetching;
+  const lastRefreshedAt =
+    transfersQuery.dataUpdatedAt > 0 ? new Date(transfersQuery.dataUpdatedAt).toISOString() : null;
+  const transfers = (transfersQuery.data?.items ?? []) as CloudTransferItem[];
 
   const handleFilterChange = (patch: Partial<CloudTransferFilter>) => {
-    const nextFilter = {
-      ...filter,
+    setFilter((currentFilter) => ({
+      ...currentFilter,
       ...patch,
-    };
-    setFilter(nextFilter);
-    void refresh(nextFilter);
+    }));
   };
 
   return (
@@ -166,7 +140,7 @@ export const CloudTransferQueueBrowser = ({
               disabled={isBusy || transportState !== 'connected'}
               type="button"
               variant="outline"
-              onClick={() => void refresh()}
+              onClick={() => void transfersQuery.refetch()}
             >
               Refresh
             </Button>

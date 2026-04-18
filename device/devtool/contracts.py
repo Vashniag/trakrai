@@ -24,7 +24,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_codegen(args: argparse.Namespace) -> int:
     request = load_request_file(args.request)
-    apply_request_overrides(args, request, ["service", "go", "python"])
+    apply_request_overrides(args, request, ["service", "go", "python", "typescript"])
     selected = list(args.service or [])
     if args.interactive and not selected:
         selected = choose_many(
@@ -39,20 +39,26 @@ def cmd_codegen(args: argparse.Namespace) -> int:
         explicit_targets.add("go")
     if args.python:
         explicit_targets.add("python")
+    if args.typescript:
+        explicit_targets.add("typescript")
 
     if explicit_targets:
         go_services = [name for name in selected if "go" in explicit_targets]
         python_services = [name for name in selected if "python" in explicit_targets]
+        typescript_services = [name for name in selected if "typescript" in explicit_targets]
     else:
         go_services = list(selected)
         python_services = list(selected)
+        typescript_services = list(selected)
 
     declared_services = [service.name for service in service_contracts.load_service_contracts()]
     written, deleted = contract_tools.write_codegen(
         go_services=go_services,
         python_services=python_services,
+        typescript_services=typescript_services,
         declared_go_services=declared_services,
         declared_python_services=declared_services,
+        declared_typescript_services=declared_services,
     )
     print(
         json.dumps(
@@ -66,25 +72,32 @@ def cmd_codegen(args: argparse.Namespace) -> int:
     return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Validate and generate service contract bindings.")
+def build_parser(prog: str | None = None) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description="Validate and generate service contract bindings.",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     validate_parser = subparsers.add_parser("validate", help="validate the service methods manifest")
     validate_parser.set_defaults(func=cmd_validate)
 
-    codegen_parser = subparsers.add_parser("codegen", help="generate Go/Python service contract bindings")
+    codegen_parser = subparsers.add_parser(
+        "codegen",
+        help="generate Go/Python/TypeScript service contract bindings",
+    )
     codegen_parser.add_argument("--request", default="")
     codegen_parser.add_argument("--service", action="append")
     codegen_parser.add_argument("--go", action="store_true")
     codegen_parser.add_argument("--python", action="store_true")
+    codegen_parser.add_argument("--typescript", action="store_true")
     codegen_parser.add_argument("--interactive", action="store_true")
     codegen_parser.set_defaults(func=cmd_codegen)
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
+def main(argv: list[str] | None = None, prog: str | None = None) -> int:
+    parser = build_parser(prog=prog)
     args = parser.parse_args(argv)
     return args.func(args)
 

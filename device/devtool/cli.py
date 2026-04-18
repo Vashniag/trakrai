@@ -103,6 +103,17 @@ def cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_generate_alias(args: argparse.Namespace) -> int:
+    forwarded_args = list(args.args or [])
+    if args.generate_command == "config":
+        return configs.main(["generate", *forwarded_args])
+    raise SystemExit(f"unsupported generate target {args.generate_command!r}")
+
+
+def cmd_generate_contract(args: argparse.Namespace) -> int:
+    return contracts.cmd_codegen(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TrakrAI manifest-driven developer CLI.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -128,6 +139,20 @@ def build_parser() -> argparse.ArgumentParser:
     completion_parser = subparsers.add_parser("completion", help="emit shell completion scripts")
     completion_parser.add_argument("shell", choices=["bash", "zsh", "fish"])
     completion_parser.set_defaults(func=cmd_completion)
+
+    generate_parser = subparsers.add_parser("generate", help="shortcut aliases for common generation flows")
+    generate_subparsers = generate_parser.add_subparsers(dest="generate_command", required=True)
+    generate_config = generate_subparsers.add_parser("config", help="alias for `config generate`")
+    generate_config.add_argument("args", nargs=argparse.REMAINDER)
+    generate_config.set_defaults(func=cmd_generate_alias)
+    generate_contract = generate_subparsers.add_parser("contract", help="alias for `contract codegen`")
+    generate_contract.add_argument("--request", default="")
+    generate_contract.add_argument("--service", action="append")
+    generate_contract.add_argument("--go", action="store_true")
+    generate_contract.add_argument("--python", action="store_true")
+    generate_contract.add_argument("--typescript", action="store_true")
+    generate_contract.add_argument("--interactive", action="store_true")
+    generate_contract.set_defaults(func=cmd_generate_contract)
 
     config_parser = subparsers.add_parser("config", help="generate, validate, and codegen config assets")
     config_parser.set_defaults(delegate="config")
@@ -163,6 +188,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv or sys.argv[1:])
+    if len(argv) >= 2 and argv[0] == "generate" and argv[1] == "config":
+        return configs.main(["generate", *argv[2:]])
     if argv and argv[0] in DELEGATED_COMMANDS:
         return DELEGATED_COMMANDS[argv[0]](argv[1:])
 
