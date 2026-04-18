@@ -473,6 +473,44 @@ class ServicePushTests(unittest.TestCase):
             fake_runtime.update_calls,
         )
 
+    def test_control_plane_push_emulator_passes_requested_platform(self) -> None:
+        service = manifests.require_service("cloud-comm")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            artifact_path = Path(tmp_dir) / "cloud-comm"
+            artifact_path.write_bytes(b"binary")
+            parser = services.build_parser()
+            args = parser.parse_args(
+                [
+                    "push",
+                    "--service",
+                    service.name,
+                    "--target",
+                    "emulator",
+                    "--platform",
+                    "linux/amd64",
+                    "--cloud-api-base-url",
+                    "http://127.0.0.1:3000",
+                ]
+            )
+            with (
+                mock.patch.object(services, "resolve_local_artifact", return_value=artifact_path),
+                mock.patch.object(
+                    services,
+                    "publish_dev_artifact",
+                    return_value=RemoteArtifactReference(
+                        remote_path="dev-service-updates/cloud-comm/linux-amd64/cloud-comm",
+                        sha256="deadbeef",
+                    ),
+                ),
+                mock.patch.object(services, "run_control_plane_update_in_emulator") as run_update,
+            ):
+                result = args.func(args)
+
+        self.assertEqual(0, result)
+        run_update.assert_called_once()
+        self.assertEqual("cloud-comm", run_update.call_args.kwargs["package"])
+        self.assertEqual("linux/amd64", run_update.call_args.kwargs["platform"])
+
     def test_iter_python_runtime_support_files_includes_generated_module(self) -> None:
         layout = RuntimeLayout(
             runtime_root="/home/hacklab/trakrai-device-runtime",

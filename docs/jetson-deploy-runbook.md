@@ -110,7 +110,7 @@ Create a directory (e.g. `device/.deploy-jetson-test/configs/`) with one JSON pe
 
 Real-world values that have to match the target:
 
-- **`cloud-comm.json`** &mdash; `device_id`, `mqtt.broker_url`, `edge.listen_addr`, and `edge.allowed_origins` for the device's LAN/VPN IPs.
+- **`cloud-comm.json`** &mdash; `device_id`, `mqtt.broker_url`, and `edge.listen_addr`. The edge HTTP APIs and WebSocket now accept any origin, so there is no per-origin allowlist to maintain.
 - **`cloud-transfer.json`** &mdash; `device_id`, `cloud_api.base_url`, and `cloud_api.access_token` (device-scoped `trd_…` token).
 - **`rtsp-feeder.json`** &mdash; one camera entry per live RTSP stream, pointing at the real camera IPs. Include the Redis password if Redis is secured (`HACKLAB3008` on this device).
 - **`ptz-control.json`** &mdash; per camera: `address` (camera IP, **not** `host`), `onvif_port` (80), `username`, `password`, `driver: "onvif"`. See `device/internal/ptzcontrol/config.go` for the validator — the required field is `address`, not `host`, which is the single most common cause of `missing address` restart loops.

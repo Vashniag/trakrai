@@ -22,7 +22,6 @@ class StageOptions:
     public_http_port: int | None = None
     start_mode: str = "all"
     edge_host: str = "127.0.0.1"
-    edge_origin_hosts: tuple[str, ...] = ()
 
 
 def runtime_configs_dir(runtime_root: str) -> str:
@@ -57,27 +56,7 @@ def patch_cloud_comm_config(config: dict[str, Any], options: StageOptions) -> No
     edge["enabled"] = True
     edge.setdefault("listen_addr", f":{options.http_port}")
     edge.setdefault("path", "/ws")
-
-    public_http_port = options.public_http_port or options.http_port
-    edge_hosts = [*options.edge_origin_hosts, options.edge_host]
-    expected_origins = [
-        origin
-        for host in edge_hosts
-        for origin in (
-            f"http://{host}:{public_http_port}",
-            f"http://{host}:8088",
-        )
-    ]
-    expected_origins.extend(
-        [
-            f"http://127.0.0.1:{public_http_port}",
-            f"http://localhost:{public_http_port}",
-            "http://127.0.0.1:8088",
-            "http://localhost:8088",
-        ]
-    )
-    existing_origins = list(edge.get("allowed_origins", []))
-    edge["allowed_origins"] = sorted({*existing_origins, *expected_origins})
+    edge.pop("allowed_origins", None)
 
     ui = dict(edge.get("ui") or {})
     ui["enabled"] = True

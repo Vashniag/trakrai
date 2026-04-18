@@ -8,42 +8,41 @@ import (
 )
 
 type CloudCommConfig struct {
-	Cameras []CloudCommConfigCamerasItem `json:"cameras"`
-	DeviceId string `json:"device_id"`
-	Edge CloudCommConfigEdge `json:"edge"`
-	Ipc CloudCommConfigIpc `json:"ipc"`
-	LogLevel string `json:"log_level"`
-	Mqtt CloudCommConfigMqtt `json:"mqtt"`
+	Cameras  []CloudCommConfigCamerasItem `json:"cameras"`
+	DeviceId string                       `json:"device_id"`
+	Edge     CloudCommConfigEdge          `json:"edge"`
+	Ipc      CloudCommConfigIpc           `json:"ipc"`
+	LogLevel string                       `json:"log_level"`
+	Mqtt     CloudCommConfigMqtt          `json:"mqtt"`
 }
 
 type CloudCommConfigCamerasItem struct {
-	Enabled bool `json:"enabled"`
-	Name string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	Name    string `json:"name"`
 }
 
 type CloudCommConfigEdge struct {
-	AllowedOrigins []string `json:"allowed_origins"`
-	Enabled bool `json:"enabled"`
-	ListenAddr string `json:"listen_addr"`
-	Path string `json:"path"`
-	Ui CloudCommConfigEdgeUi `json:"ui"`
-	RateLimit CloudCommConfigEdgeRateLimit `json:"rate_limit"`
-	Webrtc CloudCommConfigEdgeWebrtc `json:"webrtc"`
+	Enabled    bool                         `json:"enabled"`
+	ListenAddr string                       `json:"listen_addr"`
+	Path       string                       `json:"path"`
+	Ui         CloudCommConfigEdgeUi        `json:"ui"`
+	RateLimit  CloudCommConfigEdgeRateLimit `json:"rate_limit"`
+	Webrtc     CloudCommConfigEdgeWebrtc    `json:"webrtc"`
 }
 
 type CloudCommConfigEdgeUi struct {
-	CloudBridgeUrl string `json:"cloud_bridge_url"`
-	DiagnosticsEnabled bool `json:"diagnostics_enabled"`
-	Enabled bool `json:"enabled"`
-	ManagementService string `json:"management_service"`
-	StaticDir string `json:"static_dir"`
-	TransportMode string `json:"transport_mode"`
+	CloudBridgeUrl     string `json:"cloud_bridge_url"`
+	DiagnosticsEnabled bool   `json:"diagnostics_enabled"`
+	Enabled            bool   `json:"enabled"`
+	ManagementService  string `json:"management_service"`
+	StaticDir          string `json:"static_dir"`
+	TransportMode      string `json:"transport_mode"`
 }
 
 type CloudCommConfigEdgeRateLimit struct {
 	MaxCommandMessages int `json:"max_command_messages"`
-	MaxMessages int `json:"max_messages"`
-	WindowSec int `json:"window_sec"`
+	MaxMessages        int `json:"max_messages"`
+	WindowSec          int `json:"window_sec"`
 }
 
 type CloudCommConfigEdgeWebrtc struct {
@@ -51,9 +50,9 @@ type CloudCommConfigEdgeWebrtc struct {
 }
 
 type CloudCommConfigEdgeWebrtcIceServersItem struct {
-	Credential string `json:"credential"`
-	Urls []string `json:"urls"`
-	Username string `json:"username"`
+	Credential string   `json:"credential"`
+	Urls       []string `json:"urls"`
+	Username   string   `json:"username"`
 }
 
 type CloudCommConfigIpc struct {
@@ -61,13 +60,13 @@ type CloudCommConfigIpc struct {
 }
 
 type CloudCommConfigMqtt struct {
-	BrokerUrl string `json:"broker_url"`
-	ClientId string `json:"client_id"`
-	KeepAliveSec int `json:"keep_alive_sec"`
+	BrokerUrl    string `json:"broker_url"`
+	ClientId     string `json:"client_id"`
+	KeepAliveSec int    `json:"keep_alive_sec"`
 }
 
 func DefaultCloudCommConfig() CloudCommConfig {
-	return CloudCommConfig{Cameras: []CloudCommConfigCamerasItem{CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Main"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Sec"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP2-Main"}}, DeviceId: "default", Edge: CloudCommConfigEdge{AllowedOrigins: []string{"http://127.0.0.1:8080", "http://localhost:8080"}, Enabled: true, ListenAddr: ":8080", Path: "/ws", Ui: CloudCommConfigEdgeUi{CloudBridgeUrl: "ws://10.8.0.51:8090/ws", DiagnosticsEnabled: true, Enabled: true, ManagementService: "runtime-manager", StaticDir: "/home/hacklab/trakrai-device-runtime/ui", TransportMode: "edge"}, RateLimit: CloudCommConfigEdgeRateLimit{MaxCommandMessages: 40, MaxMessages: 120, WindowSec: 5}, Webrtc: CloudCommConfigEdgeWebrtc{IceServers: []CloudCommConfigEdgeWebrtcIceServersItem{CloudCommConfigEdgeWebrtcIceServersItem{Credential: "trakrai-secret", Urls: []string{"turn:192.168.1.100:3478"}, Username: "trakrai"}}}}, Ipc: CloudCommConfigIpc{SocketPath: "/tmp/trakrai-cloud-comm.sock"}, LogLevel: "info", Mqtt: CloudCommConfigMqtt{BrokerUrl: "tcp://192.168.1.100:1883", ClientId: "trakrai-device-01", KeepAliveSec: 30}}
+	return CloudCommConfig{Cameras: []CloudCommConfigCamerasItem{CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Main"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP1-Sec"}, CloudCommConfigCamerasItem{Enabled: true, Name: "LP2-Main"}}, DeviceId: "default", Edge: CloudCommConfigEdge{Enabled: true, ListenAddr: ":8080", Path: "/ws", Ui: CloudCommConfigEdgeUi{CloudBridgeUrl: "ws://10.8.0.51:8090/ws", DiagnosticsEnabled: true, Enabled: true, ManagementService: "runtime-manager", StaticDir: "/home/hacklab/trakrai-device-runtime/ui", TransportMode: "edge"}, RateLimit: CloudCommConfigEdgeRateLimit{MaxCommandMessages: 40, MaxMessages: 120, WindowSec: 5}, Webrtc: CloudCommConfigEdgeWebrtc{IceServers: []CloudCommConfigEdgeWebrtcIceServersItem{CloudCommConfigEdgeWebrtcIceServersItem{Credential: "trakrai-secret", Urls: []string{"turn:192.168.1.100:3478"}, Username: "trakrai"}}}}, Ipc: CloudCommConfigIpc{SocketPath: "/tmp/trakrai-cloud-comm.sock"}, LogLevel: "info", Mqtt: CloudCommConfigMqtt{BrokerUrl: "tcp://192.168.1.100:1883", ClientId: "trakrai-device-01", KeepAliveSec: 30}}
 }
 
 func LoadCloudCommConfig(path string) (CloudCommConfig, error) {

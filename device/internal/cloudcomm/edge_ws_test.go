@@ -181,7 +181,6 @@ func TestEdgeWebSocketServerServesIceConfig(t *testing.T) {
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/ice-config", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
 	recorder := httptest.NewRecorder()
 
 	server.handleIceConfig(recorder, req)
@@ -190,11 +189,11 @@ func TestEdgeWebSocketServerServesIceConfig(t *testing.T) {
 		t.Fatalf("expected 200 response, got %d", recorder.Code)
 	}
 
-	if recorder.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Fatalf("expected wildcard CORS header, got %q", recorder.Header().Get("Access-Control-Allow-Origin"))
-	}
 	if recorder.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("expected no-store Cache-Control header, got %q", recorder.Header().Get("Cache-Control"))
+	}
+	if recorder.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatalf("expected wildcard CORS header, got %q", recorder.Header().Get("Access-Control-Allow-Origin"))
 	}
 
 	var response struct {

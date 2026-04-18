@@ -13,14 +13,6 @@
     "enabled": true,
     "listen_addr": ":8080",
     "path": "/ws",
-    "allowed_origins": [
-      "http://127.0.0.1:3000",
-      "http://localhost:3000",
-      "http://127.0.0.1:3001",
-      "http://localhost:3001",
-      "http://127.0.0.1:8080",
-      "http://localhost:8080"
-    ],
     "webrtc": {
       "ice_servers": [
         {
@@ -37,6 +29,11 @@
       "transport_mode": "edge",
       "cloud_bridge_url": "ws://10.8.0.51:8090/ws",
       "management_service": "runtime-manager"
+    },
+    "rate_limit": {
+      "max_command_messages": 40,
+      "max_messages": 120,
+      "window_sec": 5
     }
   },
   "cameras": [

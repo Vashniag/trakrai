@@ -358,9 +358,7 @@ func (s *EdgeWebSocketServer) handleUI(w http.ResponseWriter, r *http.Request) {
 
 func (s *EdgeWebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
-		CheckOrigin: func(request *http.Request) bool {
-			return s.originAllowed(request.Header.Get("Origin"))
-		},
+		CheckOrigin: func(*http.Request) bool { return true },
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -581,36 +579,10 @@ func (s *EdgeWebSocketServer) handlePreflight(w http.ResponseWriter, r *http.Req
 }
 
 func (s *EdgeWebSocketServer) applyCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	if len(s.cfg.Edge.AllowedOrigins) == 0 {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return
-	}
-
-	if origin == "" || !s.originAllowed(origin) {
-		return
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", origin)
-	w.Header().Add("Vary", "Origin")
-}
-
-func (s *EdgeWebSocketServer) originAllowed(origin string) bool {
-	origin = strings.TrimSpace(origin)
-	if len(s.cfg.Edge.AllowedOrigins) == 0 || origin == "" {
-		return true
-	}
-
-	for _, allowedOrigin := range s.cfg.Edge.AllowedOrigins {
-		if strings.EqualFold(strings.TrimSpace(allowedOrigin), origin) {
-			return true
-		}
-	}
-
-	return false
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 }
 
 func (s *EdgeWebSocketServer) addClient(client *edgeClient) {

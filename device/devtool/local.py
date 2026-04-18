@@ -383,7 +383,6 @@ def cmd_up(args: argparse.Namespace) -> int:
             public_http_port=args.http_port,
             start_mode=args.start_mode,
             edge_host="127.0.0.1",
-            edge_origin_hosts=("127.0.0.1", "localhost"),
         )
         prepare_stage(paths.LOCALDEV_STAGE_ROOT, artifacts, config_map, options)
         shutil_path = paths.DEVTOOL_RUNTIME_ASSETS_ROOT / "bootstrap_device_runtime.py"

@@ -15,10 +15,6 @@
       "enabled": true,
       "listen_addr": ":8080",
       "path": "/ws",
-      "allowed_origins": [
-        "http://127.0.0.1:8080",
-        "http://localhost:8080"
-      ],
       "webrtc": {
         "ice_servers": [
           {
@@ -104,10 +100,6 @@
         "enabled": true,
         "listen_addr": ":8080",
         "path": "/ws",
-        "allowed_origins": [
-          "http://127.0.0.1:8080",
-          "http://localhost:8080"
-        ],
         "webrtc": {
           "ice_servers": [
             {
@@ -134,17 +126,6 @@
         }
       },
       "properties": {
-        "allowed_origins": {
-          "type": "array",
-          "default": [
-            "http://127.0.0.1:8080",
-            "http://localhost:8080"
-          ],
-          "items": {
-            "type": "string",
-            "default": "http://127.0.0.1:8080"
-          }
-        },
         "enabled": {
           "type": "boolean",
           "default": true
@@ -304,7 +285,6 @@
         }
       },
       "required": [
-        "allowed_origins",
         "enabled",
         "listen_addr",
         "path",

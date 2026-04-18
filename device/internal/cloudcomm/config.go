@@ -44,13 +44,12 @@ type EdgeRateLimitConfig struct {
 }
 
 type EdgeWebSocketConfig struct {
-	Enabled        bool                `json:"enabled"`
-	ListenAddr     string              `json:"listen_addr"`
-	Path           string              `json:"path"`
-	AllowedOrigins []string            `json:"allowed_origins"`
-	RateLimit      EdgeRateLimitConfig `json:"rate_limit"`
-	WebRTC         EdgeWebRTCConfig    `json:"webrtc"`
-	UI             EdgeUIConfig        `json:"ui"`
+	Enabled    bool                `json:"enabled"`
+	ListenAddr string              `json:"listen_addr"`
+	Path       string              `json:"path"`
+	RateLimit  EdgeRateLimitConfig `json:"rate_limit"`
+	WebRTC     EdgeWebRTCConfig    `json:"webrtc"`
+	UI         EdgeUIConfig        `json:"ui"`
 }
 
 type CameraConfig struct {
@@ -85,10 +84,9 @@ func LoadConfig(path string) (*Config, error) {
 			SocketPath: raw.Ipc.SocketPath,
 		},
 		Edge: EdgeWebSocketConfig{
-			Enabled:        raw.Edge.Enabled,
-			ListenAddr:     raw.Edge.ListenAddr,
-			Path:           raw.Edge.Path,
-			AllowedOrigins: append([]string(nil), raw.Edge.AllowedOrigins...),
+			Enabled:    raw.Edge.Enabled,
+			ListenAddr: raw.Edge.ListenAddr,
+			Path:       raw.Edge.Path,
 			RateLimit: EdgeRateLimitConfig{
 				MaxCommandMessages: raw.Edge.RateLimit.MaxCommandMessages,
 				MaxMessages:        raw.Edge.RateLimit.MaxMessages,

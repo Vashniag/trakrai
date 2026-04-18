@@ -121,7 +121,7 @@ def download_release_artifact_to_local(
     return downloaded[service.package_name]
 
 
-def run_control_plane_update_in_emulator(*, package: str, metadata_path: Path) -> None:
+def run_control_plane_update_in_emulator(*, package: str, metadata_path: Path, platform: str) -> None:
     env = compose_env("trakrai-local-device", DEFAULT_LOCAL_PLATFORM)
     target_metadata = paths.LOCALDEV_SHARED_ROOT / "control-plane-updates" / metadata_path.name
     target_metadata.parent.mkdir(parents=True, exist_ok=True)
@@ -136,6 +136,8 @@ def run_control_plane_update_in_emulator(*, package: str, metadata_path: Path) -
             f"{paths.DEFAULT_RUNTIME_ROOT}/scripts/update_control_plane.py",
             "--packages",
             package,
+            "--platform",
+            platform,
             "--metadata-path",
             remote_metadata,
         ],

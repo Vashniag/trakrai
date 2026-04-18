@@ -251,7 +251,11 @@ def push_control_plane_service(service: manifests.ServiceManifest, args: argpars
         metadata_path = Path(tmp_dir_name) / "package-versions.json"
         metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if args.target == "emulator":
-            run_control_plane_update_in_emulator(package=service.package_name, metadata_path=metadata_path)
+            run_control_plane_update_in_emulator(
+                package=service.package_name,
+                metadata_path=metadata_path,
+                platform=args.platform,
+            )
         else:
             require_argument_values(args, {"host": "--host", "user": "--user", "password": "--password"})
             ssh = ExpectSSHClient(SSHConnectionInfo(host=args.host, user=args.user, password=args.password, port=args.port))
@@ -263,6 +267,7 @@ def push_control_plane_service(service: manifests.ServiceManifest, args: argpars
                 f"sudo python3 {shlex.quote(remote_script)} "
                 f"--runtime-root {shlex.quote(args.runtime_root)} "
                 f"--packages {shlex.quote(service.package_name)} "
+                f"--platform {shlex.quote(args.platform)} "
                 f"--metadata-path {shlex.quote(remote_metadata)}"
             )
             if str(args.cloud_api_base_url).strip():
