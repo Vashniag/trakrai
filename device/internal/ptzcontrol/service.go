@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/trakrai/device-services/internal/ipc"
+	"github.com/trakrai/device-services/internal/ipc/contracts"
 )
 
 type statusPayload struct {
@@ -151,54 +152,34 @@ func (s *Service) handleNotifications(ctx context.Context) {
 				s.log.Warn("invalid MQTT IPC notification", "error", err)
 				continue
 			}
-			if message.Subtopic != "command" {
-				continue
-			}
-
-			s.handleCommand(ctx, message.Envelope)
+			s.handleCommand(ctx, message.Subtopic, message.Envelope)
 		}
 	}
 }
 
-func (s *Service) handleCommand(ctx context.Context, env ipc.MQTTEnvelope) {
-	switch env.Type {
-	case "get-status":
-		s.handleStatusRequest(ctx, env)
-	case "get-position":
-		s.handleGetPosition(ctx, env)
-	case "start-move":
-		s.handleStartMove(ctx, env)
-	case "stop-move":
-		s.handleStopMove(ctx, env)
-	case "set-zoom":
-		s.handleSetZoom(ctx, env)
-	case "set-position":
-		s.handleSetPosition(ctx, env)
-	case "go-home":
-		s.handleGoHome(ctx, env)
-	default:
+func (s *Service) handleCommand(ctx context.Context, subtopic string, env ipc.MQTTEnvelope) {
+	handled, err := contracts.DispatchPtzControl(ctx, "", subtopic, env, s)
+	if err != nil {
+		s.publishError("", "", env.Type, err)
+		return
+	}
+	if !handled && strings.TrimSpace(subtopic) == contracts.PtzControlGetStatusSubtopic {
 		s.publishError("", "", env.Type, fmt.Errorf("unsupported PTZ command %q", env.Type))
 	}
 }
 
-func (s *Service) handleStatusRequest(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload cameraCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil && len(env.Payload) > 0 {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid get-status payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleGetStatus(ctx context.Context, _ string, payload contracts.PtzControlCameraCommand) error {
 	if strings.TrimSpace(payload.CameraName) != "" {
 		camera, err := s.cameraByName(payload.CameraName)
 		if err != nil {
-			s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-			return
+			s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlGetStatusMethod, err)
+			return nil
 		}
 
 		position, err := camera.GetPosition(ctx)
 		if err != nil {
-			s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-			return
+			s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlGetStatusMethod, err)
+			return nil
 		}
 
 		s.state.ActiveCamera = position.CameraName
@@ -207,256 +188,232 @@ func (s *Service) handleStatusRequest(ctx context.Context, env ipc.MQTTEnvelope)
 		s.state.LastError = ""
 	}
 
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlGetStatusMethod
 	if err := s.publishResponse("ptz-status", statusResponsePayload{
 		statusPayload: s.state,
-		RequestID:     strings.TrimSpace(payload.RequestID),
+		RequestID:     strings.TrimSpace(payload.RequestId),
 	}); err != nil {
 		s.log.Warn("publish PTZ status response failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGetPosition(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload cameraCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid get-position payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleGetPosition(ctx context.Context, _ string, payload contracts.PtzControlCameraCommand) error {
 	camera, err := s.cameraByName(payload.CameraName)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlGetPositionMethod, err)
+		return nil
 	}
 
 	position, err := camera.GetPosition(ctx)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlGetPositionMethod, err)
+		return nil
 	}
 
 	s.state.ActiveCamera = position.CameraName
 	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlGetPositionMethod
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-position", positionResponsePayload{
 		positionSnapshot: *position,
-		RequestID:        strings.TrimSpace(payload.RequestID),
+		RequestID:        strings.TrimSpace(payload.RequestId),
 	}); err != nil {
 		s.log.Warn("publish PTZ position failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleStartMove(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload moveCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid start-move payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleStartMove(ctx context.Context, _ string, payload contracts.PtzControlMoveCommand) error {
 	camera, err := s.cameraByName(payload.CameraName)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlStartMoveMethod, err)
+		return nil
 	}
 
-	if err := camera.ContinuousMove(ctx, payload.Velocity); err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+	velocity := velocityCommand{
+		Pan:  payload.Velocity.Pan,
+		Tilt: payload.Velocity.Tilt,
+		Zoom: payload.Velocity.Zoom,
+	}
+	if err := camera.ContinuousMove(ctx, velocity); err != nil {
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlStartMoveMethod, err)
+		return nil
 	}
 
 	capabilities, err := camera.Capabilities(ctx)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlStartMoveMethod, err)
+		return nil
 	}
 
 	s.state.ActiveCamera = strings.TrimSpace(payload.CameraName)
 	s.state.Capabilities = capabilities
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlStartMoveMethod
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
 		Capabilities: capabilities,
 		CameraName:   payload.CameraName,
-		Command:      env.Type,
+		Command:      contracts.PtzControlStartMoveMethod,
 		Ok:           true,
-		RequestID:    strings.TrimSpace(payload.RequestID),
-		Velocity:     &payload.Velocity,
+		RequestID:    strings.TrimSpace(payload.RequestId),
+		Velocity:     &velocity,
 	}); err != nil {
 		s.log.Warn("publish PTZ ack failed", "error", err)
 	}
 	if err := s.reportStatus("moving"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleStopMove(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload cameraCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid stop-move payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleStopMove(ctx context.Context, _ string, payload contracts.PtzControlCameraCommand) error {
 	camera, err := s.cameraByName(payload.CameraName)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlStopMoveMethod, err)
+		return nil
 	}
 
 	position, err := camera.Stop(ctx)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlStopMoveMethod, err)
+		return nil
 	}
 
 	s.state.ActiveCamera = position.CameraName
 	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlStopMoveMethod
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
 		Capabilities: position.Capabilities,
 		CameraName:   payload.CameraName,
-		Command:      env.Type,
+		Command:      contracts.PtzControlStopMoveMethod,
 		Ok:           true,
 		Position:     position,
-		RequestID:    strings.TrimSpace(payload.RequestID),
+		RequestID:    strings.TrimSpace(payload.RequestId),
 	}); err != nil {
 		s.log.Warn("publish PTZ stop ack failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleSetZoom(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload zoomCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid set-zoom payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleSetZoom(ctx context.Context, _ string, payload contracts.PtzControlZoomCommand) error {
 	camera, err := s.cameraByName(payload.CameraName)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlSetZoomMethod, err)
+		return nil
 	}
 
 	position, err := camera.SetZoom(ctx, payload.Zoom)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlSetZoomMethod, err)
+		return nil
 	}
 
 	s.state.ActiveCamera = position.CameraName
 	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlSetZoomMethod
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
 		Capabilities: position.Capabilities,
 		CameraName:   payload.CameraName,
-		Command:      env.Type,
+		Command:      contracts.PtzControlSetZoomMethod,
 		Ok:           true,
 		Position:     position,
-		RequestID:    strings.TrimSpace(payload.RequestID),
+		RequestID:    strings.TrimSpace(payload.RequestId),
 	}); err != nil {
 		s.log.Warn("publish PTZ zoom ack failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGoHome(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload cameraCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid go-home payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleGoHome(ctx context.Context, _ string, payload contracts.PtzControlCameraCommand) error {
 	camera, err := s.cameraByName(payload.CameraName)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlGoHomeMethod, err)
+		return nil
 	}
 
 	position, err := camera.GoHome(ctx)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlGoHomeMethod, err)
+		return nil
 	}
 
 	s.state.ActiveCamera = position.CameraName
 	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlGoHomeMethod
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
 		Capabilities: position.Capabilities,
 		CameraName:   payload.CameraName,
-		Command:      env.Type,
+		Command:      contracts.PtzControlGoHomeMethod,
 		Ok:           true,
 		Position:     position,
-		RequestID:    strings.TrimSpace(payload.RequestID),
+		RequestID:    strings.TrimSpace(payload.RequestId),
 	}); err != nil {
 		s.log.Warn("publish PTZ home ack failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleSetPosition(ctx context.Context, env ipc.MQTTEnvelope) {
-	var payload positionCommand
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		s.publishError("", "", env.Type, fmt.Errorf("invalid set-position payload: %w", err))
-		return
-	}
-
+func (s *Service) HandleSetPosition(ctx context.Context, _ string, payload contracts.PtzControlPositionCommand) error {
 	camera, err := s.cameraByName(payload.CameraName)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlSetPositionMethod, err)
+		return nil
 	}
 
 	position, err := camera.SetPosition(ctx, payload.Pan, payload.Tilt, payload.Zoom)
 	if err != nil {
-		s.publishError(strings.TrimSpace(payload.RequestID), payload.CameraName, env.Type, err)
-		return
+		s.publishError(strings.TrimSpace(payload.RequestId), payload.CameraName, contracts.PtzControlSetPositionMethod, err)
+		return nil
 	}
 
 	s.state.ActiveCamera = position.CameraName
 	s.state.Capabilities = position.Capabilities
 	s.state.Position = position
-	s.state.LastCommand = env.Type
+	s.state.LastCommand = contracts.PtzControlSetPositionMethod
 	s.state.LastError = ""
 
 	if err := s.publishResponse("ptz-command-ack", commandAckPayload{
 		Capabilities: position.Capabilities,
 		CameraName:   payload.CameraName,
-		Command:      env.Type,
+		Command:      contracts.PtzControlSetPositionMethod,
 		Ok:           true,
 		Position:     position,
-		RequestID:    strings.TrimSpace(payload.RequestID),
+		RequestID:    strings.TrimSpace(payload.RequestId),
 	}); err != nil {
 		s.log.Warn("publish PTZ absolute move ack failed", "error", err)
 	}
 	if err := s.reportStatus("idle"); err != nil {
 		s.log.Debug("PTZ status report failed", "error", err)
 	}
+	return nil
 }
 
 func (s *Service) cameraByName(name string) (*cameraController, error) {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from trakrai_service_runtime.generated_contracts.audio_manager import AudioManagerAudioRequest, AudioManagerClient
+
 from ..node_support import bool_value, float_value, string_value
 from ..models import NodeCategory, PortDefinition, t_boolean, t_number, t_string
 from ..registry import register_node
@@ -38,40 +40,30 @@ def play_audio_message(inputs: NodeInputs) -> NodeOutputs:
     service_bridge = get_service_bridge_from_inputs(inputs)
     if service_bridge is None:
         raise RuntimeError("workflow execution context does not include a service bridge")
+    audio_client = AudioManagerClient(service_bridge)
 
     detection_metadata = get_detection_metadata_from_inputs(inputs)
-    request_payload = {
-        "cameraId": string_value(inputs.get("cameraId")) or detection_metadata["cameraId"],
-        "cameraName": detection_metadata["cameraName"],
-        "dedupeKey": string_value(inputs.get("dedupeKey")),
-        "language": string_value(inputs.get("language")) or "en",
-        "message": string_value(inputs.get("message")),
-        "text": string_value(inputs.get("message")),
-        "playLocal": bool_value(inputs.get("playLocal"), default=True),
-        "playSpeaker": bool_value(inputs.get("playSpeaker"), default=False),
-        "speakerAddress": string_value(inputs.get("speakerAddress")),
-        "speakerCode": string_value(inputs.get("speakerCode")),
-        "speakerMessageId": string_value(inputs.get("speakerMessageId")),
-    }
     timeout_sec = float_value(inputs.get("waitTimeoutSec"), default=5.0)
-    response = service_bridge.request(
-        target_service="audio-manager",
-        message_type="play-audio",
-        payload=request_payload,
-        expected_types={"audio-manager-job", "audio-manager-error"},
+    response = audio_client.play_audio(
+        AudioManagerAudioRequest(
+            camera_id=string_value(inputs.get("cameraId")) or detection_metadata["cameraId"],
+            camera_name=detection_metadata["cameraName"],
+            dedupe_key=string_value(inputs.get("dedupeKey")) or None,
+            language=string_value(inputs.get("language")) or "en",
+            message=string_value(inputs.get("message")),
+            play_local=bool_value(inputs.get("playLocal"), default=True),
+            play_speaker=bool_value(inputs.get("playSpeaker"), default=False),
+            speaker_address=string_value(inputs.get("speakerAddress")) or None,
+            speaker_code=string_value(inputs.get("speakerCode")) or None,
+            speaker_message_id=string_value(inputs.get("speakerMessageId")) or None,
+            text=string_value(inputs.get("message")),
+        ),
         timeout_sec=max(1.0, timeout_sec),
     )
-
-    if response["type"] == "audio-manager-error":
-        raise RuntimeError(str(response["payload"].get("error", "audio-manager request failed")))
-
-    job = response["payload"].get("job")
-    if not isinstance(job, dict):
-        raise RuntimeError("audio-manager response did not include a job payload")
-
-    state = str(job.get("state", "")).strip()
+    job = response.job
+    state = job.state.strip()
     return {
         "queued": state in {"queued", "processing", "completed", "deduped"},
         "state": state,
-        "jobId": str(job.get("id", "")).strip(),
+        "jobId": job.id.strip(),
     }

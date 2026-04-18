@@ -20,6 +20,12 @@ from trakrai_service_runtime import (
     run_command_loop,
     run_periodic_loop,
 )
+from trakrai_service_runtime.generated_contracts._runtime import to_wire_value
+from trakrai_service_runtime.generated_contracts.workflow_engine import (
+    WorkflowEngineEnqueueDetectionRequest,
+    WorkflowEngineStatusRequest,
+    dispatch_workflow_engine,
+)
 
 from .config import ServiceConfig
 from .engine import WorkflowEngine, WorkflowExecutionResult
@@ -111,15 +117,7 @@ class WorkflowService:
         if not isinstance(payload, dict):
             payload = {}
 
-        if message_type == "enqueue-detection":
-            self._handle_enqueue_detection(source_service, payload)
-            return
-        if message_type == "get-status":
-            self._publish_reply(
-                source_service,
-                WORKFLOW_ENGINE_STATUS_TYPE,
-                self._build_status_payload(request_id=str(payload.get("requestId", "")).strip()),
-            )
+        if dispatch_workflow_engine(source_service, "command", envelope, self):
             return
 
         self._publish_error(
@@ -129,7 +127,18 @@ class WorkflowService:
             error=f"unsupported workflow-engine command {message_type!r}",
         )
 
-    def _handle_enqueue_detection(self, source_service: str, payload: dict[str, Any]) -> None:
+    def handle_enqueue_detection(self, source_service: str, request: WorkflowEngineEnqueueDetectionRequest) -> None:
+        self._handle_enqueue_detection(source_service, request)
+
+    def handle_get_status(self, source_service: str, request: WorkflowEngineStatusRequest) -> None:
+        self._publish_reply(
+            source_service,
+            WORKFLOW_ENGINE_STATUS_TYPE,
+            self._build_status_payload(request_id=request.request_id or ""),
+        )
+
+    def _handle_enqueue_detection(self, source_service: str, request: WorkflowEngineEnqueueDetectionRequest) -> None:
+        payload = to_wire_value(request)
         try:
             normalized = normalize_detection_request(payload)
         except ValueError as exc:

@@ -9,12 +9,7 @@ import (
 	"time"
 
 	"github.com/trakrai/device-services/internal/ipc"
-)
-
-const (
-	roiConfigDocumentType = "roi-config-document"
-	roiConfigErrorType    = "roi-config-error"
-	roiConfigStatusType   = "roi-config-status"
+	"github.com/trakrai/device-services/internal/ipc/contracts"
 )
 
 type Service struct {
@@ -78,59 +73,43 @@ func (s *Service) handleNotifications(ctx context.Context) {
 					s.log.Warn("invalid ROI MQTT notification", "error", err)
 					continue
 				}
-				if strings.TrimSpace(message.Subtopic) != "command" {
-					continue
-				}
-				s.handleCommand(ctx, "", message.Envelope)
+				s.handleCommand(ctx, "", message.Subtopic, message.Envelope)
 			case "service-message":
 				var message ipc.ServiceMessageNotification
 				if err := json.Unmarshal(notification.Params, &message); err != nil {
 					s.log.Warn("invalid ROI service notification", "error", err)
 					continue
 				}
-				if strings.TrimSpace(message.Subtopic) != "command" {
-					continue
-				}
-				s.handleCommand(ctx, message.SourceService, message.Envelope)
+				s.handleCommand(ctx, message.SourceService, message.Subtopic, message.Envelope)
 			}
 		}
 	}
 }
 
-func (s *Service) handleCommand(ctx context.Context, targetService string, env ipc.MQTTEnvelope) {
-	switch strings.TrimSpace(env.Type) {
-	case "get-status":
-		s.handleGetStatus(ctx, targetService, env)
-	case "get-config":
-		s.handleGetConfig(ctx, targetService, env)
-	case "save-config":
-		s.handleSaveConfig(ctx, targetService, env)
-	default:
+func (s *Service) handleCommand(ctx context.Context, targetService string, subtopic string, env ipc.MQTTEnvelope) {
+	handled, err := contracts.DispatchRoiConfig(ctx, targetService, subtopic, env, s)
+	if err != nil {
+		s.publishError(targetService, "", env.Type, err)
+		return
+	}
+	if !handled && strings.TrimSpace(subtopic) == contracts.RoiConfigGetStatusSubtopic {
 		s.publishError(targetService, "", env.Type, fmt.Errorf("unsupported ROI command %q", env.Type))
 	}
 }
 
-func (s *Service) handleGetStatus(ctx context.Context, targetService string, env ipc.MQTTEnvelope) {
-	var request requestEnvelope
-	if len(env.Payload) > 0 {
-		if err := json.Unmarshal(env.Payload, &request); err != nil {
-			s.publishError(targetService, "", env.Type, fmt.Errorf("invalid get-status payload: %w", err))
-			return
-		}
-	}
-
+func (s *Service) HandleGetStatus(ctx context.Context, targetService string, request contracts.RoiConfigRequestEnvelope) error {
 	document, err := loadDocument(s.cfg.Storage.FilePath)
 	if err != nil {
-		s.publishError(targetService, request.RequestID, env.Type, err)
-		return
+		s.publishError(targetService, request.RequestId, contracts.RoiConfigGetStatusMethod, err)
+		return nil
 	}
 
 	status := documentStatus(s.cfg.Storage.FilePath, document)
-	if err := s.publishReply(targetService, roiConfigStatusType, struct {
+	if err := s.publishReply(targetService, contracts.RoiConfigStatusMessage, struct {
 		RequestID string `json:"requestId,omitempty"`
 		StatusPayload
 	}{
-		RequestID:     strings.TrimSpace(request.RequestID),
+		RequestID:     strings.TrimSpace(request.RequestId),
 		StatusPayload: status,
 	}); err != nil {
 		s.log.Warn("publish ROI status failed", "error", err)
@@ -139,62 +118,57 @@ func (s *Service) handleGetStatus(ctx context.Context, targetService string, env
 		s.log.Debug("ROI status report failed", "error", err)
 	}
 	_ = ctx
+	return nil
 }
 
-func (s *Service) handleGetConfig(ctx context.Context, targetService string, env ipc.MQTTEnvelope) {
-	var request requestEnvelope
-	if len(env.Payload) > 0 {
-		if err := json.Unmarshal(env.Payload, &request); err != nil {
-			s.publishError(targetService, "", env.Type, fmt.Errorf("invalid get-config payload: %w", err))
-			return
-		}
-	}
-
+func (s *Service) HandleGetConfig(ctx context.Context, targetService string, request contracts.RoiConfigRequestEnvelope) error {
 	document, err := loadDocument(s.cfg.Storage.FilePath)
 	if err != nil {
-		s.publishError(targetService, request.RequestID, env.Type, err)
-		return
+		s.publishError(targetService, request.RequestId, contracts.RoiConfigGetConfigMethod, err)
+		return nil
 	}
 
-	if err := s.publishDocument(targetService, strings.TrimSpace(request.RequestID), document); err != nil {
+	if err := s.publishDocument(targetService, strings.TrimSpace(request.RequestId), document); err != nil {
 		s.log.Warn("publish ROI document failed", "error", err)
 	}
 	if err := s.reportStatus("running", document); err != nil {
 		s.log.Debug("ROI status report failed", "error", err)
 	}
 	_ = ctx
+	return nil
 }
 
-func (s *Service) handleSaveConfig(ctx context.Context, targetService string, env ipc.MQTTEnvelope) {
-	var request saveConfigRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(targetService, "", env.Type, fmt.Errorf("invalid save-config payload: %w", err))
-		return
-	}
-
-	if err := saveDocument(s.cfg.Storage.FilePath, request.Document, time.Now().UTC()); err != nil {
-		s.publishError(targetService, request.RequestID, env.Type, err)
-		return
-	}
-
-	document, err := loadDocument(s.cfg.Storage.FilePath)
+func (s *Service) HandleSaveConfig(ctx context.Context, targetService string, request contracts.RoiConfigSaveConfigRequest) error {
+	document, err := roiConfigDocumentFromContract(request.Document)
 	if err != nil {
-		s.publishError(targetService, request.RequestID, env.Type, err)
-		return
+		s.publishError(targetService, request.RequestId, contracts.RoiConfigSaveConfigMethod, err)
+		return nil
 	}
 
-	if err := s.publishDocument(targetService, strings.TrimSpace(request.RequestID), document); err != nil {
+	if err := saveDocument(s.cfg.Storage.FilePath, document, time.Now().UTC()); err != nil {
+		s.publishError(targetService, request.RequestId, contracts.RoiConfigSaveConfigMethod, err)
+		return nil
+	}
+
+	document, err = loadDocument(s.cfg.Storage.FilePath)
+	if err != nil {
+		s.publishError(targetService, request.RequestId, contracts.RoiConfigSaveConfigMethod, err)
+		return nil
+	}
+
+	if err := s.publishDocument(targetService, strings.TrimSpace(request.RequestId), document); err != nil {
 		s.log.Warn("publish saved ROI document failed", "error", err)
 	}
 	if err := s.reportStatus("running", document); err != nil {
 		s.log.Debug("ROI status report failed", "error", err)
 	}
 	_ = ctx
+	return nil
 }
 
 func (s *Service) publishDocument(targetService string, requestID string, document Document) error {
 	status := documentStatus(s.cfg.Storage.FilePath, document)
-	return s.publishReply(targetService, roiConfigDocumentType, getConfigPayload{
+	return s.publishReply(targetService, contracts.RoiConfigDocumentMessage, getConfigPayload{
 		Document:      document,
 		FilePath:      s.cfg.Storage.FilePath,
 		RequestID:     requestID,
@@ -219,7 +193,7 @@ func (s *Service) publishError(targetService string, requestID string, requestTy
 		RequestID:   strings.TrimSpace(requestID),
 		RequestType: strings.TrimSpace(requestType),
 	}
-	if publishErr := s.publishReply(targetService, roiConfigErrorType, payload); publishErr != nil {
+	if publishErr := s.publishReply(targetService, contracts.RoiConfigErrorMessage, payload); publishErr != nil {
 		s.log.Warn("publish ROI error failed", "error", publishErr)
 	}
 	if reportErr := s.ipcClient.ReportError(payload.Error, false); reportErr != nil {
@@ -237,4 +211,16 @@ func (s *Service) reportStatus(status string, document Document) error {
 		"roiBoxCount":       summary.ROIBoxCount,
 		"updatedAt":         summary.UpdatedAt,
 	})
+}
+
+func roiConfigDocumentFromContract(document contracts.RoiConfigDocument) (Document, error) {
+	data, err := json.Marshal(document)
+	if err != nil {
+		return Document{}, fmt.Errorf("encode ROI document: %w", err)
+	}
+	var decoded Document
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return Document{}, fmt.Errorf("decode ROI document: %w", err)
+	}
+	return decoded, nil
 }

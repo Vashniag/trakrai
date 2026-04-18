@@ -20,6 +20,7 @@ import (
 	"github.com/trakrai/device-services/internal/cloudtransfer"
 	"github.com/trakrai/device-services/internal/gstcodec"
 	"github.com/trakrai/device-services/internal/ipc"
+	"github.com/trakrai/device-services/internal/ipc/contracts"
 )
 
 const (
@@ -31,6 +32,7 @@ type Service struct {
 	redis           *redis.Client
 	ipcClient       *ipc.Client
 	responseRouter  *ipc.ResponseRouter
+	transferClient  *contracts.CloudTransferClient
 	log             *slog.Logger
 	writer          clipWriter
 	cameraBuffers   map[string]*cameraBuffer
@@ -74,6 +76,9 @@ func NewService(cfg *Config) (*Service, error) {
 		return nil, fmt.Errorf("at least one enabled camera is required")
 	}
 
+	ipcClient := ipc.NewClient(cfg.IPC.SocketPath, ServiceName)
+	responseRouter := ipc.NewResponseRouter()
+
 	return &Service{
 		cfg: cfg,
 		redis: redis.NewClient(&redis.Options{
@@ -81,8 +86,9 @@ func NewService(cfg *Config) (*Service, error) {
 			DB:       cfg.Redis.DB,
 			Password: cfg.Redis.Password,
 		}),
-		ipcClient:       ipc.NewClient(cfg.IPC.SocketPath, ServiceName),
-		responseRouter:  ipc.NewResponseRouter(),
+		ipcClient:       ipcClient,
+		responseRouter:  responseRouter,
+		transferClient:  contracts.NewCloudTransferClient(ipcClient, responseRouter, cfg.Upload.ServiceName),
 		log:             slog.With("component", ServiceName),
 		writer:          newClipWriter(cfg.Recording.GStreamerBin, slog.With("component", "video-recorder-writer")),
 		cameraBuffers:   cameraBuffers,
@@ -236,10 +242,7 @@ func (s *Service) handleNotifications(ctx context.Context) {
 					s.log.Warn("invalid video-recorder MQTT notification", "error", err)
 					continue
 				}
-				if strings.TrimSpace(message.Subtopic) != "command" {
-					continue
-				}
-				s.handleCommand(ctx, "", message.Envelope)
+				s.handleCommand(ctx, "", message.Subtopic, message.Envelope)
 			case "service-message":
 				var message ipc.ServiceMessageNotification
 				if err := json.Unmarshal(notification.Params, &message); err != nil {
@@ -249,52 +252,36 @@ func (s *Service) handleNotifications(ctx context.Context) {
 				if strings.TrimSpace(message.Subtopic) == "response" && s.responseRouter.Dispatch(message) {
 					continue
 				}
-				if strings.TrimSpace(message.Subtopic) != "command" {
-					continue
-				}
-				s.handleCommand(ctx, message.SourceService, message.Envelope)
+				s.handleCommand(ctx, message.SourceService, message.Subtopic, message.Envelope)
 			}
 		}
 	}
 }
 
-func (s *Service) handleCommand(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	switch strings.TrimSpace(env.Type) {
-	case "capture-photo":
-		s.handleCapturePhoto(sourceService, env)
-	case "record-clip":
-		s.handleRecordClip(sourceService, env)
-	case "get-job":
-		s.handleGetJob(sourceService, env)
-	case "list-jobs":
-		s.handleListJobs(sourceService, env)
-	case "get-status":
-		s.handleGetStatus(sourceService, env)
-	default:
+func (s *Service) handleCommand(ctx context.Context, sourceService string, subtopic string, env ipc.MQTTEnvelope) {
+	handled, err := contracts.DispatchVideoRecorder(ctx, sourceService, subtopic, env, s)
+	if err != nil {
+		s.publishError(sourceService, ipc.ReadRequestID(env.Payload), env.Type, err)
+		return
+	}
+	if !handled && strings.TrimSpace(subtopic) == contracts.VideoRecorderCapturePhotoSubtopic {
 		s.publishError(sourceService, ipc.ReadRequestID(env.Payload), env.Type, fmt.Errorf("unsupported video-recorder command %q", env.Type))
 	}
-	_ = ctx
 }
 
-func (s *Service) handleCapturePhoto(sourceService string, env ipc.MQTTEnvelope) {
-	var request CapturePhotoRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid capture-photo payload: %w", err))
-		return
-	}
-
-	cameraBuffer, err := s.resolveCameraBuffer(request.CameraID, request.CameraName)
+func (s *Service) HandleCapturePhoto(_ context.Context, sourceService string, request contracts.VideoRecorderCapturePhotoRequest) error {
+	cameraBuffer, err := s.resolveCameraBuffer(request.CameraId, request.CameraName)
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderCapturePhotoMethod, err)
+		return nil
 	}
 	relativePath, absolutePath, err := resolveSharedPath(s.cfg.Storage.SharedDir, request.LocalPath)
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderCapturePhotoMethod, err)
+		return nil
 	}
 
-	targetTime := parseFrameTime(request.ImageID)
+	targetTime := parseFrameTime(request.ImageId)
 	var frame frameEntry
 	var found bool
 	if !targetTime.IsZero() {
@@ -303,25 +290,25 @@ func (s *Service) handleCapturePhoto(sourceService string, env ipc.MQTTEnvelope)
 		frame, found, err = cameraBuffer.latestFrame()
 	}
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("load buffered frame: %w", err))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderCapturePhotoMethod, fmt.Errorf("load buffered frame: %w", err))
+		return nil
 	}
 	if !found {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("no buffered frame is available for %s", cameraBuffer.camera.Name))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderCapturePhotoMethod, fmt.Errorf("no buffered frame is available for %s", cameraBuffer.camera.Name))
+		return nil
 	}
 
 	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("create photo directory: %w", err))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderCapturePhotoMethod, fmt.Errorf("create photo directory: %w", err))
+		return nil
 	}
 	if err := os.WriteFile(absolutePath, frame.jpeg, 0o644); err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("write captured photo: %w", err))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderCapturePhotoMethod, fmt.Errorf("write captured photo: %w", err))
+		return nil
 	}
 
 	payload := RecorderPhotoPayload{
-		RequestID: strings.TrimSpace(request.RequestID),
+		RequestID: strings.TrimSpace(request.RequestId),
 		Photo: PhotoCapture{
 			Bytes:      len(frame.jpeg),
 			CameraID:   cameraBuffer.camera.ID,
@@ -331,31 +318,26 @@ func (s *Service) handleCapturePhoto(sourceService string, env ipc.MQTTEnvelope)
 			LocalPath:  relativePath,
 		},
 	}
-	if err := s.publishReply(sourceService, videoRecorderPhotoType, payload); err != nil {
+	if err := s.publishReply(sourceService, contracts.VideoRecorderPhotoMessage, payload); err != nil {
 		s.log.Warn("publish video-recorder photo response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleRecordClip(sourceService string, env ipc.MQTTEnvelope) {
-	var request RecordClipRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid record-clip payload: %w", err))
-		return
-	}
-
-	cameraBuffer, err := s.resolveCameraBuffer(request.CameraID, request.CameraName)
+func (s *Service) HandleRecordClip(_ context.Context, sourceService string, request contracts.VideoRecorderRecordClipRequest) error {
+	cameraBuffer, err := s.resolveCameraBuffer(request.CameraId, request.CameraName)
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderRecordClipMethod, err)
+		return nil
 	}
 	relativePath, _, err := resolveSharedPath(s.cfg.Storage.SharedDir, request.LocalPath)
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderRecordClipMethod, err)
+		return nil
 	}
 	if strings.TrimSpace(request.RemotePath) == "" {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("remotePath is required"))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderRecordClipMethod, fmt.Errorf("remotePath is required"))
+		return nil
 	}
 
 	frameRate := request.FrameRate
@@ -381,12 +363,12 @@ func (s *Service) handleRecordClip(sourceService string, env ipc.MQTTEnvelope) {
 	if strings.TrimSpace(request.Codec) == "" {
 		codec = s.cfg.Recording.DefaultCodec
 	}
-	scope := request.Scope
+	scope := cloudtransfer.StorageScope(request.Scope)
 	if scope == "" {
 		scope = cloudtransfer.ScopeDevice
 	}
 
-	eventTime := parseFrameTime(request.ImageID)
+	eventTime := parseFrameTime(request.ImageId)
 	if eventTime.IsZero() {
 		eventTime = time.Now()
 	}
@@ -401,7 +383,7 @@ func (s *Service) handleRecordClip(sourceService string, env ipc.MQTTEnvelope) {
 		EventAt:     eventTime.UTC(),
 		FrameRate:   frameRate,
 		ID:          uuid.NewString(),
-		ImageID:     strings.TrimSpace(request.ImageID),
+		ImageID:     strings.TrimSpace(request.ImageId),
 		LocalPath:   relativePath,
 		Metadata:    cloneMetadata(request.Metadata),
 		PostSeconds: postSeconds,
@@ -414,71 +396,56 @@ func (s *Service) handleRecordClip(sourceService string, env ipc.MQTTEnvelope) {
 	}
 
 	if !s.enqueueJob(job) {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("video-recorder queue is full"))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderRecordClipMethod, fmt.Errorf("video-recorder queue is full"))
+		return nil
 	}
 
-	if err := s.publishReply(sourceService, videoRecorderJobType, RecorderJobPayload{
-		RequestID: strings.TrimSpace(request.RequestID),
+	if err := s.publishReply(sourceService, contracts.VideoRecorderJobMessage, RecorderJobPayload{
+		RequestID: strings.TrimSpace(request.RequestId),
 		Job:       job,
 	}); err != nil {
 		s.log.Warn("publish video-recorder job response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGetJob(sourceService string, env ipc.MQTTEnvelope) {
-	var request GetJobRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid get-job payload: %w", err))
-		return
+func (s *Service) HandleGetJob(_ context.Context, sourceService string, request contracts.VideoRecorderGetJobRequest) error {
+	if strings.TrimSpace(request.JobId) == "" {
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderGetJobMethod, fmt.Errorf("jobId is required"))
+		return nil
 	}
-	if strings.TrimSpace(request.JobID) == "" {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("jobId is required"))
-		return
-	}
-	job, ok := s.getJob(request.JobID)
+	job, ok := s.getJob(request.JobId)
 	if !ok {
-		s.publishError(sourceService, request.RequestID, env.Type, fmt.Errorf("job %q was not found", request.JobID))
-		return
+		s.publishError(sourceService, request.RequestId, contracts.VideoRecorderGetJobMethod, fmt.Errorf("job %q was not found", request.JobId))
+		return nil
 	}
-	if err := s.publishReply(sourceService, videoRecorderJobType, RecorderJobPayload{
-		RequestID: strings.TrimSpace(request.RequestID),
+	if err := s.publishReply(sourceService, contracts.VideoRecorderJobMessage, RecorderJobPayload{
+		RequestID: strings.TrimSpace(request.RequestId),
 		Job:       job,
 	}); err != nil {
 		s.log.Warn("publish video-recorder get-job response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleListJobs(sourceService string, env ipc.MQTTEnvelope) {
-	var request ListJobsRequest
-	if len(env.Payload) > 0 {
-		if err := json.Unmarshal(env.Payload, &request); err != nil {
-			s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid list-jobs payload: %w", err))
-			return
-		}
-	}
+func (s *Service) HandleListJobs(_ context.Context, sourceService string, request contracts.VideoRecorderListJobsRequest) error {
 	if request.Limit <= 0 {
 		request.Limit = 20
 	}
-	if err := s.publishReply(sourceService, videoRecorderListType, RecorderListPayload{
-		RequestID: strings.TrimSpace(request.RequestID),
+	if err := s.publishReply(sourceService, contracts.VideoRecorderListMessage, RecorderListPayload{
+		RequestID: strings.TrimSpace(request.RequestId),
 		Items:     s.listJobs(request.Limit),
 	}); err != nil {
 		s.log.Warn("publish video-recorder list response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGetStatus(sourceService string, env ipc.MQTTEnvelope) {
-	var request StatusRequest
-	if len(env.Payload) > 0 {
-		if err := json.Unmarshal(env.Payload, &request); err != nil {
-			s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid get-status payload: %w", err))
-			return
-		}
-	}
-	if err := s.publishReply(sourceService, videoRecorderStatusType, s.buildStatusPayload(strings.TrimSpace(request.RequestID))); err != nil {
+func (s *Service) HandleGetStatus(_ context.Context, sourceService string, request contracts.VideoRecorderRequestEnvelope) error {
+	if err := s.publishReply(sourceService, contracts.VideoRecorderStatusMessage, s.buildStatusPayload(strings.TrimSpace(request.RequestId))); err != nil {
 		s.log.Warn("publish video-recorder status response failed", "error", err)
 	}
+	return nil
 }
 
 func (s *Service) processJob(ctx context.Context, job RecordingJob, workerID int) {
@@ -566,16 +533,16 @@ func (s *Service) processJob(ctx context.Context, job RecordingJob, workerID int
 		s.failJob(job, err)
 		return
 	}
-	job.TransferID = transfer.ID
+	job.TransferID = transfer.Id
 	job.UpdatedAt = time.Now().UTC()
 	s.storeJob(job)
 
-	finalTransfer, err := s.waitForTransferCompletion(ctx, transfer.ID)
+	finalTransfer, err := s.waitForTransferCompletion(ctx, transfer.Id)
 	if err != nil {
 		s.failJob(job, err)
 		return
 	}
-	job.TransferID = finalTransfer.ID
+	job.TransferID = finalTransfer.Id
 	completedAt := time.Now().UTC()
 	job.CompletedAt = &completedAt
 	job.State = JobStateCompleted
@@ -584,66 +551,53 @@ func (s *Service) processJob(ctx context.Context, job RecordingJob, workerID int
 	s.incrementCompleted()
 }
 
-func (s *Service) enqueueVideoUpload(ctx context.Context, job RecordingJob, workerID int) (cloudtransfer.Transfer, error) {
-	requestID := fmt.Sprintf("video-upload-%s", uuid.NewString())
-	message, err := s.responseRouter.Request(
+func (s *Service) enqueueVideoUpload(ctx context.Context, job RecordingJob, workerID int) (contracts.CloudTransferTransfer, error) {
+	response, err := s.transferClient.EnqueueUpload(
 		ctx,
-		s.ipcClient,
-		s.cfg.Upload.ServiceName,
-		"enqueue-upload",
-		cloudtransfer.EnqueueUploadRequest{
+		contracts.CloudTransferEnqueueUploadRequest{
 			ContentType: job.ContentType,
 			LocalPath:   job.LocalPath,
 			Metadata:    cloneMetadata(job.Metadata),
 			RemotePath:  job.RemotePath,
-			RequestID:   requestID,
-			Scope:       job.Scope,
+			RequestId:   fmt.Sprintf("video-upload-%s", uuid.NewString()),
+			Scope:       string(job.Scope),
 			Timeout:     job.Timeout,
 		},
 	)
 	if err != nil {
-		return cloudtransfer.Transfer{}, err
+		return contracts.CloudTransferTransfer{}, err
 	}
-	transfer, err := cloudtransfer.DecodeServiceMessage(message)
-	if err != nil {
-		return cloudtransfer.Transfer{}, err
-	}
-	s.log.Info("video upload enqueued", "job_id", job.ID, "transfer_id", transfer.ID, "worker", workerID)
+	transfer := response.Transfer
+	s.log.Info("video upload enqueued", "job_id", job.ID, "transfer_id", transfer.Id, "worker", workerID)
 	return transfer, nil
 }
 
-func (s *Service) waitForTransferCompletion(ctx context.Context, transferID string) (cloudtransfer.Transfer, error) {
+func (s *Service) waitForTransferCompletion(ctx context.Context, transferID string) (contracts.CloudTransferTransfer, error) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	for {
-		message, err := s.responseRouter.Request(
+		response, err := s.transferClient.GetTransfer(
 			ctx,
-			s.ipcClient,
-			s.cfg.Upload.ServiceName,
-			"get-transfer",
-			cloudtransfer.GetTransferRequest{
-				RequestID:  fmt.Sprintf("video-upload-poll-%s", uuid.NewString()),
-				TransferID: transferID,
+			contracts.CloudTransferGetTransferRequest{
+				RequestId:  fmt.Sprintf("video-upload-poll-%s", uuid.NewString()),
+				TransferId: transferID,
 			},
 		)
 		if err != nil {
-			return cloudtransfer.Transfer{}, err
+			return contracts.CloudTransferTransfer{}, err
 		}
-		transfer, err := cloudtransfer.DecodeServiceMessage(message)
-		if err != nil {
-			return cloudtransfer.Transfer{}, err
-		}
+		transfer := response.Transfer
 		switch transfer.State {
-		case cloudtransfer.StateCompleted:
+		case string(cloudtransfer.StateCompleted):
 			return transfer, nil
-		case cloudtransfer.StateFailed:
-			return cloudtransfer.Transfer{}, fmt.Errorf("video upload failed: %s", transfer.LastError)
+		case string(cloudtransfer.StateFailed):
+			return contracts.CloudTransferTransfer{}, fmt.Errorf("video upload failed: %s", transfer.LastError)
 		}
 
 		select {
 		case <-ctx.Done():
-			return cloudtransfer.Transfer{}, ctx.Err()
+			return contracts.CloudTransferTransfer{}, ctx.Err()
 		case <-ticker.C:
 		}
 	}

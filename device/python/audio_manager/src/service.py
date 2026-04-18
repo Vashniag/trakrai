@@ -15,6 +15,14 @@ from trakrai_service_runtime import (
     run_command_loop,
     run_periodic_loop,
 )
+from trakrai_service_runtime.generated_contracts._runtime import to_wire_value
+from trakrai_service_runtime.generated_contracts.audio_manager import (
+    AudioManagerAudioRequest,
+    AudioManagerGetJobRequest,
+    AudioManagerListJobsRequest,
+    AudioManagerStatusRequest,
+    dispatch_audio_manager,
+)
 
 from .config import ServiceConfig
 from .models import AudioJob, parse_audio_request, utc_timestamp
@@ -96,21 +104,7 @@ class AudioService:
         if not isinstance(payload, dict):
             payload = {}
 
-        if message_type == "play-audio":
-            self._handle_play_audio(source_service, payload)
-            return
-        if message_type == "get-status":
-            self._publish_reply(
-                source_service,
-                STATUS_MESSAGE_TYPE,
-                self._build_status_payload(request_id=str(payload.get("requestId", "")).strip()),
-            )
-            return
-        if message_type == "get-job":
-            self._handle_get_job(source_service, payload)
-            return
-        if message_type == "list-jobs":
-            self._handle_list_jobs(source_service, payload)
+        if dispatch_audio_manager(source_service, "command", envelope, self):
             return
 
         self._publish_error(
@@ -120,9 +114,26 @@ class AudioService:
             error=f"unsupported audio-manager command {message_type!r}",
         )
 
-    def _handle_play_audio(self, source_service: str, payload: dict[str, Any]) -> None:
+    def handle_play_audio(self, source_service: str, request: AudioManagerAudioRequest) -> None:
+        self._handle_play_audio(source_service, request)
+
+    def handle_get_job(self, source_service: str, request: AudioManagerGetJobRequest) -> None:
+        self._handle_get_job(source_service, request)
+
+    def handle_list_jobs(self, source_service: str, request: AudioManagerListJobsRequest) -> None:
+        self._handle_list_jobs(source_service, request)
+
+    def handle_get_status(self, source_service: str, request: AudioManagerStatusRequest) -> None:
+        self._publish_reply(
+            source_service,
+            STATUS_MESSAGE_TYPE,
+            self._build_status_payload(request_id=request.request_id or ""),
+        )
+
+    def _handle_play_audio(self, source_service: str, request: AudioManagerAudioRequest) -> None:
+        payload = to_wire_value(request)
         try:
-            request = parse_audio_request(
+            parsed_request = parse_audio_request(
                 payload,
                 default_language=self._config.tts.default_language,
                 default_speaker_address=self._config.speaker.default_address,
@@ -137,11 +148,11 @@ class AudioService:
             return
 
         previous = self._store.find_recent_success(
-            request.dedupe_key,
+            parsed_request.dedupe_key,
             utc_timestamp() - float(self._config.queue.dedupe_window_sec),
         )
         if previous is not None:
-            deduped = self._store.create_deduped_job(request, source_service, previous)
+            deduped = self._store.create_deduped_job(parsed_request, source_service, previous)
             self._append_event(
                 {
                     "event": "deduped",
@@ -153,7 +164,7 @@ class AudioService:
             self._report_status()
             return
 
-        job = self._store.create_job(request, source_service)
+        job = self._store.create_job(parsed_request, source_service)
         try:
             self._queue.put_nowait(job.id)
         except queue.Full:
@@ -177,21 +188,20 @@ class AudioService:
         self._publish_job(source_service, job)
         self._report_status()
 
-    def _handle_get_job(self, source_service: str, payload: dict[str, Any]) -> None:
-        request_id = str(payload.get("requestId", "")).strip()
-        job_id = str(payload.get("jobId", "")).strip()
-        if job_id == "":
+    def _handle_get_job(self, source_service: str, request: AudioManagerGetJobRequest) -> None:
+        request_id = request.request_id or ""
+        if request.job_id == "":
             self._publish_error(source_service, request_id=request_id, request_type="get-job", error="jobId is required")
             return
 
         try:
-            job = self._store.get_job(job_id)
+            job = self._store.get_job(request.job_id)
         except KeyError:
             self._publish_error(
                 source_service,
                 request_id=request_id,
                 request_type="get-job",
-                error=f"job not found: {job_id}",
+                error=f"job not found: {request.job_id}",
             )
             return
 
@@ -201,13 +211,9 @@ class AudioService:
             {"requestId": request_id, "job": job.to_payload()},
         )
 
-    def _handle_list_jobs(self, source_service: str, payload: dict[str, Any]) -> None:
-        request_id = str(payload.get("requestId", "")).strip()
-        limit_raw = payload.get("limit", 20)
-        try:
-            limit = int(limit_raw)
-        except (TypeError, ValueError):
-            limit = 20
+    def _handle_list_jobs(self, source_service: str, request: AudioManagerListJobsRequest) -> None:
+        request_id = request.request_id or ""
+        limit = request.limit or 20
         jobs = [job.to_payload() for job in self._store.list_jobs(limit)]
         self._publish_reply(
             source_service,

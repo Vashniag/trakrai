@@ -16,14 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/trakrai/device-services/internal/ipc"
-)
-
-const (
-	cloudTransferErrorType    = "cloud-transfer-error"
-	cloudTransferListType     = "cloud-transfer-list"
-	cloudTransferStatsType    = "cloud-transfer-stats"
-	cloudTransferStatusType   = "cloud-transfer-status"
-	cloudTransferTransferType = "cloud-transfer-transfer"
+	"github.com/trakrai/device-services/internal/ipc/contracts"
 )
 
 type Service struct {
@@ -274,10 +267,7 @@ func (s *Service) handleNotifications(ctx context.Context) {
 					s.log.Warn("invalid cloud-transfer MQTT notification", "error", err)
 					continue
 				}
-				if strings.TrimSpace(message.Subtopic) != "command" {
-					continue
-				}
-				s.handleCommand(ctx, "", message.Envelope)
+				s.handleCommand(ctx, "", message.Subtopic, message.Envelope)
 
 			case "service-message":
 				var message ipc.ServiceMessageNotification
@@ -285,85 +275,73 @@ func (s *Service) handleNotifications(ctx context.Context) {
 					s.log.Warn("invalid cloud-transfer service notification", "error", err)
 					continue
 				}
-				if strings.TrimSpace(message.Subtopic) != "command" {
-					continue
-				}
-				s.handleCommand(ctx, message.SourceService, message.Envelope)
+				s.handleCommand(ctx, message.SourceService, message.Subtopic, message.Envelope)
 			}
 		}
 	}
 }
 
-func (s *Service) handleCommand(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	switch strings.TrimSpace(env.Type) {
-	case "enqueue-upload":
-		s.handleEnqueueUpload(ctx, sourceService, env)
-	case "enqueue-download":
-		s.handleEnqueueDownload(ctx, sourceService, env)
-	case "get-stats":
-		s.handleGetStats(ctx, sourceService, env)
-	case "get-status":
-		s.handleGetStatus(ctx, sourceService, env)
-	case "get-transfer":
-		s.handleGetTransfer(ctx, sourceService, env)
-	case "list-transfers":
-		s.handleListTransfers(ctx, sourceService, env)
-	default:
+func (s *Service) handleCommand(ctx context.Context, sourceService string, subtopic string, env ipc.MQTTEnvelope) {
+	handled, err := contracts.DispatchCloudTransfer(ctx, sourceService, subtopic, env, s)
+	if err != nil {
+		s.publishError(sourceService, envelopeRequestID(env), env.Type, err)
+		return
+	}
+	if !handled && strings.TrimSpace(subtopic) == contracts.CloudTransferEnqueueUploadSubtopic {
 		s.publishError(sourceService, envelopeRequestID(env), env.Type, fmt.Errorf("unsupported cloud-transfer command %q", env.Type))
 	}
 }
 
-func (s *Service) handleEnqueueUpload(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	var request EnqueueUploadRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid enqueue-upload payload: %w", err))
-		return
-	}
-
-	transfer, err := s.enqueueUpload(ctx, request)
+func (s *Service) HandleEnqueueUpload(ctx context.Context, sourceService string, request contracts.CloudTransferEnqueueUploadRequest) error {
+	transfer, err := s.enqueueUpload(ctx, EnqueueUploadRequest{
+		ContentType: request.ContentType,
+		LocalPath:   request.LocalPath,
+		Metadata:    request.Metadata,
+		RequestID:   request.RequestId,
+		RemotePath:  request.RemotePath,
+		Scope:       StorageScope(request.Scope),
+		Timeout:     request.Timeout,
+	})
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.CloudTransferEnqueueUploadMethod, err)
+		return nil
 	}
-	if err := s.publishReply(sourceService, cloudTransferTransferType, TransferPayload{
-		RequestID: request.RequestID,
+	if err := s.publishReply(sourceService, contracts.CloudTransferTransferMessage, TransferPayload{
+		RequestID: request.RequestId,
 		Transfer:  transfer,
 	}); err != nil {
 		s.log.Warn("publish cloud-transfer upload enqueue response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleEnqueueDownload(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	var request EnqueueDownloadRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid enqueue-download payload: %w", err))
-		return
-	}
-
-	transfer, err := s.enqueueDownload(ctx, request)
+func (s *Service) HandleEnqueueDownload(ctx context.Context, sourceService string, request contracts.CloudTransferEnqueueDownloadRequest) error {
+	transfer, err := s.enqueueDownload(ctx, EnqueueDownloadRequest{
+		LocalPath:  request.LocalPath,
+		Metadata:   request.Metadata,
+		RequestID:  request.RequestId,
+		RemotePath: request.RemotePath,
+		Scope:      StorageScope(request.Scope),
+		Timeout:    request.Timeout,
+	})
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.CloudTransferEnqueueDownloadMethod, err)
+		return nil
 	}
-	if err := s.publishReply(sourceService, cloudTransferTransferType, TransferPayload{
-		RequestID: request.RequestID,
+	if err := s.publishReply(sourceService, contracts.CloudTransferTransferMessage, TransferPayload{
+		RequestID: request.RequestId,
 		Transfer:  transfer,
 	}); err != nil {
 		s.log.Warn("publish cloud-transfer download enqueue response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGetTransfer(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	var request GetTransferRequest
-	if err := json.Unmarshal(env.Payload, &request); err != nil {
-		s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid get-transfer payload: %w", err))
-		return
-	}
-
-	transferID := strings.TrimSpace(request.TransferID)
+func (s *Service) HandleGetTransfer(ctx context.Context, sourceService string, request contracts.CloudTransferGetTransferRequest) error {
+	transferID := strings.TrimSpace(request.TransferId)
 	if transferID == "" {
-		s.publishError(sourceService, request.RequestID, env.Type, badRequestError{err: fmt.Errorf("transferId is required")})
-		return
+		s.publishError(sourceService, request.RequestId, contracts.CloudTransferGetTransferMethod, badRequestError{err: fmt.Errorf("transferId is required")})
+		return nil
 	}
 
 	transfer, err := s.store.GetTransfer(ctx, transferID)
@@ -371,72 +349,59 @@ func (s *Service) handleGetTransfer(ctx context.Context, sourceService string, e
 		if errors.Is(err, sql.ErrNoRows) {
 			err = badRequestError{err: fmt.Errorf("transfer %q was not found", transferID)}
 		}
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.CloudTransferGetTransferMethod, err)
+		return nil
 	}
 
-	if err := s.publishReply(sourceService, cloudTransferTransferType, TransferPayload{
-		RequestID: request.RequestID,
+	if err := s.publishReply(sourceService, contracts.CloudTransferTransferMessage, TransferPayload{
+		RequestID: request.RequestId,
 		Transfer:  transfer,
 	}); err != nil {
 		s.log.Warn("publish cloud-transfer get-transfer response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleListTransfers(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	var request ListTransfersRequest
-	if len(env.Payload) > 0 {
-		if err := json.Unmarshal(env.Payload, &request); err != nil {
-			s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid list-transfers payload: %w", err))
-			return
-		}
-	}
-
+func (s *Service) HandleListTransfers(ctx context.Context, sourceService string, request contracts.CloudTransferListTransfersRequest) error {
 	items, err := s.store.ListTransfers(ctx, listFilter{
-		Direction: request.Direction,
+		Direction: Direction(request.Direction),
 		Limit:     request.Limit,
-		State:     request.State,
+		State:     TransferState(request.State),
 	})
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.CloudTransferListTransfersMethod, err)
+		return nil
 	}
 
-	if err := s.publishReply(sourceService, cloudTransferListType, TransferListPayload{
+	if err := s.publishReply(sourceService, contracts.CloudTransferListMessage, TransferListPayload{
 		Items:     items,
-		RequestID: request.RequestID,
+		RequestID: request.RequestId,
 	}); err != nil {
 		s.log.Warn("publish cloud-transfer list response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGetStats(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	var request StatsRequest
-	if len(env.Payload) > 0 {
-		if err := json.Unmarshal(env.Payload, &request); err != nil {
-			s.publishError(sourceService, "", env.Type, fmt.Errorf("invalid get-stats payload: %w", err))
-			return
-		}
-	}
-
+func (s *Service) HandleGetStats(ctx context.Context, sourceService string, request contracts.CloudTransferStatsRequest) error {
 	stats, err := s.store.Stats(ctx)
 	if err != nil {
-		s.publishError(sourceService, request.RequestID, env.Type, err)
-		return
+		s.publishError(sourceService, request.RequestId, contracts.CloudTransferGetStatsMethod, err)
+		return nil
 	}
-	if err := s.publishReply(sourceService, cloudTransferStatsType, TransferStatsPayload{
-		RequestID: request.RequestID,
+	if err := s.publishReply(sourceService, contracts.CloudTransferStatsMessage, TransferStatsPayload{
+		RequestID: request.RequestId,
 		Stats:     stats,
 	}); err != nil {
 		s.log.Warn("publish cloud-transfer stats response failed", "error", err)
 	}
+	return nil
 }
 
-func (s *Service) handleGetStatus(ctx context.Context, sourceService string, env ipc.MQTTEnvelope) {
-	requestID := envelopeRequestID(env)
-	if err := s.publishStatusResponse(ctx, sourceService, requestID); err != nil {
+func (s *Service) HandleGetStatus(ctx context.Context, sourceService string, request contracts.CloudTransferStatsRequest) error {
+	if err := s.publishStatusResponse(ctx, sourceService, request.RequestId); err != nil {
 		s.log.Warn("publish cloud-transfer status response failed", "error", err)
 	}
+	return nil
 }
 
 func (s *Service) publishStatusResponse(ctx context.Context, sourceService string, requestID string) error {
@@ -444,7 +409,7 @@ func (s *Service) publishStatusResponse(ctx context.Context, sourceService strin
 	if err != nil {
 		return err
 	}
-	return s.publishReply(sourceService, cloudTransferStatusType, TransferStatusPayload{
+	return s.publishReply(sourceService, contracts.CloudTransferStatusMessage, TransferStatusPayload{
 		DatabasePath: s.cfg.Storage.DatabasePath,
 		DeviceID:     s.cfg.DeviceID,
 		RequestID:    strings.TrimSpace(requestID),
@@ -471,7 +436,7 @@ func (s *Service) publishError(targetService string, requestID string, requestTy
 		RequestID:   strings.TrimSpace(requestID),
 		RequestType: strings.TrimSpace(requestType),
 	}
-	if publishErr := s.publishReply(targetService, cloudTransferErrorType, payload); publishErr != nil {
+	if publishErr := s.publishReply(targetService, contracts.CloudTransferErrorMessage, payload); publishErr != nil {
 		s.log.Warn("publish cloud-transfer error failed", "error", publishErr)
 	}
 	if reportErr := s.ipcClient.ReportError(payload.Error, false); reportErr != nil {

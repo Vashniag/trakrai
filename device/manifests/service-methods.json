@@ -1,0 +1,4082 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": 1,
+  "services": [
+    {
+      "name": "cloud-transfer",
+      "schemas": {
+        "QueueStats": {
+          "type": "object",
+          "properties": {
+            "completed": {
+              "type": "integer"
+            },
+            "downloadQueued": {
+              "type": "integer"
+            },
+            "downloadsCompleted": {
+              "type": "integer"
+            },
+            "downloadsFailed": {
+              "type": "integer"
+            },
+            "failed": {
+              "type": "integer"
+            },
+            "nextAttemptAt": {
+              "type": "string"
+            },
+            "pending": {
+              "type": "integer"
+            },
+            "running": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "uploadQueued": {
+              "type": "integer"
+            },
+            "uploadsCompleted": {
+              "type": "integer"
+            },
+            "uploadsFailed": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "completed",
+            "downloadQueued",
+            "downloadsCompleted",
+            "downloadsFailed",
+            "failed",
+            "pending",
+            "running",
+            "total",
+            "uploadQueued",
+            "uploadsCompleted",
+            "uploadsFailed"
+          ],
+          "additionalProperties": false
+        },
+        "Transfer": {
+          "type": "object",
+          "properties": {
+            "attempts": {
+              "type": "integer"
+            },
+            "completedAt": {
+              "type": "string"
+            },
+            "contentType": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "deadlineAt": {
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "download",
+                "upload"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "lastError": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "nextAttemptAt": {
+              "type": "string"
+            },
+            "objectKey": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "device",
+                "package"
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "failed",
+                "queued",
+                "retry_wait",
+                "running"
+              ]
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "attempts",
+            "createdAt",
+            "deviceId",
+            "direction",
+            "id",
+            "localPath",
+            "remotePath",
+            "state",
+            "updatedAt"
+          ],
+          "additionalProperties": false
+        },
+        "EnqueueUploadRequest": {
+          "type": "object",
+          "properties": {
+            "contentType": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "device",
+                "package"
+              ]
+            },
+            "timeout": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "localPath",
+            "remotePath"
+          ],
+          "additionalProperties": false
+        },
+        "EnqueueDownloadRequest": {
+          "type": "object",
+          "properties": {
+            "localPath": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "device",
+                "package"
+              ]
+            },
+            "timeout": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "localPath",
+            "remotePath"
+          ],
+          "additionalProperties": false
+        },
+        "GetTransferRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "transferId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "transferId"
+          ],
+          "additionalProperties": false
+        },
+        "ListTransfersRequest": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "download",
+                "upload"
+              ]
+            },
+            "limit": {
+              "type": "integer"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "failed",
+                "queued",
+                "retry_wait",
+                "running"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "StatsRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "TransferPayload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "transfer": {
+              "$ref": "#/schemas/Transfer"
+            }
+          },
+          "required": [
+            "transfer"
+          ],
+          "additionalProperties": false
+        },
+        "TransferListPayload": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/Transfer"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "TransferStatsPayload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/schemas/QueueStats"
+            }
+          },
+          "required": [
+            "stats"
+          ],
+          "additionalProperties": false
+        },
+        "TransferStatusPayload": {
+          "type": "object",
+          "properties": {
+            "databasePath": {
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sharedDir": {
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/schemas/QueueStats"
+            }
+          },
+          "required": [
+            "databasePath",
+            "deviceId",
+            "sharedDir",
+            "stats"
+          ],
+          "additionalProperties": false
+        },
+        "TransferErrorPayload": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "requestType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "cloud-transfer-transfer": {
+          "schema": "TransferPayload"
+        },
+        "cloud-transfer-list": {
+          "schema": "TransferListPayload"
+        },
+        "cloud-transfer-stats": {
+          "schema": "TransferStatsPayload"
+        },
+        "cloud-transfer-status": {
+          "schema": "TransferStatusPayload"
+        },
+        "cloud-transfer-error": {
+          "schema": "TransferErrorPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "enqueue-upload",
+          "subtopic": "command",
+          "requestSchema": "EnqueueUploadRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "cloud-transfer-transfer",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "cloud-transfer-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "enqueue-download",
+          "subtopic": "command",
+          "requestSchema": "EnqueueDownloadRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "cloud-transfer-transfer",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "cloud-transfer-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-transfer",
+          "subtopic": "command",
+          "requestSchema": "GetTransferRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "cloud-transfer-transfer",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "cloud-transfer-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "list-transfers",
+          "subtopic": "command",
+          "requestSchema": "ListTransfersRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "cloud-transfer-list",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "cloud-transfer-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-stats",
+          "subtopic": "command",
+          "requestSchema": "StatsRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "cloud-transfer-stats",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "cloud-transfer-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "StatsRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "cloud-transfer-status",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "cloud-transfer-error",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "video-recorder",
+      "schemas": {
+        "RequestEnvelope": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "RecorderStats": {
+          "type": "object",
+          "properties": {
+            "completedJobs": {
+              "type": "integer"
+            },
+            "failedJobs": {
+              "type": "integer"
+            },
+            "pendingJobs": {
+              "type": "integer"
+            },
+            "runningJobs": {
+              "type": "integer"
+            },
+            "totalJobs": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "completedJobs",
+            "failedJobs",
+            "pendingJobs",
+            "runningJobs",
+            "totalJobs"
+          ],
+          "additionalProperties": false
+        },
+        "CameraBufferStatus": {
+          "type": "object",
+          "properties": {
+            "bytes": {
+              "type": "integer"
+            },
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "frames": {
+              "type": "integer"
+            },
+            "latestAt": {
+              "type": "string"
+            },
+            "latestImageId": {
+              "type": "string"
+            },
+            "oldestAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bytes",
+            "cameraId",
+            "cameraName",
+            "frames",
+            "latestAt",
+            "latestImageId",
+            "oldestAt"
+          ],
+          "additionalProperties": false
+        },
+        "PhotoCapture": {
+          "type": "object",
+          "properties": {
+            "bytes": {
+              "type": "integer"
+            },
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "capturedAt": {
+              "type": "string"
+            },
+            "imageId": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bytes",
+            "cameraId",
+            "cameraName",
+            "capturedAt",
+            "imageId",
+            "localPath"
+          ],
+          "additionalProperties": false
+        },
+        "RecordingJob": {
+          "type": "object",
+          "properties": {
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "completedAt": {
+              "type": "string"
+            },
+            "codec": {
+              "type": "string"
+            },
+            "contentType": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            },
+            "eventAt": {
+              "type": "string"
+            },
+            "frameCount": {
+              "type": "integer"
+            },
+            "frameRate": {
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "imageId": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "postSeconds": {
+              "type": "number"
+            },
+            "preSeconds": {
+              "type": "number"
+            },
+            "remotePath": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "device",
+                "package"
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "encoding",
+                "failed",
+                "queued",
+                "uploading",
+                "waiting_buffer"
+              ]
+            },
+            "timeout": {
+              "type": "string"
+            },
+            "transferId": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cameraId",
+            "cameraName",
+            "createdAt",
+            "eventAt",
+            "frameCount",
+            "frameRate",
+            "id",
+            "imageId",
+            "localPath",
+            "postSeconds",
+            "preSeconds",
+            "remotePath",
+            "state",
+            "updatedAt"
+          ],
+          "additionalProperties": false
+        },
+        "CapturePhotoRequest": {
+          "type": "object",
+          "properties": {
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "imageId": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "localPath"
+          ],
+          "additionalProperties": false
+        },
+        "RecordClipRequest": {
+          "type": "object",
+          "properties": {
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "codec": {
+              "type": "string"
+            },
+            "contentType": {
+              "type": "string"
+            },
+            "frameRate": {
+              "type": "integer"
+            },
+            "imageId": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "postSeconds": {
+              "type": "number"
+            },
+            "preSeconds": {
+              "type": "number"
+            },
+            "remotePath": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "device",
+                "package"
+              ]
+            },
+            "timeout": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "localPath",
+            "remotePath"
+          ],
+          "additionalProperties": false
+        },
+        "GetJobRequest": {
+          "type": "object",
+          "properties": {
+            "jobId": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jobId"
+          ],
+          "additionalProperties": false
+        },
+        "ListJobsRequest": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "RecorderJobPayload": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "$ref": "#/schemas/RecordingJob"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "job"
+          ],
+          "additionalProperties": false
+        },
+        "RecorderPhotoPayload": {
+          "type": "object",
+          "properties": {
+            "photo": {
+              "$ref": "#/schemas/PhotoCapture"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "photo"
+          ],
+          "additionalProperties": false
+        },
+        "RecorderListPayload": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/RecordingJob"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "RecorderStatusPayload": {
+          "type": "object",
+          "properties": {
+            "buffers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/CameraBufferStatus"
+              }
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "gstreamer": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sharedDir": {
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/schemas/RecorderStats"
+            }
+          },
+          "required": [
+            "buffers",
+            "deviceId",
+            "gstreamer",
+            "sharedDir",
+            "stats"
+          ],
+          "additionalProperties": false
+        },
+        "RecorderErrorPayload": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "requestType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "video-recorder-job": {
+          "schema": "RecorderJobPayload"
+        },
+        "video-recorder-photo": {
+          "schema": "RecorderPhotoPayload"
+        },
+        "video-recorder-list": {
+          "schema": "RecorderListPayload"
+        },
+        "video-recorder-status": {
+          "schema": "RecorderStatusPayload"
+        },
+        "video-recorder-error": {
+          "schema": "RecorderErrorPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "capture-photo",
+          "subtopic": "command",
+          "requestSchema": "CapturePhotoRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "video-recorder-photo",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "video-recorder-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "record-clip",
+          "subtopic": "command",
+          "requestSchema": "RecordClipRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "video-recorder-job",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "video-recorder-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-job",
+          "subtopic": "command",
+          "requestSchema": "GetJobRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "video-recorder-job",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "video-recorder-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "list-jobs",
+          "subtopic": "command",
+          "requestSchema": "ListJobsRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "video-recorder-list",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "video-recorder-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "RequestEnvelope",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "video-recorder-status",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "video-recorder-error",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "audio-manager",
+      "schemas": {
+        "AudioStats": {
+          "type": "object",
+          "properties": {
+            "completed": {
+              "type": "integer"
+            },
+            "deduped": {
+              "type": "integer"
+            },
+            "failed": {
+              "type": "integer"
+            },
+            "processing": {
+              "type": "integer"
+            },
+            "queued": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "completed",
+            "deduped",
+            "failed",
+            "processing",
+            "queued",
+            "total"
+          ],
+          "additionalProperties": false
+        },
+        "AudioJob": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sourceService": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string"
+            },
+            "playLocal": {
+              "type": "boolean"
+            },
+            "playSpeaker": {
+              "type": "boolean"
+            },
+            "speakerAddress": {
+              "type": "string"
+            },
+            "speakerMessageId": {
+              "type": "string"
+            },
+            "speakerCode": {
+              "type": "string"
+            },
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "dedupeKey": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "localState": {
+              "type": "string"
+            },
+            "speakerState": {
+              "type": "string"
+            },
+            "speakerPayload": {
+              "type": "string"
+            },
+            "audioPath": {
+              "type": "string"
+            },
+            "attempts": {
+              "type": "integer"
+            },
+            "error": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "completedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "requestId",
+            "sourceService",
+            "text",
+            "language",
+            "playLocal",
+            "playSpeaker",
+            "speakerAddress",
+            "speakerMessageId",
+            "speakerCode",
+            "cameraId",
+            "cameraName",
+            "dedupeKey",
+            "state",
+            "localState",
+            "speakerState",
+            "speakerPayload",
+            "audioPath",
+            "attempts",
+            "error",
+            "createdAt",
+            "updatedAt",
+            "completedAt"
+          ],
+          "additionalProperties": false
+        },
+        "AudioRequest": {
+          "type": "object",
+          "properties": {
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "dedupeKey": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "playLocal": {
+              "type": "boolean"
+            },
+            "playSpeaker": {
+              "type": "boolean"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "speakerAddress": {
+              "type": "string"
+            },
+            "speakerCode": {
+              "type": "string"
+            },
+            "speakerMessageId": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "GetJobRequest": {
+          "type": "object",
+          "properties": {
+            "jobId": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jobId"
+          ],
+          "additionalProperties": false
+        },
+        "ListJobsRequest": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "StatusRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "AudioJobPayload": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "$ref": "#/schemas/AudioJob"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "job"
+          ],
+          "additionalProperties": false
+        },
+        "AudioListPayload": {
+          "type": "object",
+          "properties": {
+            "jobs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/AudioJob"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/schemas/AudioStats"
+            }
+          },
+          "required": [
+            "jobs",
+            "stats"
+          ],
+          "additionalProperties": false
+        },
+        "AudioStatusPayload": {
+          "type": "object",
+          "properties": {
+            "cacheDir": {
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "eventLogPath": {
+              "type": "string"
+            },
+            "pendingQueueDepth": {
+              "type": "integer"
+            },
+            "playbackBackend": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "speakerEnabled": {
+              "type": "boolean"
+            },
+            "speakerTransport": {
+              "type": "string"
+            },
+            "stateDbPath": {
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/schemas/AudioStats"
+            },
+            "ttsBackend": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cacheDir",
+            "deviceId",
+            "eventLogPath",
+            "pendingQueueDepth",
+            "playbackBackend",
+            "speakerEnabled",
+            "speakerTransport",
+            "stateDbPath",
+            "stats",
+            "ttsBackend"
+          ],
+          "additionalProperties": false
+        },
+        "AudioErrorPayload": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "requestType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "audio-manager-job": {
+          "schema": "AudioJobPayload"
+        },
+        "audio-manager-result": {
+          "schema": "AudioJobPayload"
+        },
+        "audio-manager-list": {
+          "schema": "AudioListPayload"
+        },
+        "audio-manager-status": {
+          "schema": "AudioStatusPayload"
+        },
+        "audio-manager-error": {
+          "schema": "AudioErrorPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "play-audio",
+          "subtopic": "command",
+          "requestSchema": "AudioRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "audio-manager-job",
+              "subtopic": "response"
+            },
+            {
+              "kind": "event",
+              "messageType": "audio-manager-result",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "audio-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-job",
+          "subtopic": "command",
+          "requestSchema": "GetJobRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "audio-manager-job",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "audio-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "list-jobs",
+          "subtopic": "command",
+          "requestSchema": "ListJobsRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "audio-manager-list",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "StatusRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "audio-manager-status",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "workflow-engine",
+      "schemas": {
+        "Detection": {
+          "type": "object",
+          "properties": {
+            "bbox": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "class_name": {
+              "type": "string"
+            },
+            "conf": {
+              "type": "number"
+            },
+            "confidence": {
+              "type": "number"
+            },
+            "detections": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/Detection"
+              }
+            },
+            "label": {
+              "type": "string"
+            },
+            "raw_bboxes": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "x1": {
+              "type": "number"
+            },
+            "x2": {
+              "type": "number"
+            },
+            "xyxy": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "y1": {
+              "type": "number"
+            },
+            "y2": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "WorkflowPayload": {
+          "type": "object",
+          "properties": {
+            "DetectionPerClass": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "bbox": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/Detection"
+              }
+            },
+            "cam_id": {
+              "type": "string"
+            },
+            "cam_name": {
+              "type": "string"
+            },
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "frame_id": {
+              "type": "string"
+            },
+            "imageId": {
+              "type": "string"
+            },
+            "imgID": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "EnqueueDetectionRequest": {
+          "type": "object",
+          "properties": {
+            "DetectionPerClass": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "bbox": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/Detection"
+              }
+            },
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "detectionData": {
+              "$ref": "#/schemas/WorkflowPayload"
+            },
+            "detections": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/Detection"
+              }
+            },
+            "frameId": {
+              "type": "string"
+            },
+            "imageId": {
+              "type": "string"
+            },
+            "imgID": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "NodeResult": {
+          "type": "object",
+          "properties": {
+            "durationMs": {
+              "type": "number"
+            },
+            "error": {
+              "type": "string"
+            },
+            "outputs": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "status": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "durationMs",
+            "error",
+            "outputs",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowRun": {
+          "type": "object",
+          "properties": {
+            "cameraId": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number"
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "executionId": {
+              "type": "string"
+            },
+            "frameId": {
+              "type": "string"
+            },
+            "nodeResults": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/schemas/NodeResult"
+              }
+            },
+            "outputs": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "success": {
+              "type": "boolean"
+            },
+            "workflowGeneration": {
+              "type": "integer"
+            },
+            "workflowHash": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cameraId",
+            "cameraName",
+            "durationMs",
+            "errors",
+            "executionId",
+            "frameId",
+            "nodeResults",
+            "outputs",
+            "success",
+            "workflowGeneration",
+            "workflowHash"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowResultPayload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "run": {
+              "$ref": "#/schemas/WorkflowRun"
+            }
+          },
+          "required": [
+            "requestId",
+            "run"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowStatusState": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "filePath": {
+              "type": "string"
+            },
+            "generation": {
+              "type": "integer"
+            },
+            "hash": {
+              "type": "string"
+            },
+            "loaded": {
+              "type": "boolean"
+            },
+            "loadedAt": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error",
+            "filePath",
+            "generation",
+            "hash",
+            "loaded",
+            "loadedAt",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowQueueState": {
+          "type": "object",
+          "properties": {
+            "activeRequestId": {
+              "type": "string"
+            },
+            "maxPending": {
+              "type": "integer"
+            },
+            "pending": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "activeRequestId",
+            "maxPending",
+            "pending"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowStats": {
+          "type": "object",
+          "properties": {
+            "droppedRuns": {
+              "type": "integer"
+            },
+            "failedRuns": {
+              "type": "integer"
+            },
+            "processedRuns": {
+              "type": "integer"
+            },
+            "reloadCount": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "droppedRuns",
+            "failedRuns",
+            "processedRuns",
+            "reloadCount"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowStatusPayload": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "type": "string"
+            },
+            "queue": {
+              "$ref": "#/schemas/WorkflowQueueState"
+            },
+            "recentRuns": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/WorkflowRun"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "service": {
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/schemas/WorkflowStats"
+            },
+            "workflow": {
+              "$ref": "#/schemas/WorkflowStatusState"
+            }
+          },
+          "required": [
+            "deviceId",
+            "queue",
+            "recentRuns",
+            "requestId",
+            "service",
+            "stats",
+            "workflow"
+          ],
+          "additionalProperties": false
+        },
+        "WorkflowErrorPayload": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "requestType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        },
+        "StatusRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "workflow-engine-result": {
+          "schema": "WorkflowResultPayload"
+        },
+        "workflow-engine-status": {
+          "schema": "WorkflowStatusPayload"
+        },
+        "workflow-engine-error": {
+          "schema": "WorkflowErrorPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "enqueue-detection",
+          "subtopic": "command",
+          "requestSchema": "EnqueueDetectionRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "workflow-engine-result",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "workflow-engine-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "StatusRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "workflow-engine-status",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "roi-config",
+      "schemas": {
+        "RequestEnvelope": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ROIBox": {
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "height",
+            "width",
+            "x",
+            "y"
+          ],
+          "additionalProperties": false
+        },
+        "PTZPosition": {
+          "type": "object",
+          "properties": {
+            "pan": {
+              "type": "number"
+            },
+            "tilt": {
+              "type": "number"
+            },
+            "zoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "pan",
+            "tilt",
+            "zoom"
+          ],
+          "additionalProperties": false
+        },
+        "ROIBoxSpec": {
+          "type": "object",
+          "properties": {
+            "active": {
+              "type": "boolean"
+            },
+            "bounds": {
+              "$ref": "#/schemas/ROIBox"
+            },
+            "color": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "active",
+            "bounds",
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "BaseLocation": {
+          "type": "object",
+          "properties": {
+            "active": {
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ptz": {
+              "$ref": "#/schemas/PTZPosition"
+            },
+            "rois": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/ROIBoxSpec"
+              }
+            }
+          },
+          "required": [
+            "active",
+            "id",
+            "name",
+            "ptz",
+            "rois"
+          ],
+          "additionalProperties": false
+        },
+        "CameraROIConfig": {
+          "type": "object",
+          "properties": {
+            "baseLocations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/BaseLocation"
+              }
+            },
+            "cameraName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "baseLocations",
+            "cameraName"
+          ],
+          "additionalProperties": false
+        },
+        "Document": {
+          "type": "object",
+          "properties": {
+            "cameras": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/CameraROIConfig"
+              }
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "cameras",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "StatusPayload": {
+          "type": "object",
+          "properties": {
+            "baseLocationCount": {
+              "type": "integer"
+            },
+            "cameraCount": {
+              "type": "integer"
+            },
+            "documentHash": {
+              "type": "string"
+            },
+            "filePath": {
+              "type": "string"
+            },
+            "roiBoxCount": {
+              "type": "integer"
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "baseLocationCount",
+            "cameraCount",
+            "documentHash",
+            "filePath",
+            "roiBoxCount"
+          ],
+          "additionalProperties": false
+        },
+        "StatusResponsePayload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "baseLocationCount": {
+              "type": "integer"
+            },
+            "cameraCount": {
+              "type": "integer"
+            },
+            "documentHash": {
+              "type": "string"
+            },
+            "filePath": {
+              "type": "string"
+            },
+            "roiBoxCount": {
+              "type": "integer"
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "baseLocationCount",
+            "cameraCount",
+            "documentHash",
+            "filePath",
+            "roiBoxCount"
+          ],
+          "additionalProperties": false
+        },
+        "GetConfigPayload": {
+          "type": "object",
+          "properties": {
+            "document": {
+              "$ref": "#/schemas/Document"
+            },
+            "filePath": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "baseLocationCount": {
+              "type": "integer"
+            },
+            "cameraCount": {
+              "type": "integer"
+            },
+            "documentHash": {
+              "type": "string"
+            },
+            "roiBoxCount": {
+              "type": "integer"
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "document",
+            "filePath",
+            "baseLocationCount",
+            "cameraCount",
+            "documentHash",
+            "roiBoxCount"
+          ],
+          "additionalProperties": false
+        },
+        "SaveConfigRequest": {
+          "type": "object",
+          "properties": {
+            "document": {
+              "$ref": "#/schemas/Document"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "document"
+          ],
+          "additionalProperties": false
+        },
+        "ErrorPayload": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "requestType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "roi-config-status": {
+          "schema": "StatusResponsePayload"
+        },
+        "roi-config-document": {
+          "schema": "GetConfigPayload"
+        },
+        "roi-config-error": {
+          "schema": "ErrorPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "RequestEnvelope",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "roi-config-status",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "roi-config-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-config",
+          "subtopic": "command",
+          "requestSchema": "RequestEnvelope",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "roi-config-document",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "roi-config-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "save-config",
+          "subtopic": "command",
+          "requestSchema": "SaveConfigRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "roi-config-document",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "roi-config-error",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ptz-control",
+      "schemas": {
+        "PtzRange": {
+          "type": "object",
+          "properties": {
+            "max": {
+              "type": "number"
+            },
+            "min": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "max",
+            "min"
+          ],
+          "additionalProperties": false
+        },
+        "MoveStatus": {
+          "type": "object",
+          "properties": {
+            "panTilt": {
+              "type": "string"
+            },
+            "zoom": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "PtzCapabilities": {
+          "type": "object",
+          "properties": {
+            "canAbsolutePanTilt": {
+              "type": "boolean"
+            },
+            "canAbsoluteZoom": {
+              "type": "boolean"
+            },
+            "canContinuousPanTilt": {
+              "type": "boolean"
+            },
+            "canContinuousZoom": {
+              "type": "boolean"
+            },
+            "canGoHome": {
+              "type": "boolean"
+            },
+            "panRange": {
+              "$ref": "#/schemas/PtzRange"
+            },
+            "tiltRange": {
+              "$ref": "#/schemas/PtzRange"
+            },
+            "zoomRange": {
+              "$ref": "#/schemas/PtzRange"
+            }
+          },
+          "required": [
+            "canAbsolutePanTilt",
+            "canAbsoluteZoom",
+            "canContinuousPanTilt",
+            "canContinuousZoom",
+            "canGoHome"
+          ],
+          "additionalProperties": false
+        },
+        "PositionSnapshot": {
+          "type": "object",
+          "properties": {
+            "capabilities": {
+              "$ref": "#/schemas/PtzCapabilities"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "moveStatus": {
+              "$ref": "#/schemas/MoveStatus"
+            },
+            "pan": {
+              "type": "number"
+            },
+            "tilt": {
+              "type": "number"
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "zoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "cameraName",
+            "pan",
+            "tilt",
+            "updatedAt",
+            "zoom"
+          ],
+          "additionalProperties": false
+        },
+        "VelocityCommand": {
+          "type": "object",
+          "properties": {
+            "pan": {
+              "type": "number"
+            },
+            "tilt": {
+              "type": "number"
+            },
+            "zoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "pan",
+            "tilt",
+            "zoom"
+          ],
+          "additionalProperties": false
+        },
+        "StatusPayload": {
+          "type": "object",
+          "properties": {
+            "activeCamera": {
+              "type": "string"
+            },
+            "capabilities": {
+              "$ref": "#/schemas/PtzCapabilities"
+            },
+            "configuredCameras": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "lastCommand": {
+              "type": "string"
+            },
+            "lastError": {
+              "type": "string"
+            },
+            "position": {
+              "$ref": "#/schemas/PositionSnapshot"
+            }
+          },
+          "required": [
+            "configuredCameras"
+          ],
+          "additionalProperties": false
+        },
+        "StatusResponsePayload": {
+          "type": "object",
+          "properties": {
+            "activeCamera": {
+              "type": "string"
+            },
+            "capabilities": {
+              "$ref": "#/schemas/PtzCapabilities"
+            },
+            "configuredCameras": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "lastCommand": {
+              "type": "string"
+            },
+            "lastError": {
+              "type": "string"
+            },
+            "position": {
+              "$ref": "#/schemas/PositionSnapshot"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "configuredCameras"
+          ],
+          "additionalProperties": false
+        },
+        "CommandAckPayload": {
+          "type": "object",
+          "properties": {
+            "capabilities": {
+              "$ref": "#/schemas/PtzCapabilities"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "command": {
+              "type": "string"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "position": {
+              "$ref": "#/schemas/PositionSnapshot"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "velocity": {
+              "$ref": "#/schemas/VelocityCommand"
+            }
+          },
+          "required": [
+            "cameraName",
+            "command",
+            "ok"
+          ],
+          "additionalProperties": false
+        },
+        "PositionResponsePayload": {
+          "type": "object",
+          "properties": {
+            "capabilities": {
+              "$ref": "#/schemas/PtzCapabilities"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "moveStatus": {
+              "$ref": "#/schemas/MoveStatus"
+            },
+            "pan": {
+              "type": "number"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "tilt": {
+              "type": "number"
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "zoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "cameraName",
+            "pan",
+            "tilt",
+            "updatedAt",
+            "zoom"
+          ],
+          "additionalProperties": false
+        },
+        "ErrorPayload": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "command": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command",
+            "error"
+          ],
+          "additionalProperties": false
+        },
+        "CameraCommand": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "MoveCommand": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "velocity": {
+              "$ref": "#/schemas/VelocityCommand"
+            }
+          },
+          "required": [
+            "cameraName",
+            "velocity"
+          ],
+          "additionalProperties": false
+        },
+        "ZoomCommand": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "zoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "cameraName",
+            "zoom"
+          ],
+          "additionalProperties": false
+        },
+        "PositionCommand": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "pan": {
+              "type": "number"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "tilt": {
+              "type": "number"
+            },
+            "zoom": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "cameraName",
+            "pan",
+            "tilt",
+            "zoom"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "ptz-status": {
+          "schema": "StatusResponsePayload"
+        },
+        "ptz-position": {
+          "schema": "PositionResponsePayload"
+        },
+        "ptz-command-ack": {
+          "schema": "CommandAckPayload"
+        },
+        "ptz-error": {
+          "schema": "ErrorPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "CameraCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-status",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-position",
+          "subtopic": "command",
+          "requestSchema": "CameraCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-position",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "start-move",
+          "subtopic": "command",
+          "requestSchema": "MoveCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-command-ack",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "stop-move",
+          "subtopic": "command",
+          "requestSchema": "CameraCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-command-ack",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "set-zoom",
+          "subtopic": "command",
+          "requestSchema": "ZoomCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-command-ack",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "set-position",
+          "subtopic": "command",
+          "requestSchema": "PositionCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-command-ack",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "go-home",
+          "subtopic": "command",
+          "requestSchema": "CameraCommand",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "ptz-command-ack",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "ptz-error",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "live-feed",
+      "schemas": {
+        "LiveLayoutRequest": {
+          "type": "object",
+          "properties": {
+            "camera": {
+              "type": "string"
+            },
+            "cameraName": {
+              "type": "string"
+            },
+            "cameraNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "frameSource": {
+              "type": "string"
+            },
+            "layoutMode": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "StopLiveRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "SdpAnswerRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "sdp": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sdp",
+            "sessionId"
+          ],
+          "additionalProperties": false
+        },
+        "IceCandidateBody": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "IceCandidateRequest": {
+          "type": "object",
+          "properties": {
+            "candidate": {
+              "$ref": "#/schemas/IceCandidateBody"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "candidate",
+            "sessionId"
+          ],
+          "additionalProperties": false
+        },
+        "StartLiveAckPayload": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            },
+            "frameSource": {
+              "type": "string"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cameraName",
+            "frameSource",
+            "ok",
+            "sessionId"
+          ],
+          "additionalProperties": false
+        },
+        "SdpOfferPayload": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "frameSource": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sdp": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cameraName",
+            "frameSource",
+            "sdp",
+            "sessionId"
+          ],
+          "additionalProperties": false
+        },
+        "LiveLayoutUpdatedPayload": {
+          "type": "object",
+          "properties": {
+            "cameraName": {
+              "type": "string"
+            },
+            "cameraNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "frameSource": {
+              "type": "string"
+            },
+            "layoutMode": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cameraName",
+            "cameraNames",
+            "frameSource",
+            "layoutMode",
+            "requestId",
+            "sessionId"
+          ],
+          "additionalProperties": false
+        },
+        "IceCandidateEventPayload": {
+          "type": "object",
+          "properties": {
+            "candidate": {
+              "$ref": "#/schemas/IceCandidateBody"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "candidate",
+            "origin",
+            "sessionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "start-live-ack": {
+          "schema": "StartLiveAckPayload"
+        },
+        "sdp-offer": {
+          "schema": "SdpOfferPayload"
+        },
+        "live-layout-updated": {
+          "schema": "LiveLayoutUpdatedPayload"
+        },
+        "ice-candidate": {
+          "schema": "IceCandidateEventPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "start-live",
+          "aliases": [
+            "start"
+          ],
+          "subtopic": "command",
+          "requestSchema": "LiveLayoutRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "start-live-ack",
+              "subtopic": "response"
+            },
+            {
+              "kind": "event",
+              "messageType": "sdp-offer",
+              "subtopic": "webrtc/offer"
+            },
+            {
+              "kind": "event",
+              "messageType": "ice-candidate",
+              "subtopic": "webrtc/ice"
+            }
+          ]
+        },
+        {
+          "name": "update-live-layout",
+          "subtopic": "command",
+          "requestSchema": "LiveLayoutRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "live-layout-updated",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "stop-live",
+          "aliases": [
+            "stop"
+          ],
+          "subtopic": "command",
+          "requestSchema": "StopLiveRequest",
+          "outputs": []
+        },
+        {
+          "name": "sdp-answer",
+          "subtopic": "webrtc/answer",
+          "requestSchema": "SdpAnswerRequest",
+          "outputs": []
+        },
+        {
+          "name": "ice-candidate",
+          "subtopic": "webrtc/ice",
+          "requestSchema": "IceCandidateRequest",
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "name": "runtime-manager",
+      "schemas": {
+        "RuntimeCPUStats": {
+          "type": "object",
+          "properties": {
+            "coreCount": {
+              "type": "integer"
+            },
+            "usagePercent": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "coreCount"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeLoadStats": {
+          "type": "object",
+          "properties": {
+            "fifteenMinute": {
+              "type": "number"
+            },
+            "fiveMinute": {
+              "type": "number"
+            },
+            "oneMinute": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "RuntimeMemoryStats": {
+          "type": "object",
+          "properties": {
+            "availableBytes": {
+              "type": "integer"
+            },
+            "swapTotalBytes": {
+              "type": "integer"
+            },
+            "swapUsedBytes": {
+              "type": "integer"
+            },
+            "totalBytes": {
+              "type": "integer"
+            },
+            "usedBytes": {
+              "type": "integer"
+            },
+            "usedPercent": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "RuntimeDiskStats": {
+          "type": "object",
+          "properties": {
+            "freeBytes": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "totalBytes": {
+              "type": "integer"
+            },
+            "usedBytes": {
+              "type": "integer"
+            },
+            "usedPercent": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "label",
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeNetworkInterfaceStats": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "rxBytes": {
+              "type": "integer"
+            },
+            "rxBytesPerSecond": {
+              "type": "number"
+            },
+            "txBytes": {
+              "type": "integer"
+            },
+            "txBytesPerSecond": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeNetworkStats": {
+          "type": "object",
+          "properties": {
+            "interfaces": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/RuntimeNetworkInterfaceStats"
+              }
+            },
+            "rxBytes": {
+              "type": "integer"
+            },
+            "rxBytesPerSecond": {
+              "type": "number"
+            },
+            "txBytes": {
+              "type": "integer"
+            },
+            "txBytesPerSecond": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "RuntimeGPUStats": {
+          "type": "object",
+          "properties": {
+            "decoderUtilizationPercent": {
+              "type": "number"
+            },
+            "encoderUtilizationPercent": {
+              "type": "number"
+            },
+            "memoryTotalBytes": {
+              "type": "integer"
+            },
+            "memoryUsedBytes": {
+              "type": "integer"
+            },
+            "source": {
+              "type": "string"
+            },
+            "temperatureCelsius": {
+              "type": "number"
+            },
+            "utilizationPercent": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeSystemSnapshot": {
+          "type": "object",
+          "properties": {
+            "collectedAt": {
+              "type": "string"
+            },
+            "cpu": {
+              "$ref": "#/schemas/RuntimeCPUStats"
+            },
+            "disks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/RuntimeDiskStats"
+              }
+            },
+            "gpu": {
+              "$ref": "#/schemas/RuntimeGPUStats"
+            },
+            "load": {
+              "$ref": "#/schemas/RuntimeLoadStats"
+            },
+            "memory": {
+              "$ref": "#/schemas/RuntimeMemoryStats"
+            },
+            "network": {
+              "$ref": "#/schemas/RuntimeNetworkStats"
+            },
+            "uptimeSeconds": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "collectedAt",
+            "cpu",
+            "load",
+            "memory",
+            "network"
+          ],
+          "additionalProperties": false
+        },
+        "ManagedServiceSnapshot": {
+          "type": "object",
+          "properties": {
+            "activeState": {
+              "type": "string"
+            },
+            "allowControl": {
+              "type": "boolean"
+            },
+            "allowUpdate": {
+              "type": "boolean"
+            },
+            "core": {
+              "type": "boolean"
+            },
+            "cpuPercent": {
+              "type": "number"
+            },
+            "description": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "installPath": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "loadState": {
+              "type": "string"
+            },
+            "logPath": {
+              "type": "string"
+            },
+            "mainPid": {
+              "type": "integer"
+            },
+            "memoryBytes": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "processElapsed": {
+              "type": "string"
+            },
+            "scriptPath": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "subState": {
+              "type": "string"
+            },
+            "systemdUnit": {
+              "type": "string"
+            },
+            "unitFileState": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "versionFile": {
+              "type": "string"
+            },
+            "versionSource": {
+              "type": "string"
+            },
+            "versionUpdatedAt": {
+              "type": "string"
+            },
+            "workingDirectory": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "allowControl",
+            "allowUpdate",
+            "core",
+            "displayName",
+            "enabled",
+            "kind",
+            "name",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        "ManagedServiceDefinition": {
+          "type": "object",
+          "properties": {
+            "after": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowControl": {
+              "type": "boolean"
+            },
+            "allowUpdate": {
+              "type": "boolean"
+            },
+            "core": {
+              "type": "boolean"
+            },
+            "description": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "environment": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "environmentFiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "execStart": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "group": {
+              "type": "string"
+            },
+            "installPath": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "logPath": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "restart": {
+              "type": "string"
+            },
+            "restartSec": {
+              "type": "integer"
+            },
+            "scriptPath": {
+              "type": "string"
+            },
+            "setupCommand": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "systemdUnit": {
+              "type": "string"
+            },
+            "user": {
+              "type": "string"
+            },
+            "versionCommand": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "versionFile": {
+              "type": "string"
+            },
+            "wantedBy": {
+              "type": "string"
+            },
+            "workingDirectory": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "allowControl",
+            "allowUpdate",
+            "core",
+            "enabled",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeConfigEntry": {
+          "type": "object",
+          "properties": {
+            "consumers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "name": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeStatusPayload": {
+          "type": "object",
+          "properties": {
+            "binaryDir": {
+              "type": "string"
+            },
+            "configDir": {
+              "type": "string"
+            },
+            "coreCount": {
+              "type": "integer"
+            },
+            "downloadDir": {
+              "type": "string"
+            },
+            "generatedAt": {
+              "type": "string"
+            },
+            "lastAction": {
+              "type": "string"
+            },
+            "lastError": {
+              "type": "string"
+            },
+            "logDir": {
+              "type": "string"
+            },
+            "managedCount": {
+              "type": "integer"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "scriptDir": {
+              "type": "string"
+            },
+            "services": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/ManagedServiceSnapshot"
+              }
+            },
+            "sharedDir": {
+              "type": "string"
+            },
+            "stateFile": {
+              "type": "string"
+            },
+            "system": {
+              "$ref": "#/schemas/RuntimeSystemSnapshot"
+            },
+            "versionDir": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "binaryDir",
+            "configDir",
+            "coreCount",
+            "downloadDir",
+            "generatedAt",
+            "logDir",
+            "managedCount",
+            "scriptDir",
+            "services",
+            "sharedDir",
+            "stateFile",
+            "system",
+            "versionDir"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeActionPayload": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "definition": {
+              "$ref": "#/schemas/ManagedServiceDefinition"
+            },
+            "message": {
+              "type": "string"
+            },
+            "removed": {
+              "type": "boolean"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "service": {
+              "$ref": "#/schemas/ManagedServiceSnapshot"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "serviceName"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeDefinitionPayload": {
+          "type": "object",
+          "properties": {
+            "definition": {
+              "$ref": "#/schemas/ManagedServiceDefinition"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "definition",
+            "serviceName"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeLogPayload": {
+          "type": "object",
+          "properties": {
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "logPath": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "lines",
+            "serviceName",
+            "truncated"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeErrorPayload": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeConfigListPayload": {
+          "type": "object",
+          "properties": {
+            "configs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/schemas/RuntimeConfigEntry"
+              }
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "configs"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeConfigPayload": {
+          "type": "object",
+          "properties": {
+            "config": {
+              "$ref": "#/schemas/RuntimeConfigEntry"
+            },
+            "content": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "message": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "restartedServices": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "config"
+          ],
+          "additionalProperties": false
+        },
+        "RuntimeFilePayload": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "mode": {
+              "type": "integer"
+            },
+            "path": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        "ServiceRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "serviceName"
+          ],
+          "additionalProperties": false
+        },
+        "LogRequest": {
+          "type": "object",
+          "properties": {
+            "lines": {
+              "type": "integer"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "serviceName"
+          ],
+          "additionalProperties": false
+        },
+        "UpdateServiceRequest": {
+          "type": "object",
+          "properties": {
+            "artifactSha256": {
+              "type": "string"
+            },
+            "localPath": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "serviceName"
+          ],
+          "additionalProperties": false
+        },
+        "UpsertServiceRequest": {
+          "type": "object",
+          "properties": {
+            "definition": {
+              "$ref": "#/schemas/ManagedServiceDefinition"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "definition"
+          ],
+          "additionalProperties": false
+        },
+        "RemoveServiceRequest": {
+          "type": "object",
+          "properties": {
+            "purgeFiles": {
+              "type": "boolean"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "serviceName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "serviceName"
+          ],
+          "additionalProperties": false
+        },
+        "ConfigListRequest": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ConfigRequest": {
+          "type": "object",
+          "properties": {
+            "configName": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "configName"
+          ],
+          "additionalProperties": false
+        },
+        "PutConfigRequest": {
+          "type": "object",
+          "properties": {
+            "configName": {
+              "type": "string"
+            },
+            "content": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "createIfMissing": {
+              "type": "boolean"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "restartServices": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "configName",
+            "content"
+          ],
+          "additionalProperties": false
+        },
+        "PutRuntimeFileRequest": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "mode": {
+              "type": "integer"
+            },
+            "path": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "content",
+            "path"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": {
+        "runtime-manager-status": {
+          "schema": "RuntimeStatusPayload"
+        },
+        "runtime-manager-service-action": {
+          "schema": "RuntimeActionPayload"
+        },
+        "runtime-manager-service-definition": {
+          "schema": "RuntimeDefinitionPayload"
+        },
+        "runtime-manager-log": {
+          "schema": "RuntimeLogPayload"
+        },
+        "runtime-manager-error": {
+          "schema": "RuntimeErrorPayload"
+        },
+        "runtime-manager-config-list": {
+          "schema": "RuntimeConfigListPayload"
+        },
+        "runtime-manager-config": {
+          "schema": "RuntimeConfigPayload"
+        },
+        "runtime-manager-file": {
+          "schema": "RuntimeFilePayload"
+        },
+        "runtime-manager-update": {
+          "schema": "RuntimeActionPayload"
+        }
+      },
+      "methods": [
+        {
+          "name": "get-status",
+          "subtopic": "command",
+          "requestSchema": "ConfigListRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-status",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-config",
+          "subtopic": "command",
+          "requestSchema": "ConfigRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-config",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "list-configs",
+          "subtopic": "command",
+          "requestSchema": "ConfigListRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-config-list",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-service-definition",
+          "subtopic": "command",
+          "requestSchema": "ServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-service-definition",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "get-service-log",
+          "subtopic": "command",
+          "requestSchema": "LogRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-log",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "put-config",
+          "subtopic": "command",
+          "requestSchema": "PutConfigRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-config",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "put-runtime-file",
+          "subtopic": "command",
+          "requestSchema": "PutRuntimeFileRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-file",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "remove-service",
+          "subtopic": "command",
+          "requestSchema": "RemoveServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-service-action",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "restart-service",
+          "subtopic": "command",
+          "requestSchema": "ServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-service-action",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "start-service",
+          "subtopic": "command",
+          "requestSchema": "ServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-service-action",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "stop-service",
+          "subtopic": "command",
+          "requestSchema": "ServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-service-action",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "update-service",
+          "subtopic": "command",
+          "requestSchema": "UpdateServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-update",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        },
+        {
+          "name": "upsert-service",
+          "subtopic": "command",
+          "requestSchema": "UpsertServiceRequest",
+          "outputs": [
+            {
+              "kind": "success",
+              "messageType": "runtime-manager-service-action",
+              "subtopic": "response"
+            },
+            {
+              "kind": "error",
+              "messageType": "runtime-manager-error",
+              "subtopic": "response"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
