@@ -16,7 +16,7 @@ Current members:
 
 - `apps/trakrai`: cloud-facing Next.js app.
 - `apps/trakrai-device`: static-exportable device-hosted Next.js app.
-- `services/live-gateway`: cloud WebSocket and HTTP bridge for live view.
+- `apps/live-gateway`: cloud WebSocket and HTTP bridge for live view.
 - `packages/trakrai-design-system`: shared presentational primitives.
 - `packages/trakrai-audio-manager-ui`: typed audio queue UI for the `audio-manager` device service.
 - `packages/trakrai-live-transport`: transport client, runtime state, diagnostics, and WebRTC providers.
@@ -132,7 +132,7 @@ That keeps transport details close to the feature and avoids pushing feature sem
 
 ### 7. Services are browser bridges, not UI packages
 
-`web/services/live-gateway` exists because the browser cannot speak MQTT directly and because live-view signaling needs cloud-side session routing.
+`web/apps/live-gateway` exists because the browser cannot speak MQTT directly and because live-view signaling needs cloud-side session routing.
 
 The service:
 
@@ -170,7 +170,7 @@ Cloud live view and PTZ currently follow this path:
 
 1. The browser loads `apps/trakrai`.
 2. The route creates `CloudTransportProvider`, `DeviceRuntimeProvider`, and `WebRtcProvider`.
-3. `LiveTransportClient` opens a WebSocket to `services/live-gateway`.
+3. `LiveTransportClient` opens a WebSocket to `apps/live-gateway`.
 4. `live-gateway` subscribes to MQTT topics for the selected device and sends a status request.
 5. `cloud-comm` on the device receives MQTT commands and routes them over Unix-socket IPC to a registered service such as `live-feed` or `ptz-control`.
 6. The target service executes the command and publishes status, response, or WebRTC signaling back through IPC.
@@ -242,7 +242,7 @@ Use these placement rules when extending the web side:
   For device-side audio queue actions, job inspection, and audio manager diagnostics.
 - `packages/trakrai-live-ui`
   For assembling multiple feature packages into a workspace shell.
-- `services/live-gateway`
+- `apps/live-gateway`
   For cloud-only browser bridge logic, MQTT subscriptions, and session routing.
 
 ## Extension rules that matter

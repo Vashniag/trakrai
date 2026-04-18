@@ -6,9 +6,8 @@ apps/*/.next
 apps/*/out
 packages/*/node_modules
 packages/*/dist
-services/*/node_modules
-services/*/dist
-services/*/.turbo
+apps/live-gateway/dist
+apps/live-gateway/.turbo
 .codex-cloud-ui-dev.ps1
 .codex-cloud-ui.err.log
 .codex-cloud-ui.out.log

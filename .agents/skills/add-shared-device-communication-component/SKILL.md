@@ -23,7 +23,7 @@ Put the code in the narrowest package that still keeps it reusable:
   Composition-only workspace pieces that arrange multiple feature packages together.
 - `apps/*`
   App-specific endpoint selection, runtime config loading, or route wiring only.
-- `services/live-gateway`
+- `apps/live-gateway`
   Cloud-only bridge behavior, not shared React components.
 
 If the component should run in both cloud and edge modes without changing its behavior, it usually belongs in a package, not an app route.

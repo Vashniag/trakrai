@@ -854,7 +854,7 @@ importers:
 
   packages/typescript-config: {}
 
-  services/live-gateway:
+  apps/live-gateway:
     dependencies:
       '@t3-oss/env-core':
         specifier: ^0.13.11

@@ -12,7 +12,7 @@ const config: KnipConfig = {
       project: ['src/**/*.{ts,tsx}'],
       ignoreDependencies: ['@tailwindcss/postcss'],
     },
-    'services/live-gateway': {
+    'apps/live-gateway': {
       entry: ['test/**/*.test.ts'],
       project: ['src/**/*.{ts,tsx}', 'test/**/*.ts'],
     },

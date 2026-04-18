@@ -21,7 +21,7 @@ Create a new package only when at least one of these is true:
 Do not create a package if the code is:
 
 - route-only composition for a single app
-- cloud-service logic that belongs in `web/services`
+- cloud-service logic that belongs in `web/apps`
 - a tiny helper that is still local to one feature and one app
 
 ## Pick the correct package layer
@@ -117,5 +117,5 @@ pnpm --filter trakrai-device typecheck
 
 - Prefer extracting a coherent slice over creating "misc" or "shared-utils" packages.
 - Keep browser transport code in transport or feature packages, not inside the apps.
-- Keep cloud bridge logic in `web/services`, not in reusable browser packages.
+- Keep cloud bridge logic in `web/apps`, not in reusable browser packages.
 - When in doubt, copy the nearest existing package and change only what the new package genuinely needs.

@@ -44,7 +44,7 @@ Important renames/migrations already completed:
 
 - `web/apps/trakrai`
   The Next.js application
-- `web/services/live-gateway`
+- `web/apps/live-gateway`
   Dedicated cloud-side live-view service
 - `deploy/mosquitto`
   MQTT broker config
@@ -133,13 +133,13 @@ Current live-view flow:
 
 ### Live gateway
 
-- `web/services/live-gateway/src/index.ts`
+- `web/apps/live-gateway/src/index.ts`
   Express + WebSocket server bootstrap
-- `web/services/live-gateway/src/config.ts`
+- `web/apps/live-gateway/src/config.ts`
   Env parsing and MQTT topic helpers
-- `web/services/live-gateway/src/mqtt-client.ts`
+- `web/apps/live-gateway/src/mqtt-client.ts`
   Cloud-side MQTT client
-- `web/services/live-gateway/src/ws-handler.ts`
+- `web/apps/live-gateway/src/ws-handler.ts`
   Browser <-> MQTT signaling bridge
 
 ### Device services
@@ -562,7 +562,7 @@ Examples:
 
 Use this flow:
 
-1. create `web/services/<service-name>`
+1. create `web/apps/<service-name>`
 2. give it its own `package.json`
 3. expose only the API/WebSocket surface needed for that app
 4. keep MQTT topic handling typed and explicit
@@ -752,8 +752,8 @@ If you are investigating a live-view issue, start here:
 - `web/apps/trakrai/src/app/live/_components/live-view.tsx`
 - `web/apps/trakrai/src/app/live/_components/video-player.tsx`
 - `web/apps/trakrai/src/lib/live-gateway-client.ts`
-- `web/services/live-gateway/src/ws-handler.ts`
-- `web/services/live-gateway/src/mqtt-client.ts`
+- `web/apps/live-gateway/src/ws-handler.ts`
+- `web/apps/live-gateway/src/mqtt-client.ts`
 - `device/internal/livefeed/service.go`
 - `device/internal/livefeed/webrtc.go`
 - `device/internal/cloudcomm/mqtt.go`

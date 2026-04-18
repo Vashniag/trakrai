@@ -53,7 +53,7 @@ services:
 
   live-gateway:
     build:
-      context: ../web/services/live-gateway
+      context: ../web/apps/live-gateway
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
