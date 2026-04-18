@@ -236,10 +236,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.11.zip",
-          "remotePath": "edge-ui/0.1.11/universal/edge-ui-v0.1.11.zip",
-          "sha256": "fd752f830ef3c6a02bc69da0e9a9a5e382d8b69d443934e74ddf63b649fd9c81",
-          "updatedAt": "2026-04-18T19:16:20Z"
+          "fileName": "edge-ui-v0.1.12.zip",
+          "remotePath": "edge-ui/0.1.12/universal/edge-ui-v0.1.12.zip",
+          "sha256": "d361289d01a1cd4a7c1fc381b40f4b05639915c80831067b61062e47a569bb41",
+          "updatedAt": "2026-04-18T19:35:39Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -315,11 +315,19 @@
           "sha256": "fd752f830ef3c6a02bc69da0e9a9a5e382d8b69d443934e74ddf63b649fd9c81",
           "updatedAt": "2026-04-18T19:16:20Z",
           "version": "0.1.11"
+        },
+        {
+          "fileName": "edge-ui-v0.1.12.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.12/universal/edge-ui-v0.1.12.zip",
+          "sha256": "d361289d01a1cd4a7c1fc381b40f4b05639915c80831067b61062e47a569bb41",
+          "updatedAt": "2026-04-18T19:35:39Z",
+          "version": "0.1.12"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:7dd1f6bea8200bd872f8d6ce76abbf283a79b5c38cb47a01f40e9779e6d804a4",
+      "sourceHash": "sha256:b0d8c7d79ded230d436f3cfc69411ade3500403029d5ba17cb0273a2a44f32fd",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -402,6 +410,9 @@
         "web/packages/core/trakrai-design-system/src/components/direction.tsx",
         "web/packages/core/trakrai-design-system/src/components/drawer.tsx",
         "web/packages/core/trakrai-design-system/src/components/dropdown-menu.tsx",
+        "web/packages/core/trakrai-design-system/src/components/dynamic-form-context.tsx",
+        "web/packages/core/trakrai-design-system/src/components/dynamic-form-fields.tsx",
+        "web/packages/core/trakrai-design-system/src/components/dynamic-form.tsx",
         "web/packages/core/trakrai-design-system/src/components/empty.tsx",
         "web/packages/core/trakrai-design-system/src/components/field.tsx",
         "web/packages/core/trakrai-design-system/src/components/form.tsx",
@@ -413,6 +424,7 @@
         "web/packages/core/trakrai-design-system/src/components/kbd.tsx",
         "web/packages/core/trakrai-design-system/src/components/label.tsx",
         "web/packages/core/trakrai-design-system/src/components/menubar.tsx",
+        "web/packages/core/trakrai-design-system/src/components/mutation-modal.tsx",
         "web/packages/core/trakrai-design-system/src/components/native-select.tsx",
         "web/packages/core/trakrai-design-system/src/components/navigation-menu.tsx",
         "web/packages/core/trakrai-design-system/src/components/pagination.tsx",
@@ -758,7 +770,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.11"
+      "version": "0.1.12"
     },
     "live-feed": {
       "artifacts": {
@@ -1501,5 +1513,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T19:16:20Z"
+  "updatedAt": "2026-04-18T19:35:39Z"
 }
