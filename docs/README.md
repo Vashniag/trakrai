@@ -18,6 +18,7 @@ Current members:
 - `apps/trakrai-device`: static-exportable device-hosted Next.js app.
 - `services/live-gateway`: cloud WebSocket and HTTP bridge for live view.
 - `packages/trakrai-design-system`: shared presentational primitives.
+- `packages/trakrai-audio-manager-ui`: typed audio queue UI for the `audio-manager` device service.
 - `packages/trakrai-live-transport`: transport client, runtime state, diagnostics, and WebRTC providers.
 - `packages/trakrai-live-viewer`: live-view feature hook, packet mappers, and viewer UI.
 - `packages/trakrai-ptz-controller`: PTZ feature hook, packet mappers, and PTZ UI.
@@ -42,7 +43,7 @@ The package stack is intentionally layered:
    Styling primitives and low-level UI building blocks.
 2. `@trakrai/live-transport`
    Transport client, provider contexts, diagnostics panels, device runtime state, and WebRTC primitives.
-3. Feature packages such as `@trakrai/live-viewer` and `@trakrai/ptz-controller`
+3. Feature packages such as `@trakrai/live-viewer`, `@trakrai/ptz-controller`, and `@trakrai/audio-manager-ui`
    Typed packet helpers, feature hooks, and feature-specific UI.
 4. `@trakrai/live-ui`
    Composition shell that arranges the shared feature packages into a workspace.
@@ -237,6 +238,8 @@ Use these placement rules when extending the web side:
   For live-view packet helpers, live-view hooks, and live-view UI.
 - `packages/trakrai-ptz-controller`
   For PTZ packet helpers, PTZ hooks, and PTZ UI.
+- `packages/trakrai-audio-manager-ui`
+  For device-side audio queue actions, job inspection, and audio manager diagnostics.
 - `packages/trakrai-live-ui`
   For assembling multiple feature packages into a workspace shell.
 - `services/live-gateway`
@@ -255,5 +258,5 @@ Use these placement rules when extending the web side:
 
 Repo-local skill drafts that build on this document live in:
 
-- `web/docs/skills/add-workspace-package`
-- `web/docs/skills/add-shared-device-communication-component`
+- `docs/skills/add-workspace-package`
+- `docs/skills/add-shared-device-communication-component`

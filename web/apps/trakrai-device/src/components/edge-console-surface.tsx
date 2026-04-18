@@ -9,6 +9,7 @@ import { Card, CardContent } from '@trakrai/design-system/components/card';
 import { EdgeTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
 import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 
+import { DeviceQueryProvider } from '@/lib/device-query-provider';
 import { deviceUiBuildConfig } from '@/lib/device-ui-build-config';
 import {
   getDefaultDeviceUiRuntimeConfig,
@@ -38,6 +39,11 @@ const EDGE_ROUTE_ITEMS = [
     description: 'Queued cloud uploads and downloads.',
     href: '/transfers',
     label: 'Transfers',
+  },
+  {
+    description: 'Audio queue control, playback inspection, and speaker delivery status.',
+    href: '/audio',
+    label: 'Audio',
   },
   {
     description: 'PTZ base locations and ROI region management.',
@@ -108,7 +114,7 @@ export const EdgeConsoleSurface = ({ children, description, title }: EdgeConsole
       ]}
       eyebrow="TrakrAI Edge Runtime"
       navigation={
-        <section className="grid gap-3 md:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-5">
           {EDGE_ROUTE_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -129,13 +135,15 @@ export const EdgeConsoleSurface = ({ children, description, title }: EdgeConsole
       title={title}
     >
       {hasLoadedRuntimeConfig ? (
-        <EdgeTransportProvider
-          deviceId={runtimeConfig.deviceId}
-          httpBaseUrl={activeTransport.httpBaseUrl}
-          signalingUrl={activeTransport.signalingUrl}
-        >
-          {children(runtimeConfig)}
-        </EdgeTransportProvider>
+        <DeviceQueryProvider>
+          <EdgeTransportProvider
+            deviceId={runtimeConfig.deviceId}
+            httpBaseUrl={activeTransport.httpBaseUrl}
+            signalingUrl={activeTransport.signalingUrl}
+          >
+            {children(runtimeConfig)}
+          </EdgeTransportProvider>
+        </DeviceQueryProvider>
       ) : (
         <Card className="border">
           <CardContent className="text-muted-foreground py-10 text-sm">

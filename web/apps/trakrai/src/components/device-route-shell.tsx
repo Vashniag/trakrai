@@ -56,6 +56,11 @@ const DEVICE_ROUTE_ITEMS = (
       href: `/devices/${deviceRecordId}/transfers`,
       label: 'Transfers',
     },
+    {
+      description: 'Audio queue control, playback inspection, and speaker delivery status.',
+      href: `/devices/${deviceRecordId}/audio`,
+      label: 'Audio',
+    },
   ] as const;
 
 type DeviceRouteShellProps = Readonly<{
@@ -157,7 +162,7 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
               </div>
             </section>
 
-            <section className="grid gap-3 md:grid-cols-4">
+            <section className="grid gap-3 md:grid-cols-5">
               {DEVICE_ROUTE_ITEMS(deviceRecordId).map((item) => {
                 const isActive = pathname === item.href;
                 return (

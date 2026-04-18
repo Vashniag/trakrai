@@ -375,6 +375,9 @@ export const DeviceManagementPage = () => {
                       <Button asChild type="button" variant="outline">
                         <Link href={`/devices/${device.id}/transfers`}>Transfers</Link>
                       </Button>
+                      <Button asChild type="button" variant="outline">
+                        <Link href={`/devices/${device.id}/audio`}>Audio</Link>
+                      </Button>
                       <Button
                         disabled={isBusy}
                         type="button"
