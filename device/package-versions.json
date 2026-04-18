@@ -236,10 +236,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.8.zip",
-          "remotePath": "edge-ui/0.1.8/universal/edge-ui-v0.1.8.zip",
-          "sha256": "cf26840255bd2f3168029ff2393387724659f4a6864b1bbe3995e8c1e1883e56",
-          "updatedAt": "2026-04-18T17:37:38Z"
+          "fileName": "edge-ui-v0.1.9.zip",
+          "remotePath": "edge-ui/0.1.9/universal/edge-ui-v0.1.9.zip",
+          "sha256": "aaebec595d993fb1e3f428a0a7b286dbdf0c0cf00368e240d3cb87c11b8836a9",
+          "updatedAt": "2026-04-18T17:50:48Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -291,11 +291,19 @@
           "sha256": "cf26840255bd2f3168029ff2393387724659f4a6864b1bbe3995e8c1e1883e56",
           "updatedAt": "2026-04-18T17:37:38Z",
           "version": "0.1.8"
+        },
+        {
+          "fileName": "edge-ui-v0.1.9.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.9/universal/edge-ui-v0.1.9.zip",
+          "sha256": "aaebec595d993fb1e3f428a0a7b286dbdf0c0cf00368e240d3cb87c11b8836a9",
+          "updatedAt": "2026-04-18T17:50:48Z",
+          "version": "0.1.9"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:143c101bb34048498f04070555e97ae050d50cc07fa35413b859e66aa3964191",
+      "sourceHash": "sha256:14bca7ca721731c153266a56760463e6381647723cb20e3ad1a977aa90258b1b",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -307,8 +315,10 @@
         "web/apps/trakrai-device/src/app/icon.svg",
         "web/apps/trakrai-device/src/app/layout.tsx",
         "web/apps/trakrai-device/src/app/page.tsx",
+        "web/apps/trakrai-device/src/components/device-live-page.tsx",
         "web/apps/trakrai-device/src/components/edge-console-surface.tsx",
         "web/apps/trakrai-device/src/components/edge-core-header.tsx",
+        "web/apps/trakrai-device/src/components/live-console-shell.tsx",
         "web/apps/trakrai-device/src/components/theme-provider.tsx",
         "web/apps/trakrai-device/src/lib/cloud-package-api.tsx",
         "web/apps/trakrai-device/src/lib/device-query-provider.tsx",
@@ -456,18 +466,6 @@
         "web/packages/trakrai-live-transport/tsconfig.build.json",
         "web/packages/trakrai-live-transport/tsconfig.json",
         "web/packages/trakrai-live-transport/tsdown.config.ts",
-        "web/packages/trakrai-live-ui/README.md",
-        "web/packages/trakrai-live-ui/eslint.config.mjs",
-        "web/packages/trakrai-live-ui/package.json",
-        "web/packages/trakrai-live-ui/src/components/device-audio-manager-page.tsx",
-        "web/packages/trakrai-live-ui/src/components/device-live-page.tsx",
-        "web/packages/trakrai-live-ui/src/components/device-runtime-page.tsx",
-        "web/packages/trakrai-live-ui/src/components/device-transfers-page.tsx",
-        "web/packages/trakrai-live-ui/src/components/live-console-shell.tsx",
-        "web/packages/trakrai-live-ui/src/styles.css",
-        "web/packages/trakrai-live-ui/tsconfig.build.json",
-        "web/packages/trakrai-live-ui/tsconfig.json",
-        "web/packages/trakrai-live-ui/tsdown.config.ts",
         "web/packages/trakrai-live-viewer/README.md",
         "web/packages/trakrai-live-viewer/eslint.config.mjs",
         "web/packages/trakrai-live-viewer/package.json",
@@ -529,7 +527,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     "live-feed": {
       "artifacts": {
@@ -1272,5 +1270,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T17:37:38Z"
+  "updatedAt": "2026-04-18T17:50:48Z"
 }
