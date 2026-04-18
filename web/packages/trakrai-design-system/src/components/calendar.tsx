@@ -2,11 +2,42 @@
 
 import * as React from 'react';
 
-
 import { Button, buttonVariants } from '@trakrai/design-system/components/button';
 import { cn } from '@trakrai/design-system/lib/utils';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
 import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from 'react-day-picker';
+
+type CalendarRootProps = React.ComponentProps<'div'> & {
+  rootRef?: React.Ref<HTMLDivElement>;
+};
+
+const CalendarRoot = ({ className, rootRef, ...props }: CalendarRootProps) => (
+  <div ref={rootRef} className={cn(className)} data-slot="calendar" {...props} />
+);
+
+type CalendarChevronProps = React.ComponentProps<'svg'> & {
+  orientation?: string;
+};
+
+const CalendarChevron = ({ className, orientation, ...props }: CalendarChevronProps) => {
+  if (orientation === 'left') {
+    return <ChevronLeftIcon className={cn('size-4', className)} {...props} />;
+  }
+
+  if (orientation === 'right') {
+    return <ChevronRightIcon className={cn('size-4', className)} {...props} />;
+  }
+
+  return <ChevronDownIcon className={cn('size-4', className)} {...props} />;
+};
+
+const CalendarWeekNumber = ({ children, ...props }: React.ComponentProps<'td'>) => (
+  <td {...props}>
+    <div className="flex size-(--cell-size) items-center justify-center text-center">
+      {children}
+    </div>
+  </td>
+);
 
 const Calendar = ({
   className,
@@ -81,7 +112,7 @@ const Calendar = ({
         ),
         day: cn(
           'group/day relative aspect-square h-full w-full rounded-(--cell-radius) p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius)',
-          props.showWeekNumber
+          props.showWeekNumber === true
             ? '[&:nth-child(2)[data-selected=true]_button]:rounded-l-(--cell-radius)'
             : '[&:first-child[data-selected=true]_button]:rounded-l-(--cell-radius)',
           defaultClassNames.day,
@@ -108,30 +139,10 @@ const Calendar = ({
         ...classNames,
       }}
       components={{
-        Root: ({ className, rootRef, ...props }) => {
-          return <div ref={rootRef} className={cn(className)} data-slot="calendar" {...props} />;
-        },
-        Chevron: ({ className, orientation, ...props }) => {
-          if (orientation === 'left') {
-            return <ChevronLeftIcon className={cn('size-4', className)} {...props} />;
-          }
-
-          if (orientation === 'right') {
-            return <ChevronRightIcon className={cn('size-4', className)} {...props} />;
-          }
-
-          return <ChevronDownIcon className={cn('size-4', className)} {...props} />;
-        },
+        Root: CalendarRoot,
+        Chevron: CalendarChevron,
         DayButton: ({ ...props }) => <CalendarDayButton locale={locale} {...props} />,
-        WeekNumber: ({ children, ...props }) => {
-          return (
-            <td {...props}>
-              <div className="flex size-(--cell-size) items-center justify-center text-center">
-                {children}
-              </div>
-            </td>
-          );
-        },
+        WeekNumber: CalendarWeekNumber,
         ...components,
       }}
       formatters={{
@@ -156,8 +167,16 @@ const CalendarDayButton = ({
 
   const ref = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
-    if (modifiers.focused) ref.current?.focus();
+    if (modifiers.focused === true) {
+      ref.current?.focus();
+    }
   }, [modifiers.focused]);
+
+  const isSingleSelected =
+    modifiers.selected === true &&
+    modifiers.range_start !== true &&
+    modifiers.range_end !== true &&
+    modifiers.range_middle !== true;
 
   return (
     <Button
@@ -171,11 +190,7 @@ const CalendarDayButton = ({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       data-range-start={modifiers.range_start}
-      data-selected-single={
-        modifiers.selected &&
-        !modifiers.range_start &&
-        !modifiers.range_end ? !modifiers.range_middle : null
-      }
+      data-selected-single={isSingleSelected === true ? true : null}
       size="icon"
       variant="ghost"
       {...props}

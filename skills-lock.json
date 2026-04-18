@@ -10,6 +10,16 @@
       "source": "sickn33/antigravity-awesome-skills",
       "sourceType": "github",
       "computedHash": "b712d6d1a6ac8bc2b67e366571106e63cfcc6df7fe4596a326e39969a1999113"
+    },
+    "nextjs": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "d3a48eada4dbae95856d643a0c9c54a38974ee7896a4d34f93aead13d26c343a"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "computedHash": "af51e16468977f0a5db2bad0baa50b6452f690318d81f3c0382f701830acdbdc"
     }
   }
 }

@@ -33,7 +33,7 @@ const CarouselContext = React.createContext<CarouselContextProps | null>(null);
 const useCarousel = () => {
   const context = React.useContext(CarouselContext);
 
-  if (!context) {
+  if (context === null) {
     throw new Error('useCarousel must be used within a <Carousel />');
   }
 
@@ -60,7 +60,9 @@ const Carousel = ({
   const [canScrollNext, setCanScrollNext] = React.useState(false);
 
   const onSelect = React.useCallback((api: CarouselApi) => {
-    if (!api) return;
+    if (api === undefined) {
+      return;
+    }
     setCanScrollPrev(api.canScrollPrev());
     setCanScrollNext(api.canScrollNext());
   }, []);
@@ -87,18 +89,27 @@ const Carousel = ({
   );
 
   React.useEffect(() => {
-    if (!api || !setApi) return;
+    if (api === undefined || setApi === undefined) {
+      return;
+    }
     setApi(api);
   }, [api, setApi]);
 
   React.useEffect(() => {
-    if (!api) return;
-    onSelect(api);
-    api.on('reInit', onSelect);
-    api.on('select', onSelect);
+    if (api === undefined) {
+      return;
+    }
+    const onApiSelect = () => {
+      onSelect(api);
+    };
+    const animationFrameId = window.requestAnimationFrame(onApiSelect);
+    api.on('reInit', onApiSelect);
+    api.on('select', onApiSelect);
 
     return () => {
-      api?.off('select', onSelect);
+      window.cancelAnimationFrame(animationFrameId);
+      api.off('reInit', onApiSelect);
+      api.off('select', onApiSelect);
     };
   }, [api, onSelect]);
 
@@ -108,7 +119,7 @@ const Carousel = ({
         carouselRef,
         api: api,
         opts,
-        orientation: orientation || (opts?.axis === 'y' ? 'vertical' : 'horizontal'),
+        orientation,
         scrollPrev,
         scrollNext,
         canScrollPrev,

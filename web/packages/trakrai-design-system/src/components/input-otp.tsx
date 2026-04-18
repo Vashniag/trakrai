@@ -12,25 +12,29 @@ const InputOTP = ({
   ...props
 }: React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string;
-}) => <OTPInput
-      className={cn('disabled:cursor-not-allowed', className)}
-      containerClassName={cn(
-        'cn-input-otp flex items-center has-disabled:opacity-50',
-        containerClassName,
-      )}
-      data-slot="input-otp"
-      spellCheck={false}
-      {...props}
-    />;
+}) => (
+  <OTPInput
+    className={cn('disabled:cursor-not-allowed', className)}
+    containerClassName={cn(
+      'cn-input-otp flex items-center has-disabled:opacity-50',
+      containerClassName,
+    )}
+    data-slot="input-otp"
+    spellCheck={false}
+    {...props}
+  />
+);
 
-const InputOTPGroup = ({ className, ...props }: React.ComponentProps<'div'>) => <div
-      className={cn(
-        'has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 flex items-center rounded-none has-aria-invalid:ring-1',
-        className,
-      )}
-      data-slot="input-otp-group"
-      {...props}
-    />;
+const InputOTPGroup = ({ className, ...props }: React.ComponentProps<'div'>) => (
+  <div
+    className={cn(
+      'has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 flex items-center rounded-none has-aria-invalid:ring-1',
+      className,
+    )}
+    data-slot="input-otp-group"
+    {...props}
+  />
+);
 
 const InputOTPSlot = ({
   index,
@@ -40,6 +44,7 @@ const InputOTPSlot = ({
   index: number;
 }) => {
   const inputOTPContext = React.useContext(OTPInputContext);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const { char, hasFakeCaret, isActive } = inputOTPContext?.slots[index] ?? {};
 
   return (
@@ -53,20 +58,24 @@ const InputOTPSlot = ({
       {...props}
     >
       {char}
-      {hasFakeCaret ? <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      {hasFakeCaret === true ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="animate-caret-blink bg-foreground h-4 w-px duration-1000" />
-        </div> : null}
+        </div>
+      ) : null}
     </div>
   );
 };
 
-const InputOTPSeparator = ({ ...props }: React.ComponentProps<'div'>) => <div
-      className="flex items-center [&_svg:not([class*='size-'])]:size-4"
-      data-slot="input-otp-separator"
-      role="separator"
-      {...props}
-    >
-      <MinusIcon />
-    </div>;
+const InputOTPSeparator = ({ ...props }: React.ComponentProps<'div'>) => (
+  <div
+    className="flex items-center [&_svg:not([class*='size-'])]:size-4"
+    data-slot="input-otp-separator"
+    role="separator"
+    {...props}
+  >
+    <MinusIcon />
+  </div>
+);
 
 export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };

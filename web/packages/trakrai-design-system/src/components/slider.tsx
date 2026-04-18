@@ -5,6 +5,22 @@ import * as React from 'react';
 import { cn } from '@trakrai/design-system/lib/utils';
 import { Slider as SliderPrimitive } from 'radix-ui';
 
+const resolveSliderValues = (
+  value: number[] | undefined,
+  defaultValue: number[] | undefined,
+  min: number,
+  max: number,
+): number[] => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (Array.isArray(defaultValue)) {
+    return defaultValue;
+  }
+
+  return [min, max];
+};
 
 const Slider = ({
   className,
@@ -15,7 +31,7 @@ const Slider = ({
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) => {
   const _values = React.useMemo(
-    () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
+    () => resolveSliderValues(value, defaultValue, min, max),
     [value, defaultValue, min, max],
   );
 
