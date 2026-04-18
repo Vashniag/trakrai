@@ -1,7 +1,7 @@
 'use client';
 
-import { DeviceTransfersPage } from '@trakrai/live-ui/components/device-transfers-page';
+import { CloudTransferPanel } from '@trakrai/cloud-transfer-ui/components/cloud-transfer-panel';
 
-const DeviceTransfersRoutePage = () => <DeviceTransfersPage />;
+const DeviceTransfersRoutePage = () => <CloudTransferPanel serviceName="cloud-transfer" />;
 
 export default DeviceTransfersRoutePage;

@@ -26,9 +26,6 @@ const config: KnipConfig = {
       project: ['src/**/*.{ts,tsx}'],
       ignoreDependencies: ['postcss-load-config', '@tailwindcss/postcss', 'next-themes'],
     },
-    'packages/trakrai-live-ui': {
-      project: ['src/**/*.{ts,tsx}'],
-    },
     'packages/trakrai-live-transport': {
       project: ['src/**/*.{ts,tsx}'],
     },

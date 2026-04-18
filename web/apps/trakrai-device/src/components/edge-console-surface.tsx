@@ -7,8 +7,8 @@ import { usePathname } from 'next/navigation';
 
 import { Card, CardContent } from '@trakrai/design-system/components/card';
 import { EdgeTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
-import { LiveConsoleShell } from '@trakrai/live-ui/components/live-console-shell';
 
+import { LiveConsoleShell } from '@/components/live-console-shell';
 import { DeviceQueryProvider } from '@/lib/device-query-provider';
 import { deviceUiBuildConfig } from '@/lib/device-ui-build-config';
 import {

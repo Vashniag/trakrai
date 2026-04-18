@@ -1,9 +1,9 @@
 'use client';
 
 import { useLiveTransport } from '@trakrai/live-transport/providers/live-transport-provider';
-import { DeviceLivePage } from '@trakrai/live-ui/components/device-live-page';
 import { WebRtcProvider } from '@trakrai/webrtc/providers/webrtc-provider';
 
+import { DeviceLivePage } from '@/components/device-live-page';
 import { EdgeConsoleSurface } from '@/components/edge-console-surface';
 
 const EdgeLiveRoute = () => {

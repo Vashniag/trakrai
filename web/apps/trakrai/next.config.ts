@@ -5,11 +5,11 @@ const nextConfig: NextConfig = {
     browserToTerminal: true,
   },
   transpilePackages: [
+    '@trakrai/audio-manager-ui',
     '@trakrai/cloud-transfer-ui',
     '@trakrai/backend',
     '@trakrai/design-system',
     '@trakrai/live-transport',
-    '@trakrai/live-ui',
     '@trakrai/live-viewer',
     '@trakrai/ptz-controller',
     '@trakrai/runtime-manager-ui',

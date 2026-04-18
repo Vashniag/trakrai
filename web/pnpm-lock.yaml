@@ -59,18 +59,30 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.96.0
         version: 5.99.0(react@19.2.5)
+      '@trakrai/audio-manager-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-audio-manager-ui
       '@trakrai/backend':
         specifier: workspace:*
         version: link:../../packages/trakrai-backend
+      '@trakrai/cloud-transfer-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../../packages/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-transport
-      '@trakrai/live-ui':
+      '@trakrai/live-viewer':
         specifier: workspace:*
-        version: link:../../packages/trakrai-live-ui
+        version: link:../../packages/trakrai-live-viewer
+      '@trakrai/ptz-controller':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-ptz-controller
+      '@trakrai/runtime-manager-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-runtime-manager-ui
       '@trakrai/webrtc':
         specifier: workspace:*
         version: link:../../packages/trakrai-webrtc
@@ -183,18 +195,27 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.96.0
         version: 5.99.0(react@19.2.5)
+      '@trakrai/audio-manager-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-audio-manager-ui
       '@trakrai/backend':
         specifier: workspace:*
         version: link:../../packages/trakrai-backend
+      '@trakrai/cloud-transfer-ui':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
         version: link:../../packages/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
         version: link:../../packages/trakrai-live-transport
-      '@trakrai/live-ui':
+      '@trakrai/live-viewer':
         specifier: workspace:*
-        version: link:../../packages/trakrai-live-ui
+        version: link:../../packages/trakrai-live-viewer
+      '@trakrai/ptz-controller':
+        specifier: workspace:*
+        version: link:../../packages/trakrai-ptz-controller
       '@trakrai/roi-configurator':
         specifier: workspace:*
         version: link:../../packages/trakrai-roi-configurator
@@ -588,64 +609,6 @@ importers:
       '@types/react':
         specifier: ^19.2.10
         version: 19.2.14
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      eslint:
-        specifier: ^10.2.1
-        version: 10.2.1(jiti@2.6.1)
-      tailwindcss:
-        specifier: ^4.2.2
-        version: 4.2.2
-      tsdown:
-        specifier: ^0.21.9
-        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
-      typescript:
-        specifier: ^6
-        version: 6.0.2
-
-  packages/trakrai-live-ui:
-    dependencies:
-      '@trakrai/audio-manager-ui':
-        specifier: workspace:*
-        version: link:../trakrai-audio-manager-ui
-      '@trakrai/cloud-transfer-ui':
-        specifier: workspace:*
-        version: link:../trakrai-cloud-transfer-ui
-      '@trakrai/design-system':
-        specifier: workspace:*
-        version: link:../trakrai-design-system
-      '@trakrai/live-viewer':
-        specifier: workspace:*
-        version: link:../trakrai-live-viewer
-      '@trakrai/ptz-controller':
-        specifier: workspace:*
-        version: link:../trakrai-ptz-controller
-      '@trakrai/runtime-manager-ui':
-        specifier: workspace:*
-        version: link:../trakrai-runtime-manager-ui
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5(react@19.2.5)
-    devDependencies:
-      '@tailwindcss/cli':
-        specifier: ^4.2.2
-        version: 4.2.2
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      '@types/react':
-        specifier: ^19.2.10
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config

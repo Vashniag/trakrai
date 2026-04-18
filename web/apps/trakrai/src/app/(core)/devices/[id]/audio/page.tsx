@@ -1,7 +1,7 @@
 'use client';
 
-import { DeviceAudioManagerPage } from '@trakrai/live-ui/components/device-audio-manager-page';
+import { AudioManagerPanel } from '@trakrai/audio-manager-ui/components/audio-manager-panel';
 
-const DeviceAudioRoutePage = () => <DeviceAudioManagerPage />;
+const DeviceAudioRoutePage = () => <AudioManagerPanel serviceName="audio-manager" />;
 
 export default DeviceAudioRoutePage;

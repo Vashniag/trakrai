@@ -1,6 +1,6 @@
 'use client';
 
-import { DeviceAudioManagerPage } from '@trakrai/live-ui/components/device-audio-manager-page';
+import { AudioManagerPanel } from '@trakrai/audio-manager-ui/components/audio-manager-panel';
 
 import { EdgeConsoleSurface } from '@/components/edge-console-surface';
 
@@ -9,7 +9,7 @@ const AudioPage = () => (
     description="Text-to-speech queue management, playback inspection, and speaker delivery diagnostics through the on-device audio manager."
     title="Audio manager"
   >
-    {() => <DeviceAudioManagerPage />}
+    {() => <AudioManagerPanel serviceName="audio-manager" />}
   </EdgeConsoleSurface>
 );
 
