@@ -18,10 +18,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@tanstack/react-query": "^5.99.0",
-    "@trakrai/design-system": "workspace:*"
-  },
+  "dependencies": {},
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
@@ -30,7 +27,6 @@
     "@tailwindcss/cli": "^4.2.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^10.2.1",

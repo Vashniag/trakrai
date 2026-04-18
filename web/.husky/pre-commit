@@ -6,4 +6,4 @@ if ! git diff --cached --quiet -- device/package-versions.json; then
   exit 1
 fi
 
-pnpm -C web precommit
+pnpm -C web run precommit

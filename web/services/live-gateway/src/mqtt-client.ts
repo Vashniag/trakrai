@@ -7,7 +7,7 @@ import {
   subscribeTopicsForDevice,
 } from './config.js';
 
-export type MqttMessageHandler = (topic: string, payload: string) => void;
+type MqttMessageHandler = (topic: string, payload: string) => void;
 
 let client: mqtt.MqttClient | null = null;
 const handlers = new Set<MqttMessageHandler>();

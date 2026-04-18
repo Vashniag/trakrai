@@ -49,7 +49,7 @@ const EDGE_ROUTE_ITEMS = [
 const ACTIVE_CLASSES = 'border-primary/40 bg-primary/10 text-primary';
 const IDLE_CLASSES = 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 
-export type EdgeConsoleSurfaceProps = Readonly<{
+type EdgeConsoleSurfaceProps = Readonly<{
   children: (runtimeConfig: DeviceUiRuntimeConfig) => ReactNode;
   description: string;
   title: string;

@@ -9,7 +9,7 @@ export type DeviceUiRuntimeConfig = {
   transportMode: DeviceTransportMode;
 };
 
-export type ResolvedDeviceUiTransport = {
+type ResolvedDeviceUiTransport = {
   endpoint: string;
   httpBaseUrl: string;
   signalingUrl: string;
@@ -186,9 +186,7 @@ const normalizeRuntimeConfig = (
   };
 };
 
-export const readDeviceUiRuntimeConfig = (
-  buildConfig: DeviceUiBuildConfig,
-): DeviceUiRuntimeConfig => {
+const readDeviceUiRuntimeConfig = (buildConfig: DeviceUiBuildConfig): DeviceUiRuntimeConfig => {
   const defaultRuntimeConfig = getDefaultDeviceUiRuntimeConfig(buildConfig);
   if (typeof window === 'undefined') {
     return defaultRuntimeConfig;
@@ -225,7 +223,7 @@ export const loadDeviceUiRuntimeConfig = async (
   }
 };
 
-export const getActiveTransportEndpoint = (config: DeviceUiRuntimeConfig): string =>
+const getActiveTransportEndpoint = (config: DeviceUiRuntimeConfig): string =>
   config.transportMode === 'cloud' ? config.cloudBridgeUrl : config.edgeBridgeUrl;
 
 export const resolveDeviceUiTransport = (

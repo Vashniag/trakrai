@@ -92,7 +92,7 @@ export const config = {
   },
 } as const;
 
-export type ParsedDeviceTopic = {
+type ParsedDeviceTopic = {
   deviceId: string;
   service: string | null;
   subtopic: string;
@@ -106,8 +106,7 @@ const topicBase = (deviceId: string, service?: string | null): string => {
     : `trakrai/device/${normalizedDeviceId}`;
 };
 
-export const normalizeTopicSubtopic = (subtopic: string): string =>
-  subtopic.replace(/^\/+/, '').trim();
+const normalizeTopicSubtopic = (subtopic: string): string => subtopic.replace(/^\/+/, '').trim();
 
 export const buildDeviceTopic = (
   deviceId: string,

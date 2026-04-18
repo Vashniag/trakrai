@@ -21,7 +21,7 @@ export const createTRPCContext = ({ headers, setHeader }: CreateTRPCContextOptio
   };
 };
 
-export type AppTRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
+type AppTRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 
 export const createTRPCContextNext = async (
   { req }: FetchCreateContextFnOptions,

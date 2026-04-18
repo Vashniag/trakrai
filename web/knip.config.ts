@@ -5,23 +5,26 @@ const config: KnipConfig = {
   drizzle: false,
   workspaces: {
     'apps/trakrai-device': {
-      entry: ['src/app/page.tsx'],
       project: ['src/**/*.{ts,tsx}'],
       ignoreDependencies: ['@tailwindcss/postcss'],
     },
     'apps/trakrai': {
-      entry: ['src/db/schema.ts', 'src/scripts/**/*.ts'],
       project: ['src/**/*.{ts,tsx}'],
       ignoreDependencies: ['@tailwindcss/postcss'],
     },
+    'services/live-gateway': {
+      entry: ['test/**/*.test.ts'],
+      project: ['src/**/*.{ts,tsx}', 'test/**/*.ts'],
+    },
+    'packages/trakrai-backend': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-cloud-transfer-ui': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
     'packages/trakrai-design-system': {
       project: ['src/**/*.{ts,tsx}'],
-      ignoreDependencies: [
-        'postcss-load-config',
-        '@tailwindcss/postcss',
-        'next-themes',
-        'react-hook-form',
-      ],
+      ignoreDependencies: ['postcss-load-config', '@tailwindcss/postcss', 'next-themes'],
     },
     'packages/trakrai-live-ui': {
       project: ['src/**/*.{ts,tsx}'],
@@ -35,13 +38,21 @@ const config: KnipConfig = {
     'packages/trakrai-ptz-controller': {
       project: ['src/**/*.{ts,tsx}'],
     },
+    'packages/trakrai-roi-configurator': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-runtime-manager-ui': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
+    'packages/trakrai-webrtc': {
+      project: ['src/**/*.{ts,tsx}'],
+    },
     'packages/eslint-config': {
       entry: ['*.js'],
       project: ['**/*.js'],
     },
     'packages/typescript-config': {
       entry: ['*.json'],
-      project: ['**/*.json'],
       ignoreDependencies: ['next'],
     },
   },

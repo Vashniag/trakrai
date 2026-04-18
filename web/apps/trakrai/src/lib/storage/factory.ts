@@ -83,7 +83,3 @@ export const getStorageProvider = (): StorageProvider => {
   storageProvider ??= createStorageProvider();
   return storageProvider;
 };
-
-export const resetStorageProvider = (): void => {
-  storageProvider = null;
-};
