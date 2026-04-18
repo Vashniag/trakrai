@@ -1,6 +1,13 @@
 'use client';
 
-import { type ClipboardEvent, type KeyboardEvent, type ReactNode, useMemo, useState } from 'react';
+import {
+  type ClipboardEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { FileIcon, X } from 'lucide-react';
 import { type Accept, useDropzone } from 'react-dropzone';
@@ -10,6 +17,7 @@ import { Badge } from './badge';
 import { Button } from './button';
 import { Checkbox } from './checkbox';
 import DateInput from './date-input';
+import { useDynamicFormContext } from './dynamic-form-context';
 import { Input } from './input';
 import { Progress } from './progress';
 import {
@@ -38,12 +46,60 @@ const formatFileSize = (bytes: number): string => {
   return `${size.toFixed(2)} ${units[i]}`;
 };
 
-type SelectOption = {
-  label: string;
-  value: string;
+const PROGRESS_FULL = 100;
+const STATUS_CODE_200 = 200;
+const STATUS_CODE_300 = 300;
+
+type FileProgressUpdater = (
+  fileName: string,
+  progress: number,
+  status: 'idle' | 'uploading' | 'done' | 'failed',
+) => void;
+
+const uploadSingleFile = (
+  file: File,
+  uploadUrl: string,
+  updateFileProgress: FileProgressUpdater,
+): Promise<void> => {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    updateFileProgress(file.name, 0, 'uploading');
+
+    const handleProgress = (event: ProgressEvent) => {
+      if (event.lengthComputable) {
+        const percentComplete = Math.round((event.loaded / event.total) * PROGRESS_FULL);
+        updateFileProgress(file.name, percentComplete, 'uploading');
+      }
+    };
+
+    const handleLoad = () => {
+      if (xhr.status >= STATUS_CODE_200 && xhr.status < STATUS_CODE_300) {
+        updateFileProgress(file.name, PROGRESS_FULL, 'done');
+        resolve();
+      } else {
+        updateFileProgress(file.name, 0, 'failed');
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    };
+
+    const handleError = () => {
+      updateFileProgress(file.name, 0, 'failed');
+      reject(new Error('Upload failed'));
+    };
+
+    xhr.upload.addEventListener('progress', handleProgress);
+    xhr.addEventListener('load', handleLoad);
+    xhr.addEventListener('error', handleError);
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.send(file);
+  });
 };
 
-export type DynamicFormField<T extends FieldValues = FieldValues> = {
+type SelectOption = { label: string; value: string };
+
+export type FormField<T extends FieldValues = FieldValues> = {
   name: Path<T>;
   label: string | ReactNode;
   type: keyof typeof RenderedFormFields;
@@ -61,54 +117,61 @@ export type DynamicFormField<T extends FieldValues = FieldValues> = {
 
 type FieldProps<T extends FieldValues = FieldValues> = {
   field: ControllerRenderProps<T, Path<T>>;
-  formField: DynamicFormField<T>;
+  formField: FormField<T>;
   id: string;
 };
 
 const RenderedStringArrayInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
   const [value, setValue] = useState<string>('');
-  const currentValues = Array.isArray(props.field.value) ? (props.field.value as string[]) : [];
 
-  const addValue = (nextValue: string) => {
-    const trimmed = nextValue.trim();
-    if (trimmed.length === 0) {
-      return;
-    }
+  if (!Array.isArray(props.field.value)) {
+    props.field.onChange([]);
+  }
+  const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === ',' || e.key === 'Enter') {
+      e.preventDefault();
 
-    props.field.onChange(Array.from(new Set([...currentValues, trimmed])));
-    setValue('');
-  };
-
-  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === ',' || event.key === 'Enter') {
-      event.preventDefault();
-      addValue(value);
+      if (value.trim().length > 0) {
+        const newValue = [...props.field.value, value.trim()];
+        props.field.onChange(newValue);
+        setValue('');
+      }
     }
   };
 
   const handleBlur = () => {
-    addValue(value);
+    if (value.trim().length > 0) {
+      const newValue = [...props.field.value, value.trim()];
+      props.field.onChange(newValue);
+      setValue('');
+    }
     props.field.onBlur();
   };
 
-  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
-    event.preventDefault();
+  const handleRemoveItem = (index: number) => {
+    const newValue = [...props.field.value];
+    newValue.splice(index, 1);
+    props.field.onChange(newValue);
+  };
 
-    const pasteData = event.clipboardData.getData('text');
+  const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text');
     const values = pasteData
       .split(',')
       .map((item) => item.trim())
-      .filter((item) => item.length > 0);
+      .filter(Boolean);
 
     if (values.length > 0) {
-      props.field.onChange(Array.from(new Set([...currentValues, ...values])));
+      const newValue = [...props.field.value, ...values];
+      props.field.onChange(newValue);
     }
   };
 
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        {currentValues.map((item) => (
+        {(props.field.value as string[]).map((item: string, index: number) => (
           <Badge key={item} className="max-w-[320px] px-2 py-1" variant="secondary">
             <span className="min-w-0 truncate">{item}</span>
             <button
@@ -116,7 +179,7 @@ const RenderedStringArrayInput = <T extends FieldValues = FieldValues>(props: Fi
               title="Remove"
               type="button"
               onClick={() => {
-                props.field.onChange(currentValues.filter((currentItem) => currentItem !== item));
+                handleRemoveItem(index);
               }}
             >
               <X size={14} />
@@ -128,8 +191,8 @@ const RenderedStringArrayInput = <T extends FieldValues = FieldValues>(props: Fi
         placeholder="Type and press Enter or comma to add"
         value={value}
         onBlur={handleBlur}
-        onChange={(event) => {
-          setValue(event.target.value);
+        onChange={(e) => {
+          setValue(e.target.value);
         }}
         onKeyDown={handleInputKeyDown}
         onPaste={handlePaste}
@@ -143,12 +206,7 @@ const RenderedTimeInput = <T extends FieldValues = FieldValues>(props: FieldProp
 );
 
 const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  const fieldDateRaw: unknown = props.field.value;
-  if (!(fieldDateRaw instanceof Date)) {
-    return null;
-  }
-  const fieldDate = fieldDateRaw;
-
+  const fieldDate = props.field.value;
   return (
     <DateInput
       date={fieldDate}
@@ -164,15 +222,9 @@ const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProp
 };
 
 const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  const fieldDateRaw: unknown = props.field.value;
-  if (!(fieldDateRaw instanceof Date)) {
-    return null;
-  }
-  const fieldDate = fieldDateRaw;
-
-  const pad = (value: number) => value.toString().padStart(2, '0');
+  const fieldDate = props.field.value as Date;
+  const pad = (n: number) => n.toString().padStart(2, '0');
   const timeValue = `${pad(fieldDate.getHours())}:${pad(fieldDate.getMinutes())}:${pad(fieldDate.getSeconds())}`;
-
   return (
     <div className="flex gap-4">
       <DateInput
@@ -190,15 +242,12 @@ const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: Field
         step="1"
         type="time"
         value={timeValue}
-        onChange={(event) => {
-          const [hours = '0', minutes = '0', seconds = '0'] = event.target.value.split(':');
-          const h = Number.parseInt(hours, 10);
-          const m = Number.parseInt(minutes, 10);
-          const s = Number.parseInt(seconds, 10);
+        onChange={(e) => {
+          const [h, m, s] = e.target.value.split(':').map(Number);
           const time = new Date(fieldDate);
-          time.setHours(Number.isNaN(h) ? 0 : h);
-          time.setMinutes(Number.isNaN(m) ? 0 : m);
-          time.setSeconds(Number.isNaN(s) ? 0 : s);
+          time.setHours(h ?? 0);
+          time.setMinutes(m ?? 0);
+          time.setSeconds(s ?? 0);
           props.field.onChange(time);
         }}
       />
@@ -207,56 +256,52 @@ const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: Field
 };
 
 const RenderedCustomInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  if (props.formField.render === undefined) {
-    return <div>formField.render is undefined</div>;
-  }
-
-  return <>{props.formField.render(props.field)}</>;
-};
-
-const RenderedRadioInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  const options = props.formField.options ?? [];
-
   return (
-    <div className="flex flex-col gap-2">
-      {options.map((option) => (
-        <label key={option.value} className="flex items-center gap-2">
-          <Input
-            checked={props.field.value === option.value}
-            type="radio"
-            value={option.value}
-            onChange={(event) => {
-              props.field.onChange(event.target.value);
-            }}
-          />
-          {option.label}
-        </label>
-      ))}
-    </div>
+    <>
+      {props.formField.render === undefined ? (
+        <div>formField.render is undefined</div>
+      ) : (
+        props.formField.render(props.field)
+      )}
+    </>
   );
 };
 
-const RenderedSelectInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  const options = props.formField.options ?? [];
+const RenderedRadioInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
+  <div className="flex flex-col gap-2">
+    {props.formField.options?.map((option) => (
+      <label key={option.value} className="flex items-center gap-2">
+        <Input
+          checked={props.field.value === option.value}
+          type="radio"
+          value={option.value}
+          onChange={(e) => {
+            props.field.onChange(e.target.value);
+          }}
+        />
+        {option.label}
+      </label>
+    ))}
+  </div>
+);
 
-  return (
-    <Select value={props.field.value as string} onValueChange={props.field.onChange}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder={props.formField.placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          <SelectLabel>{props.formField.label}</SelectLabel>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-};
+const RenderedSelectInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
+  <Select value={props.field.value} onValueChange={props.field.onChange}>
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder={props.formField.placeholder} />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectGroup>
+        <SelectLabel>{props.formField.label}</SelectLabel>
+        {props.formField.options?.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectGroup>
+    </SelectContent>
+  </Select>
+);
 
 const RenderedColorInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
   <Input type="color" {...props.field} />
@@ -272,63 +317,132 @@ const RenderedCheckboxInput = <T extends FieldValues = FieldValues>(props: Field
   />
 );
 
-type LocalFile = File & {
-  key: string;
+type S3File = File & {
   uploadProgress: number;
-  uploadStatus: 'done';
+  uploadStatus: 'idle' | 'uploading' | 'done' | 'failed';
+  key?: string;
 };
 
-const isLocalFile = (file: LocalFile | string): file is LocalFile => {
+const isS3File = (file: S3File | string): file is S3File => {
   return typeof file === 'object' && 'uploadProgress' in file;
 };
 
 const RenderedFileUploadInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  const [files, setFiles] = useState<LocalFile[]>([]);
-  const currentValue = useMemo(
-    () => (Array.isArray(props.field.value) ? (props.field.value as string[]) : []),
-    [props.field.value],
-  );
-
+  const { getSignedUrlMutation } = useDynamicFormContext();
+  const [files, setFiles] = useState<S3File[]>([]);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles: File[]) => {
-      const localFiles = acceptedFiles.map((file) =>
-        Object.assign(file, {
-          uploadStatus: 'done' as const,
-          uploadProgress: 100,
-          key: file.name,
-        }),
-      );
-
-      setFiles((prevFiles) => [...prevFiles, ...localFiles]);
-
-      const nextFileKeys = localFiles.map((file) => file.key);
-      props.field.onChange([...new Set([...currentValue, ...nextFileKeys])]);
+    onDrop: (acceptedFiles) => {
+      setFiles([
+        ...files,
+        ...acceptedFiles.map((file) =>
+          Object.assign(file, {
+            uploadStatus: 'idle' as const,
+            uploadProgress: 0,
+          }),
+        ),
+      ]);
     },
     accept: props.formField.accept,
     maxFiles: props.formField.maxFiles,
   });
-
-  const removeFile = (file: LocalFile | string) => {
-    if (isLocalFile(file)) {
+  const removeFile = (file: S3File | string) => {
+    if (isS3File(file)) {
       setFiles((prevFiles) => prevFiles.filter((prevFile) => prevFile.name !== file.name));
-      props.field.onChange(currentValue.filter((propsFile) => propsFile !== file.key));
-      return;
+      const propsValue = (props.field.value as string[]).filter(
+        (propsFile) => propsFile !== file.key,
+      );
+      props.field.onChange(propsValue);
+    } else {
+      const propsValue = (props.field.value as string[]).filter((propsFile) => propsFile !== file);
+      props.field.onChange(propsValue);
     }
-
-    props.field.onChange(currentValue.filter((propsFile) => propsFile !== file));
   };
+
+  const updateFileProgress = (
+    fileName: string,
+    progress: number,
+    status: 'idle' | 'uploading' | 'done' | 'failed',
+  ) => {
+    setFiles((prevFiles) =>
+      prevFiles.map((file) =>
+        file.name === fileName
+          ? Object.assign(file, {
+              uploadStatus: status,
+              uploadProgress: progress,
+            })
+          : file,
+      ),
+    );
+    if (status === 'done') {
+      const propsValue = props.field.value as string[];
+      const file = files.find((file) => file.name === fileName);
+      if (file !== undefined) {
+        const updatedPropsValue = [...propsValue, file.key];
+        props.field.onChange(updatedPropsValue);
+      }
+    }
+  };
+
+  const resetFileForUpload = (fileName: string, key: string) => {
+    setFiles((prevFiles) =>
+      prevFiles.map((prevFile) =>
+        prevFile.name === fileName
+          ? Object.assign(prevFile, {
+              uploadStatus: 'idle',
+              uploadProgress: 0,
+              key,
+            })
+          : prevFile,
+      ),
+    );
+  };
+
+  const uploadAllFiles = async () => {
+    const filesToUpload = files.filter((file) => file.uploadStatus === 'idle');
+    if (filesToUpload.length > 0) {
+      if (getSignedUrlMutation === undefined) {
+        filesToUpload.forEach((file) => {
+          updateFileProgress(file.name, 0, 'failed');
+        });
+        return;
+      }
+      const signedUrls = await getSignedUrlMutation(
+        filesToUpload.map((file) => {
+          return { filename: file.name, contentType: file.type };
+        }),
+      );
+      const uploadPromises = filesToUpload.map(async (file) => {
+        const uploadData = signedUrls.get(file.name);
+        if (uploadData?.uploadUrl === undefined) {
+          updateFileProgress(file.name, 0, 'failed');
+          return Promise.resolve();
+        }
+        resetFileForUpload(file.name, uploadData.key);
+        return uploadSingleFile(file, uploadData.uploadUrl, updateFileProgress);
+      });
+      await Promise.all(uploadPromises);
+    }
+  };
+
+  useEffect(() => {
+    void uploadAllFiles();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
 
   const previouslyUploadedFiles = useMemo(
     () =>
-      currentValue.filter((fileKey) => files.find((file) => file.key === fileKey) === undefined),
-    [currentValue, files],
+      (props.field.value as string[]).filter(
+        (fileKey) => files.find((file) => file.key === fileKey) === undefined,
+      ),
+    [files, props.field.value],
   );
 
   return (
     <div className="flex flex-col gap-2">
       {props.formField.maxFiles === undefined ||
       props.formField.maxFiles === 0 ||
-      currentValue.length < props.formField.maxFiles ? (
+      files.length < props.formField.maxFiles ? (
         <div
           {...getRootProps()}
           className={cn(
@@ -348,8 +462,8 @@ const RenderedFileUploadInput = <T extends FieldValues = FieldValues>(props: Fie
                 <input
                   {...getInputProps()}
                   className="sr-only"
-                  id="file-upload"
-                  name="file-upload"
+                  id="file-upload-2"
+                  name="file-upload-2"
                   type="file"
                 />
               </label>
@@ -361,19 +475,19 @@ const RenderedFileUploadInput = <T extends FieldValues = FieldValues>(props: Fie
       <div>
         {[...files, ...previouslyUploadedFiles].map((file) => (
           <div
-            key={isLocalFile(file) ? file.key : file}
+            key={isS3File(file) ? (file.key ?? file.name) : file}
             className="border-border/50 relative gap-2 border-b py-2 last:border-b-0"
           >
             <div className="flex items-center space-x-2.5">
               <span className="bg-background ring-border flex h-10 w-10 shrink-0 items-center justify-center rounded-sm shadow-sm ring-1 ring-inset">
                 <FileIcon aria-hidden className="text-foreground h-5 w-5" />
               </span>
-              {isLocalFile(file) ? (
+              {isS3File(file) ? (
                 <div className="w-full">
                   <p className="text-foreground text-xs font-medium">{file.name}</p>
                   <p className="text-muted-foreground mt-0.5 flex justify-between text-xs">
                     <span>{formatFileSize(file.size)}</span>
-                    <span>{file.uploadStatus}</span>
+                    {file.uploadStatus !== 'idle' && <span>{file.uploadStatus}</span>}
                   </p>
                 </div>
               ) : (
@@ -381,20 +495,23 @@ const RenderedFileUploadInput = <T extends FieldValues = FieldValues>(props: Fie
                   <p className="text-foreground text-xs font-medium">{file}</p>
                 </div>
               )}
-              <Button
-                aria-label="Remove"
-                className="text-muted-foreground hover:text-foreground h-8 w-8"
-                size="icon"
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  removeFile(file);
-                }}
-              >
-                <X aria-hidden className="h-5 w-5 shrink-0" />
-              </Button>
+              {!isS3File(file) ||
+                (isS3File(file) && file.uploadStatus !== 'uploading' && (
+                  <Button
+                    aria-label="Remove"
+                    className="text-muted-foreground hover:text-foreground h-8 w-8"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      removeFile(file);
+                    }}
+                  >
+                    <X aria-hidden className="h-5 w-5 shrink-0" />
+                  </Button>
+                ))}
             </div>
-            {isLocalFile(file) && (
+            {isS3File(file) && file.uploadStatus !== 'idle' && (
               <div className="flex items-center space-x-3">
                 <Progress className="h-1.5" value={file.uploadProgress} />
                 <span className="text-muted-foreground text-xs">{file.uploadProgress}%</span>
@@ -464,14 +581,13 @@ export const RenderFormInput = <T extends FieldValues = FieldValues>({
 }: {
   type: keyof typeof RenderedFormFields;
   field: ControllerRenderProps<T, Path<T>>;
-  formField: DynamicFormField<T>;
+  formField: FormField<T>;
   id: string;
 }) => {
   const RenderedInput = RenderedFormFields[type];
   if (RenderedInput === undefined) {
     return null;
   }
-
   return <RenderedInput field={field} formField={formField} id={id} />;
 };
 
