@@ -186,10 +186,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.3.zip",
-          "remotePath": "edge-ui/0.1.3/universal/edge-ui-v0.1.3.zip",
-          "sha256": "0aec5ea738c6812cbf7a87964b483b23ed1cdc26c0c10e63c787408e13019b92",
-          "updatedAt": "2026-04-17T23:02:39Z"
+          "fileName": "edge-ui-v0.1.4.zip",
+          "remotePath": "edge-ui/0.1.4/universal/edge-ui-v0.1.4.zip",
+          "sha256": "958baf64d258d365fe672f805720170c82f960430082d565edf4d0588c66924e",
+          "updatedAt": "2026-04-18T11:32:02Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -201,11 +201,19 @@
           "sha256": "0aec5ea738c6812cbf7a87964b483b23ed1cdc26c0c10e63c787408e13019b92",
           "updatedAt": "2026-04-17T23:02:39Z",
           "version": "0.1.3"
+        },
+        {
+          "fileName": "edge-ui-v0.1.4.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.4/universal/edge-ui-v0.1.4.zip",
+          "sha256": "958baf64d258d365fe672f805720170c82f960430082d565edf4d0588c66924e",
+          "updatedAt": "2026-04-18T11:32:02Z",
+          "version": "0.1.4"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:db7de82101c1befa580c1e7e81509692a10c6abdaa7b74df7e08d06cc954715f",
+      "sourceHash": "sha256:a8bff8925d31066e8121735961b400e2f01b4762cf635b8ad765d7c8d872e176",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/globals.css",
@@ -225,19 +233,33 @@
         "web/packages/eslint-config/next.js",
         "web/packages/eslint-config/package.json",
         "web/packages/eslint-config/react-internal.js",
-        "web/packages/trakrai-cloud-api-contract/README.md",
-        "web/packages/trakrai-cloud-api-contract/eslint.config.mjs",
-        "web/packages/trakrai-cloud-api-contract/package.json",
-        "web/packages/trakrai-cloud-api-contract/src/lib/package-artifacts.ts",
-        "web/packages/trakrai-cloud-api-contract/tsconfig.build.json",
-        "web/packages/trakrai-cloud-api-contract/tsconfig.json",
-        "web/packages/trakrai-cloud-api-contract/tsdown.config.ts",
+        "web/packages/trakrai-backend/README.md",
+        "web/packages/trakrai-backend/eslint.config.mjs",
+        "web/packages/trakrai-backend/package.json",
+        "web/packages/trakrai-backend/src/db/auth-schema.ts",
+        "web/packages/trakrai-backend/src/db/schema.ts",
+        "web/packages/trakrai-backend/src/lib/request-context.ts",
+        "web/packages/trakrai-backend/src/lib/storage/azure-provider.ts",
+        "web/packages/trakrai-backend/src/lib/storage/interface.ts",
+        "web/packages/trakrai-backend/src/lib/storage/s3-compatible-provider.ts",
+        "web/packages/trakrai-backend/src/server/routers/devices.ts",
+        "web/packages/trakrai-backend/src/server/routers/index.ts",
+        "web/packages/trakrai-backend/src/server/routers/package-artifacts.ts",
+        "web/packages/trakrai-backend/src/server/trpc.ts",
+        "web/packages/trakrai-backend/tsconfig.build.json",
+        "web/packages/trakrai-backend/tsconfig.json",
+        "web/packages/trakrai-backend/tsdown.config.ts",
         "web/packages/trakrai-cloud-transfer-ui/README.md",
         "web/packages/trakrai-cloud-transfer-ui/eslint.config.mjs",
         "web/packages/trakrai-cloud-transfer-ui/package.json",
         "web/packages/trakrai-cloud-transfer-ui/src/components/cloud-transfer-panel.tsx",
-        "web/packages/trakrai-cloud-transfer-ui/src/hooks/use-cloud-transfer.ts",
-        "web/packages/trakrai-cloud-transfer-ui/src/lib/cloud-transfer-types.ts",
+        "web/packages/trakrai-cloud-transfer-ui/src/components/cloud-transfer-queue-browser.tsx",
+        "web/packages/trakrai-cloud-transfer-ui/src/components/cloud-transfer-selected-transfer-card.tsx",
+        "web/packages/trakrai-cloud-transfer-ui/src/components/cloud-transfer-status-card.tsx",
+        "web/packages/trakrai-cloud-transfer-ui/src/components/cloud-transfer-utils.ts",
+        "web/packages/trakrai-cloud-transfer-ui/src/components/enqueue-download-card.tsx",
+        "web/packages/trakrai-cloud-transfer-ui/src/components/enqueue-upload-card.tsx",
+        "web/packages/trakrai-cloud-transfer-ui/src/types.ts",
         "web/packages/trakrai-cloud-transfer-ui/tsconfig.build.json",
         "web/packages/trakrai-cloud-transfer-ui/tsconfig.json",
         "web/packages/trakrai-cloud-transfer-ui/tsdown.config.ts",
@@ -345,7 +367,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.3"
+      "version": "0.1.4"
     },
     "live-feed": {
       "artifacts": {
@@ -924,5 +946,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T06:49:47Z"
+  "updatedAt": "2026-04-18T11:32:02Z"
 }
