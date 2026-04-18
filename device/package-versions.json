@@ -84,10 +84,10 @@
     "cloud-comm": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-comm-linux-arm64-v0.1.4",
-          "remotePath": "cloud-comm/0.1.4/linux-arm64/cloud-comm-linux-arm64-v0.1.4",
-          "sha256": "73b9d3e9de4fe0bc95e4de56cb75c07e4f363b8cfb01bc3b3283078099b60a1e",
-          "updatedAt": "2026-04-18T04:46:51Z"
+          "fileName": "cloud-comm-linux-arm64-v0.1.5",
+          "remotePath": "cloud-comm/0.1.5/linux-arm64/cloud-comm-linux-arm64-v0.1.5",
+          "sha256": "9e1c774e4e7b792e754d83243e21f5a7b9ecfb98b677d314674e92402c956302",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -107,11 +107,19 @@
           "sha256": "73b9d3e9de4fe0bc95e4de56cb75c07e4f363b8cfb01bc3b3283078099b60a1e",
           "updatedAt": "2026-04-18T04:46:51Z",
           "version": "0.1.4"
+        },
+        {
+          "fileName": "cloud-comm-linux-arm64-v0.1.5",
+          "platform": "linux/arm64",
+          "remotePath": "cloud-comm/0.1.5/linux-arm64/cloud-comm-linux-arm64-v0.1.5",
+          "sha256": "9e1c774e4e7b792e754d83243e21f5a7b9ecfb98b677d314674e92402c956302",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.5"
         }
       ],
       "kind": "go-binary",
       "serviceName": "cloud-comm",
-      "sourceHash": "sha256:cfa9264ae326303be05357931b5768166382b48f09e081098c080a87321a6be8",
+      "sourceHash": "sha256:8e165805c52d1706187ae63ca1155e05ef79be425e5bdfee50c946a1ab0d5112",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-comm/main.go",
@@ -138,15 +146,15 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.4"
+      "version": "0.1.5"
     },
     "cloud-transfer": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "cloud-transfer-linux-arm64-v0.1.4",
-          "remotePath": "cloud-transfer/0.1.4/linux-arm64/cloud-transfer-linux-arm64-v0.1.4",
-          "sha256": "9b94cf580e85ce37563c4e53c176a74a7c37e8d243860022859a5c872f96cd8c",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "cloud-transfer-linux-arm64-v0.1.5",
+          "remotePath": "cloud-transfer/0.1.5/linux-arm64/cloud-transfer-linux-arm64-v0.1.5",
+          "sha256": "5df87ec28556659da3be7d0022c0da9a06a86fd1a5d05e8b0d83d2aae62cce4f",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -174,11 +182,19 @@
           "sha256": "9b94cf580e85ce37563c4e53c176a74a7c37e8d243860022859a5c872f96cd8c",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.4"
+        },
+        {
+          "fileName": "cloud-transfer-linux-arm64-v0.1.5",
+          "platform": "linux/arm64",
+          "remotePath": "cloud-transfer/0.1.5/linux-arm64/cloud-transfer-linux-arm64-v0.1.5",
+          "sha256": "5df87ec28556659da3be7d0022c0da9a06a86fd1a5d05e8b0d83d2aae62cce4f",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.5"
         }
       ],
       "kind": "go-binary",
       "serviceName": "cloud-transfer",
-      "sourceHash": "sha256:b391f5b2550ed43f6fb6208e3bc97f1bed61ec9482f7b035fb07e08956b10185",
+      "sourceHash": "sha256:bb1e5b06408fbeddd9b8e775dda736c73f9d32d17b121818ed519c0849a9cf51",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/cloud-transfer/main.go",
@@ -215,7 +231,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.4"
+      "version": "0.1.5"
     },
     "edge-ui": {
       "artifacts": {
@@ -457,10 +473,10 @@
     "live-feed": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "live-feed-linux-arm64-v0.1.8",
-          "remotePath": "live-feed/0.1.8/linux-arm64/live-feed-linux-arm64-v0.1.8",
-          "sha256": "7d4289f30fc0c3d48cd8c493595e300e28d5a80a3af594a7bcb884541018a176",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "live-feed-linux-arm64-v0.1.9",
+          "remotePath": "live-feed/0.1.9/linux-arm64/live-feed-linux-arm64-v0.1.9",
+          "sha256": "78cc567d8a5f341f9b04bb783af4e6efdcba9a238510ce652a465e20ceb0b6d6",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -488,11 +504,19 @@
           "sha256": "7d4289f30fc0c3d48cd8c493595e300e28d5a80a3af594a7bcb884541018a176",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.8"
+        },
+        {
+          "fileName": "live-feed-linux-arm64-v0.1.9",
+          "platform": "linux/arm64",
+          "remotePath": "live-feed/0.1.9/linux-arm64/live-feed-linux-arm64-v0.1.9",
+          "sha256": "78cc567d8a5f341f9b04bb783af4e6efdcba9a238510ce652a465e20ceb0b6d6",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.9"
         }
       ],
       "kind": "go-binary",
       "serviceName": "live-feed",
-      "sourceHash": "sha256:b94cab26d0ccca3cbb9f7928dd8efec6ec201cf0eda2e00bc67b4529c3b352c8",
+      "sourceHash": "sha256:1c1db67212ef69644c89fb944c57995f8b376dc5f0950a6c97980f2d0485e1f9",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/live-feed/main.go",
@@ -534,15 +558,15 @@
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     "ptz-control": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "ptz-control-linux-arm64-v0.1.4",
-          "remotePath": "ptz-control/0.1.4/linux-arm64/ptz-control-linux-arm64-v0.1.4",
-          "sha256": "547f9ec3d17256045d219409a5c37a9255f004e312ebd096cfc73ccd2e2f5467",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "ptz-control-linux-arm64-v0.1.5",
+          "remotePath": "ptz-control/0.1.5/linux-arm64/ptz-control-linux-arm64-v0.1.5",
+          "sha256": "21a7b689bcb5136bb6caddc9f4d2074e55dcc4e2e7d89c2cd9ddba383f5eed6c",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -570,11 +594,19 @@
           "sha256": "547f9ec3d17256045d219409a5c37a9255f004e312ebd096cfc73ccd2e2f5467",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.4"
+        },
+        {
+          "fileName": "ptz-control-linux-arm64-v0.1.5",
+          "platform": "linux/arm64",
+          "remotePath": "ptz-control/0.1.5/linux-arm64/ptz-control-linux-arm64-v0.1.5",
+          "sha256": "21a7b689bcb5136bb6caddc9f4d2074e55dcc4e2e7d89c2cd9ddba383f5eed6c",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.5"
         }
       ],
       "kind": "go-binary",
       "serviceName": "ptz-control",
-      "sourceHash": "sha256:f03930129326f421d15a706699403b4e67a95c473e2c2448718a84f8aba3af65",
+      "sourceHash": "sha256:2f4bd20df6c5333f2e8e15ae21bb013af30171d596a82aca79e020ac72dcf057",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/ptz-control/main.go",
@@ -607,15 +639,15 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.4"
+      "version": "0.1.5"
     },
     "roi-config": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "roi-config-linux-arm64-v0.1.5",
-          "remotePath": "roi-config/0.1.5/linux-arm64/roi-config-linux-arm64-v0.1.5",
-          "sha256": "043384dca11eaebf1fca13b3ebde23748d6154221423dd1dc10233e6774b5351",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "roi-config-linux-arm64-v0.1.6",
+          "remotePath": "roi-config/0.1.6/linux-arm64/roi-config-linux-arm64-v0.1.6",
+          "sha256": "4c758d79381b42119427821787ba8853f327146b7097038387afd1c1d51a9ee9",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -643,11 +675,19 @@
           "sha256": "043384dca11eaebf1fca13b3ebde23748d6154221423dd1dc10233e6774b5351",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.5"
+        },
+        {
+          "fileName": "roi-config-linux-arm64-v0.1.6",
+          "platform": "linux/arm64",
+          "remotePath": "roi-config/0.1.6/linux-arm64/roi-config-linux-arm64-v0.1.6",
+          "sha256": "4c758d79381b42119427821787ba8853f327146b7097038387afd1c1d51a9ee9",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.6"
         }
       ],
       "kind": "go-binary",
       "serviceName": "roi-config",
-      "sourceHash": "sha256:f8df23538ee4e5012a3de527ddb11fa74ec2c7806c8b550a7b79d899058761b6",
+      "sourceHash": "sha256:63576028f7e76f64030ff9ad42ee17ba7cc106abb0f84074139a98779369f960",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/roi-config/main.go",
@@ -681,15 +721,15 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "rtsp-feeder": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "rtsp-feeder-linux-arm64-v0.1.2",
-          "remotePath": "rtsp-feeder/0.1.2/linux-arm64/rtsp-feeder-linux-arm64-v0.1.2",
-          "sha256": "78b4f5892d49e4c36034dff3e9b5e59e5c929855e8de2c8d92498eabd3e54e16",
-          "updatedAt": "2026-04-18T04:46:51Z"
+          "fileName": "rtsp-feeder-linux-arm64-v0.1.3",
+          "remotePath": "rtsp-feeder/0.1.3/linux-arm64/rtsp-feeder-linux-arm64-v0.1.3",
+          "sha256": "1b2ecd90ba5ac5d174edafea0a726847e0be974a261b52d6da030913a27bdb8f",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -709,11 +749,19 @@
           "sha256": "78b4f5892d49e4c36034dff3e9b5e59e5c929855e8de2c8d92498eabd3e54e16",
           "updatedAt": "2026-04-18T04:46:51Z",
           "version": "0.1.2"
+        },
+        {
+          "fileName": "rtsp-feeder-linux-arm64-v0.1.3",
+          "platform": "linux/arm64",
+          "remotePath": "rtsp-feeder/0.1.3/linux-arm64/rtsp-feeder-linux-arm64-v0.1.3",
+          "sha256": "1b2ecd90ba5ac5d174edafea0a726847e0be974a261b52d6da030913a27bdb8f",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.3"
         }
       ],
       "kind": "go-binary",
       "serviceName": "rtsp-feeder",
-      "sourceHash": "sha256:ba23bee7dfed75ab75578bae85ffcdc45f3fb9c38966f9466854b74f47515ffb",
+      "sourceHash": "sha256:0f02fb7eb78a1237e33d78c65b0288f81836aef7b0f4f86820fb1264097d1b9d",
       "sourceInputs": [
         "device/Dockerfile.gstreamer",
         "device/cmd/rtsp-feeder/main.go",
@@ -736,15 +784,15 @@
         "device/internal/shared/redisconfig/config.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     "runtime-manager": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "runtime-manager-linux-arm64-v0.1.7",
-          "remotePath": "runtime-manager/0.1.7/linux-arm64/runtime-manager-linux-arm64-v0.1.7",
-          "sha256": "4c4bffcc80fc4b89abfaf420e8cd53b4b74955bb73812edf2a05f35ab28f1de5",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "runtime-manager-linux-arm64-v0.1.8",
+          "remotePath": "runtime-manager/0.1.8/linux-arm64/runtime-manager-linux-arm64-v0.1.8",
+          "sha256": "e58b68a121747720abddd301d66738d6c1b9d08f7c3936af734d444fd91c9e7a",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -780,11 +828,19 @@
           "sha256": "4c4bffcc80fc4b89abfaf420e8cd53b4b74955bb73812edf2a05f35ab28f1de5",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.7"
+        },
+        {
+          "fileName": "runtime-manager-linux-arm64-v0.1.8",
+          "platform": "linux/arm64",
+          "remotePath": "runtime-manager/0.1.8/linux-arm64/runtime-manager-linux-arm64-v0.1.8",
+          "sha256": "e58b68a121747720abddd301d66738d6c1b9d08f7c3936af734d444fd91c9e7a",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.8"
         }
       ],
       "kind": "go-binary",
       "serviceName": "runtime-manager",
-      "sourceHash": "sha256:768fb9ad3b2efb510aee79509d8815c13f0f9332bec1f1b4106068b34cb7763f",
+      "sourceHash": "sha256:1e1768580a6d7fd69841f8a1ca85db02629629152f97f0e604ef7b9b42e4f64d",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/runtime-manager/main.go",
@@ -826,7 +882,7 @@
         "device/internal/shared/logging/logging.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.7"
+      "version": "0.1.8"
     },
     "trakrai-ai-inference": {
       "artifacts": {
@@ -975,10 +1031,10 @@
     "video-recorder": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "video-recorder-linux-arm64-v0.1.5",
-          "remotePath": "video-recorder/0.1.5/linux-arm64/video-recorder-linux-arm64-v0.1.5",
-          "sha256": "8dcae62c0fd2aadf53cbf1fb02945ead8d5494904b21b5651098c0da690069d6",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "video-recorder-linux-arm64-v0.1.6",
+          "remotePath": "video-recorder/0.1.6/linux-arm64/video-recorder-linux-arm64-v0.1.6",
+          "sha256": "250174b43bc7cd669046c873034e11b5c0d651846a443815b08323794459fe08",
+          "updatedAt": "2026-04-18T15:42:52Z"
         }
       },
       "buildTarget": "go-binary",
@@ -1006,11 +1062,19 @@
           "sha256": "8dcae62c0fd2aadf53cbf1fb02945ead8d5494904b21b5651098c0da690069d6",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.5"
+        },
+        {
+          "fileName": "video-recorder-linux-arm64-v0.1.6",
+          "platform": "linux/arm64",
+          "remotePath": "video-recorder/0.1.6/linux-arm64/video-recorder-linux-arm64-v0.1.6",
+          "sha256": "250174b43bc7cd669046c873034e11b5c0d651846a443815b08323794459fe08",
+          "updatedAt": "2026-04-18T15:42:52Z",
+          "version": "0.1.6"
         }
       ],
       "kind": "go-binary",
       "serviceName": "video-recorder",
-      "sourceHash": "sha256:1731d8a6bad42d4d6454015e883f792471695ac2c1650eebf390e05817d6999d",
+      "sourceHash": "sha256:7ed7f5919f2735f0b81107364e1abcac9863a8617285620c90161add8382cfb3",
       "sourceInputs": [
         "device/Dockerfile",
         "device/cmd/video-recorder/main.go",
@@ -1055,7 +1119,7 @@
         "device/internal/videorecorder/writer.go"
       ],
       "targetType": "go-binary",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "workflow-engine": {
       "artifacts": {
@@ -1147,5 +1211,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T14:05:36Z"
+  "updatedAt": "2026-04-18T15:42:52Z"
 }
