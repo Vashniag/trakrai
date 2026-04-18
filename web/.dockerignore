@@ -4,8 +4,10 @@ node_modules
 apps/*/node_modules
 apps/*/.next
 apps/*/out
-packages/*/node_modules
-packages/*/dist
+packages/core/*/node_modules
+packages/core/*/dist
+packages/trakrai-apps/*/node_modules
+packages/trakrai-apps/*/dist
 apps/live-gateway/dist
 apps/live-gateway/.turbo
 .codex-cloud-ui-dev.ps1

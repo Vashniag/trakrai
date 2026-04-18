@@ -220,7 +220,7 @@ packages/
 ```
 
 ```json
-// packages/typescript-config/base.json
+// packages/core/typescript-config/base.json
 {
   "compilerOptions": {
     "strict": true,
@@ -266,7 +266,7 @@ packages/
 ```
 
 ```json
-// packages/eslint-config/package.json
+// packages/core/eslint-config/package.json
 {
   "name": "@repo/eslint-config",
   "exports": {

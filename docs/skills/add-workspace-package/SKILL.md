@@ -17,8 +17,8 @@ Read [`docs/README.md`](/Users/hardikj/code/web-apps/trakrbi/trakrai/docs/README
 
 1. Inspect the nearest existing package first.
    For service dashboards, start with:
-   - `web/packages/trakrai-cloud-transfer-ui`
-   - `web/packages/trakrai-runtime-manager-ui`
+   - `web/packages/trakrai-apps/trakrai-cloud-transfer-ui`
+   - `web/packages/trakrai-apps/trakrai-runtime-manager-ui`
 
 2. Keep package responsibilities narrow.
    - Feature packages own rendering, typed service calls, local filters, and UI helpers.
@@ -35,7 +35,7 @@ Read [`docs/README.md`](/Users/hardikj/code/web-apps/trakrbi/trakrai/docs/README
 
 4. Prefer generated contract types.
    For device-backed features, alias types from:
-   - `web/packages/trakrai-live-transport/src/generated-contracts/*`
+   - `web/packages/core/trakrai-live-transport/src/generated-contracts/*`
 
 5. Follow the common feature split.
    Use:

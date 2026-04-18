@@ -18,7 +18,7 @@ Read [`docs/README.md`](/Users/hardikj/code/web-apps/trakrbi/trakrai/docs/README
 
 1. Find the generated contract and service docs first.
    Start with:
-   - `web/packages/trakrai-live-transport/src/generated-contracts/<service>.ts`
+   - `web/packages/core/trakrai-live-transport/src/generated-contracts/<service>.ts`
    - the corresponding `device/` README, manifest, or local test definition
 
 2. Mirror an existing feature package.

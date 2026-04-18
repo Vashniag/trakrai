@@ -16,7 +16,7 @@ importers:
     devDependencies:
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:packages/typescript-config
+        version: link:packages/core/typescript-config
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -45,6 +45,37 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  apps/live-gateway:
+    dependencies:
+      '@t3-oss/env-core':
+        specifier: ^0.13.11
+        version: 0.13.11(typescript@6.0.3)(zod@4.3.6)
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
+      mqtt:
+        specifier: ^5.15.1
+        version: 5.15.1
+      ws:
+        specifier: ^8.20.0
+        version: 8.20.0
+      zod:
+        specifier: 4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   apps/trakrai:
     dependencies:
       '@better-auth/passkey':
@@ -61,31 +92,31 @@ importers:
         version: 5.99.0(react@19.2.5)
       '@trakrai/audio-manager-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-audio-manager-ui
+        version: link:../../packages/trakrai-apps/trakrai-audio-manager-ui
       '@trakrai/backend':
         specifier: workspace:*
-        version: link:../../packages/trakrai-backend
+        version: link:../../packages/core/trakrai-backend
       '@trakrai/cloud-transfer-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-cloud-transfer-ui
+        version: link:../../packages/trakrai-apps/trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
-        version: link:../../packages/trakrai-design-system
+        version: link:../../packages/core/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
-        version: link:../../packages/trakrai-live-transport
+        version: link:../../packages/core/trakrai-live-transport
       '@trakrai/live-viewer':
         specifier: workspace:*
-        version: link:../../packages/trakrai-live-viewer
+        version: link:../../packages/trakrai-apps/trakrai-live-viewer
       '@trakrai/ptz-controller':
         specifier: workspace:*
-        version: link:../../packages/trakrai-ptz-controller
+        version: link:../../packages/trakrai-apps/trakrai-ptz-controller
       '@trakrai/runtime-manager-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-runtime-manager-ui
+        version: link:../../packages/trakrai-apps/trakrai-runtime-manager-ui
       '@trakrai/webrtc':
         specifier: workspace:*
-        version: link:../../packages/trakrai-webrtc
+        version: link:../../packages/core/trakrai-webrtc
       '@trpc/client':
         specifier: ^11.16.0
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.2))(typescript@6.0.2)
@@ -173,10 +204,10 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
-        version: link:../../packages/eslint-config
+        version: link:../../packages/core/eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:../../packages/typescript-config
+        version: link:../../packages/core/typescript-config
       drizzle-kit:
         specifier: 1.0.0-beta.15-90d1d1a
         version: 1.0.0-beta.15-90d1d1a
@@ -197,34 +228,34 @@ importers:
         version: 5.99.0(react@19.2.5)
       '@trakrai/audio-manager-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-audio-manager-ui
+        version: link:../../packages/trakrai-apps/trakrai-audio-manager-ui
       '@trakrai/backend':
         specifier: workspace:*
-        version: link:../../packages/trakrai-backend
+        version: link:../../packages/core/trakrai-backend
       '@trakrai/cloud-transfer-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-cloud-transfer-ui
+        version: link:../../packages/trakrai-apps/trakrai-cloud-transfer-ui
       '@trakrai/design-system':
         specifier: workspace:*
-        version: link:../../packages/trakrai-design-system
+        version: link:../../packages/core/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
-        version: link:../../packages/trakrai-live-transport
+        version: link:../../packages/core/trakrai-live-transport
       '@trakrai/live-viewer':
         specifier: workspace:*
-        version: link:../../packages/trakrai-live-viewer
+        version: link:../../packages/trakrai-apps/trakrai-live-viewer
       '@trakrai/ptz-controller':
         specifier: workspace:*
-        version: link:../../packages/trakrai-ptz-controller
+        version: link:../../packages/trakrai-apps/trakrai-ptz-controller
       '@trakrai/roi-configurator':
         specifier: workspace:*
-        version: link:../../packages/trakrai-roi-configurator
+        version: link:../../packages/trakrai-apps/trakrai-roi-configurator
       '@trakrai/runtime-manager-ui':
         specifier: workspace:*
-        version: link:../../packages/trakrai-runtime-manager-ui
+        version: link:../../packages/trakrai-apps/trakrai-runtime-manager-ui
       '@trakrai/webrtc':
         specifier: workspace:*
-        version: link:../../packages/trakrai-webrtc
+        version: link:../../packages/core/trakrai-webrtc
       '@trpc/client':
         specifier: ^11.16.0
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.2))(typescript@6.0.2)
@@ -264,10 +295,10 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
-        version: link:../../packages/eslint-config
+        version: link:../../packages/core/eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:../../packages/typescript-config
+        version: link:../../packages/core/typescript-config
       eslint:
         specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
@@ -275,7 +306,7 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/eslint-config:
+  packages/core/eslint-config:
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.5
@@ -347,47 +378,7 @@ importers:
         specifier: ^8.58.2
         version: 8.58.2(eslint@10.2.0(jiti@2.6.1))(typescript@6.0.2)
 
-  packages/trakrai-audio-manager-ui:
-    dependencies:
-      '@trakrai/design-system':
-        specifier: workspace:*
-        version: link:../trakrai-design-system
-      '@trakrai/live-transport':
-        specifier: workspace:*
-        version: link:../trakrai-live-transport
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5(react@19.2.5)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      '@types/react':
-        specifier: ^19.2.10
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      eslint:
-        specifier: ^10.2.1
-        version: 10.2.1(jiti@2.6.1)
-      tsdown:
-        specifier: ^0.21.9
-        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
-      typescript:
-        specifier: ^6
-        version: 6.0.3
-
-  packages/trakrai-backend:
+  packages/core/trakrai-backend:
     dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.1032.0
@@ -445,47 +436,7 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/trakrai-cloud-transfer-ui:
-    dependencies:
-      '@trakrai/design-system':
-        specifier: workspace:*
-        version: link:../trakrai-design-system
-      '@trakrai/live-transport':
-        specifier: workspace:*
-        version: link:../trakrai-live-transport
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5(react@19.2.5)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      '@types/react':
-        specifier: ^19.2.10
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      eslint:
-        specifier: ^10.2.1
-        version: 10.2.1(jiti@2.6.1)
-      tsdown:
-        specifier: ^0.21.9
-        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
-      typescript:
-        specifier: ^6
-        version: 6.0.2
-
-  packages/trakrai-design-system:
+  packages/core/trakrai-design-system:
     dependencies:
       '@base-ui/react':
         specifier: ^1.4.0
@@ -540,7 +491,7 @@ importers:
         version: 3.8.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react-is@16.13.1)(react@19.2.5)(redux@5.0.1)
       shadcn:
         specifier: ^4.3.0
-        version: 4.3.0(@types/node@25.6.0)(typescript@6.0.2)
+        version: 4.3.0(@types/node@25.6.0)(typescript@6.0.3)
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -583,12 +534,12 @@ importers:
         version: 4.2.2
       tsdown:
         specifier: ^0.21.9
-        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
       typescript:
         specifier: ^6
-        version: 6.0.2
+        version: 6.0.3
 
-  packages/trakrai-live-transport:
+  packages/core/trakrai-live-transport:
     dependencies:
       react:
         specifier: ^18.0.0 || ^19.0.0
@@ -628,17 +579,136 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/trakrai-live-viewer:
+  packages/core/trakrai-webrtc:
     dependencies:
-      '@trakrai/design-system':
-        specifier: workspace:*
-        version: link:../trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
         version: link:../trakrai-live-transport
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^10.2.1
+        version: 10.2.1(jiti@2.6.1)
+      tsdown:
+        specifier: ^0.21.9
+        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+      typescript:
+        specifier: ^6
+        version: 6.0.2
+
+  packages/core/typescript-config: {}
+
+  packages/trakrai-apps/trakrai-audio-manager-ui:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../../core/trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../../core/trakrai-live-transport
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../../core/eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../core/typescript-config
+      eslint:
+        specifier: ^10.2.1
+        version: 10.2.1(jiti@2.6.1)
+      tsdown:
+        specifier: ^0.21.9
+        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.3)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+
+  packages/trakrai-apps/trakrai-cloud-transfer-ui:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../../core/trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../../core/trakrai-live-transport
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@types/react':
+        specifier: ^19.2.10
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../../core/eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../core/typescript-config
+      eslint:
+        specifier: ^10.2.1
+        version: 10.2.1(jiti@2.6.1)
+      tsdown:
+        specifier: ^0.21.9
+        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
+      typescript:
+        specifier: ^6
+        version: 6.0.2
+
+  packages/trakrai-apps/trakrai-live-viewer:
+    dependencies:
+      '@trakrai/design-system':
+        specifier: workspace:*
+        version: link:../../core/trakrai-design-system
+      '@trakrai/live-transport':
+        specifier: workspace:*
+        version: link:../../core/trakrai-live-transport
       '@trakrai/webrtc':
         specifier: workspace:*
-        version: link:../trakrai-webrtc
+        version: link:../../core/trakrai-webrtc
       react:
         specifier: ^18.0.0 || ^19.0.0
         version: 19.2.5
@@ -660,10 +730,10 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../core/eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:../typescript-config
+        version: link:../../core/typescript-config
       eslint:
         specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
@@ -677,14 +747,14 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/trakrai-ptz-controller:
+  packages/trakrai-apps/trakrai-ptz-controller:
     dependencies:
       '@trakrai/design-system':
         specifier: workspace:*
-        version: link:../trakrai-design-system
+        version: link:../../core/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
-        version: link:../trakrai-live-transport
+        version: link:../../core/trakrai-live-transport
       react:
         specifier: ^18.0.0 || ^19.0.0
         version: 19.2.5
@@ -706,10 +776,10 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../core/eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:../typescript-config
+        version: link:../../core/typescript-config
       eslint:
         specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
@@ -723,14 +793,14 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/trakrai-roi-configurator:
+  packages/trakrai-apps/trakrai-roi-configurator:
     dependencies:
       '@trakrai/design-system':
         specifier: workspace:*
-        version: link:../trakrai-design-system
+        version: link:../../core/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
-        version: link:../trakrai-live-transport
+        version: link:../../core/trakrai-live-transport
       '@trakrai/live-viewer':
         specifier: workspace:*
         version: link:../trakrai-live-viewer
@@ -755,10 +825,10 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../core/eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:../typescript-config
+        version: link:../../core/typescript-config
       eslint:
         specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
@@ -769,14 +839,14 @@ importers:
         specifier: ^6
         version: 6.0.2
 
-  packages/trakrai-runtime-manager-ui:
+  packages/trakrai-apps/trakrai-runtime-manager-ui:
     dependencies:
       '@trakrai/design-system':
         specifier: workspace:*
-        version: link:../trakrai-design-system
+        version: link:../../core/trakrai-design-system
       '@trakrai/live-transport':
         specifier: workspace:*
-        version: link:../trakrai-live-transport
+        version: link:../../core/trakrai-live-transport
       react:
         specifier: ^18.0.0 || ^19.0.0
         version: 19.2.5
@@ -798,10 +868,10 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@workspace/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../core/eslint-config
       '@workspace/typescript-config':
         specifier: workspace:*
-        version: link:../typescript-config
+        version: link:../../core/typescript-config
       eslint:
         specifier: ^10.2.1
         version: 10.2.1(jiti@2.6.1)
@@ -814,76 +884,6 @@ importers:
       typescript:
         specifier: ^6
         version: 6.0.2
-
-  packages/trakrai-webrtc:
-    dependencies:
-      '@trakrai/live-transport':
-        specifier: workspace:*
-        version: link:../trakrai-live-transport
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.2.5(react@19.2.5)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      '@types/react':
-        specifier: ^19.2.10
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      eslint:
-        specifier: ^10.2.1
-        version: 10.2.1(jiti@2.6.1)
-      tsdown:
-        specifier: ^0.21.9
-        version: 0.21.9(oxc-resolver@11.19.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2))(typescript@6.0.2)
-      typescript:
-        specifier: ^6
-        version: 6.0.2
-
-  packages/typescript-config: {}
-
-  apps/live-gateway:
-    dependencies:
-      '@t3-oss/env-core':
-        specifier: ^0.13.11
-        version: 0.13.11(typescript@6.0.3)(zod@4.3.6)
-      express:
-        specifier: ^5.2.1
-        version: 5.2.1
-      mqtt:
-        specifier: ^5.15.1
-        version: 5.15.1
-      ws:
-        specifier: ^8.20.0
-        version: 8.20.0
-      zod:
-        specifier: 4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@types/express':
-        specifier: ^5.0.6
-        version: 5.0.6
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
 
 packages:
 
@@ -12003,14 +12003,14 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
-  cosmiconfig@9.0.1(typescript@6.0.2):
+  cosmiconfig@9.0.1(typescript@6.0.3):
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
       js-yaml: 4.1.1
       parse-json: 5.2.0
     optionalDependencies:
-      typescript: 6.0.2
+      typescript: 6.0.3
 
   cross-spawn@7.0.6:
     dependencies:
@@ -13722,7 +13722,7 @@ snapshots:
       - '@azure/core-client'
       - supports-color
 
-  msw@2.13.3(@types/node@25.6.0)(typescript@6.0.2):
+  msw@2.13.3(@types/node@25.6.0)(typescript@6.0.3):
     dependencies:
       '@inquirer/confirm': 5.1.21(@types/node@25.6.0)
       '@mswjs/interceptors': 0.41.3
@@ -13743,7 +13743,7 @@ snapshots:
       until-async: 3.0.2
       yargs: 17.7.2
     optionalDependencies:
-      typescript: 6.0.2
+      typescript: 6.0.3
     transitivePeerDependencies:
       - '@types/node'
 
@@ -14703,7 +14703,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  shadcn@4.3.0(@types/node@25.6.0)(typescript@6.0.2):
+  shadcn@4.3.0(@types/node@25.6.0)(typescript@6.0.3):
     dependencies:
       '@babel/core': 7.29.0
       '@babel/parser': 7.29.2
@@ -14714,7 +14714,7 @@ snapshots:
       '@types/validate-npm-package-name': 4.0.2
       browserslist: 4.28.2
       commander: 14.0.3
-      cosmiconfig: 9.0.1(typescript@6.0.2)
+      cosmiconfig: 9.0.1(typescript@6.0.3)
       dedent: 1.7.2
       deepmerge: 4.3.1
       diff: 8.0.4
@@ -14724,7 +14724,7 @@ snapshots:
       fuzzysort: 3.1.0
       https-proxy-agent: 7.0.6
       kleur: 4.1.5
-      msw: 2.13.3(@types/node@25.6.0)(typescript@6.0.2)
+      msw: 2.13.3(@types/node@25.6.0)(typescript@6.0.3)
       node-fetch: 3.3.2
       open: 11.0.0
       ora: 8.2.0

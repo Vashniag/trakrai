@@ -16,39 +16,39 @@ const config: KnipConfig = {
       entry: ['test/**/*.test.ts'],
       project: ['src/**/*.{ts,tsx}', 'test/**/*.ts'],
     },
-    'packages/trakrai-backend': {
+    'packages/core/trakrai-backend': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-cloud-transfer-ui': {
+    'packages/trakrai-apps/trakrai-cloud-transfer-ui': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-design-system': {
+    'packages/core/trakrai-design-system': {
       project: ['src/**/*.{ts,tsx}'],
       ignoreDependencies: ['postcss-load-config', '@tailwindcss/postcss', 'next-themes'],
     },
-    'packages/trakrai-live-transport': {
+    'packages/core/trakrai-live-transport': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-live-viewer': {
+    'packages/trakrai-apps/trakrai-live-viewer': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-ptz-controller': {
+    'packages/trakrai-apps/trakrai-ptz-controller': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-roi-configurator': {
+    'packages/trakrai-apps/trakrai-roi-configurator': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-runtime-manager-ui': {
+    'packages/trakrai-apps/trakrai-runtime-manager-ui': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/trakrai-webrtc': {
+    'packages/core/trakrai-webrtc': {
       project: ['src/**/*.{ts,tsx}'],
     },
-    'packages/eslint-config': {
+    'packages/core/eslint-config': {
       entry: ['*.js'],
       project: ['**/*.js'],
     },
-    'packages/typescript-config': {
+    'packages/core/typescript-config': {
       entry: ['*.json'],
       ignoreDependencies: ['next'],
     },

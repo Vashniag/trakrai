@@ -30,7 +30,7 @@ This guide is intentionally explicit. It covers the full currently supported com
 - Generated service-contract bindings are emitted from `device/manifests/service-methods.json`:
   - Go bindings under `device/internal/ipc/contracts/`
   - Python bindings under `device/python/trakrai_service_runtime/src/generated_contracts/`
-  - TypeScript bindings under `web/packages/trakrai-live-transport/src/generated-contracts/`
+  - TypeScript bindings under `web/packages/core/trakrai-live-transport/src/generated-contracts/`
 
 ## Full Command Tree
 
@@ -743,7 +743,7 @@ Outputs:
 - Python:
   - `device/python/trakrai_service_runtime/src/generated_contracts/`
 - TypeScript:
-  - `web/packages/trakrai-live-transport/src/generated-contracts/`
+  - `web/packages/core/trakrai-live-transport/src/generated-contracts/`
   - includes one file per service plus `index.ts`
 
 Verified commands:

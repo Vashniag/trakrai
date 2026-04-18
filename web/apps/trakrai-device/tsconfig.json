@@ -4,7 +4,7 @@
     "types": ["node"],
     "paths": {
       "@/*": ["./src/*"],
-      "@trakrai/design-system/*": ["../../packages/trakrai-design-system/src/*"]
+      "@trakrai/design-system/*": ["../../packages/core/trakrai-design-system/src/*"]
     },
     "plugins": [
       {

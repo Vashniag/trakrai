@@ -15,15 +15,15 @@ Create a reusable browser package for the device-side `audio-manager` service th
 
 Before editing, the implementation reviewed:
 
-- `web/packages/trakrai-cloud-transfer-ui`
+- `web/packages/trakrai-apps/trakrai-cloud-transfer-ui`
   The closest current example of a service dashboard package using the generated contracts and typed query/mutation helpers.
-- `web/packages/trakrai-runtime-manager-ui`
+- `web/packages/trakrai-apps/trakrai-runtime-manager-ui`
   The current managed-service panel pattern and query invalidation style.
 - `web/packages/trakrai-live-ui`
   The thin composition-shell layer used by both cloud and edge apps.
 - `web/apps/trakrai-device/src/components/edge-console-surface.tsx`
   The edge navigation and provider mounting pattern.
-- `web/packages/trakrai-live-transport/src/generated-contracts/audio_manager.ts`
+- `web/packages/core/trakrai-live-transport/src/generated-contracts/audio_manager.ts`
   The generated method names and payload shapes.
 - `device/python/audio_manager/README.md`
   Runtime responsibilities and user-facing service behavior.
@@ -34,7 +34,7 @@ Before editing, the implementation reviewed:
 
 The drafted package lives at:
 
-- `web/packages/trakrai-audio-manager-ui`
+- `web/packages/trakrai-apps/trakrai-audio-manager-ui`
 
 It mirrors the transfers manager split:
 

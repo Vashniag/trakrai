@@ -17,11 +17,11 @@ Current members:
 - `apps/trakrai`: cloud-facing Next.js app.
 - `apps/trakrai-device`: static-exportable device-hosted Next.js app.
 - `apps/live-gateway`: cloud WebSocket and HTTP bridge for live view.
-- `packages/trakrai-design-system`: shared presentational primitives.
-- `packages/trakrai-audio-manager-ui`: typed audio queue UI for the `audio-manager` device service.
-- `packages/trakrai-live-transport`: transport client, runtime state, diagnostics, and WebRTC providers.
-- `packages/trakrai-live-viewer`: live-view feature hook, packet mappers, and viewer UI.
-- `packages/trakrai-ptz-controller`: PTZ feature hook, packet mappers, and PTZ UI.
+- `packages/core/trakrai-design-system`: shared presentational primitives.
+- `packages/trakrai-apps/trakrai-audio-manager-ui`: typed audio queue UI for the `audio-manager` device service.
+- `packages/core/trakrai-live-transport`: transport client, runtime state, diagnostics, and WebRTC providers.
+- `packages/trakrai-apps/trakrai-live-viewer`: live-view feature hook, packet mappers, and viewer UI.
+- `packages/trakrai-apps/trakrai-ptz-controller`: PTZ feature hook, packet mappers, and PTZ UI.
 - `packages/trakrai-live-ui`: thin composition shell that assembles viewer, PTZ, diagnostics, inventory, and services panels.
 
 ## Architectural patterns on the web side
@@ -232,13 +232,13 @@ Use these placement rules when extending the web side:
 
 - `apps/*`
   Only for route shells, runtime config selection, env wiring, and app-only composition.
-- `packages/trakrai-live-transport`
+- `packages/core/trakrai-live-transport`
   For transport clients, provider contexts, generic runtime panels, diagnostics, and browser/device bridge primitives.
-- `packages/trakrai-live-viewer`
+- `packages/trakrai-apps/trakrai-live-viewer`
   For live-view packet helpers, live-view hooks, and live-view UI.
-- `packages/trakrai-ptz-controller`
+- `packages/trakrai-apps/trakrai-ptz-controller`
   For PTZ packet helpers, PTZ hooks, and PTZ UI.
-- `packages/trakrai-audio-manager-ui`
+- `packages/trakrai-apps/trakrai-audio-manager-ui`
   For device-side audio queue actions, job inspection, and audio manager diagnostics.
 - `packages/trakrai-live-ui`
   For assembling multiple feature packages into a workspace shell.

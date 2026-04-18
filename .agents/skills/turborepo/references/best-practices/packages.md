@@ -188,7 +188,7 @@ packages/
 ### TypeScript Config
 
 ```json
-// packages/typescript-config/package.json
+// packages/core/typescript-config/package.json
 {
   "name": "@repo/typescript-config",
   "exports": {
@@ -202,7 +202,7 @@ packages/
 ### ESLint Config
 
 ```json
-// packages/eslint-config/package.json
+// packages/core/eslint-config/package.json
 {
   "name": "@repo/eslint-config",
   "exports": {
