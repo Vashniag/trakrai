@@ -220,10 +220,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.5.zip",
-          "remotePath": "edge-ui/0.1.5/universal/edge-ui-v0.1.5.zip",
-          "sha256": "c9ae4d1093ecbe34fd6aa7d47d5878e4889d2c882254baa8f193e97352360be6",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "fileName": "edge-ui-v0.1.6.zip",
+          "remotePath": "edge-ui/0.1.6/universal/edge-ui-v0.1.6.zip",
+          "sha256": "2095d4bbea3d2849352a33976ea7c19267125cdd869cde3fa74dc55ee5b7f97f",
+          "updatedAt": "2026-04-18T13:27:50Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -251,11 +251,19 @@
           "sha256": "c9ae4d1093ecbe34fd6aa7d47d5878e4889d2c882254baa8f193e97352360be6",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.5"
+        },
+        {
+          "fileName": "edge-ui-v0.1.6.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.6/universal/edge-ui-v0.1.6.zip",
+          "sha256": "2095d4bbea3d2849352a33976ea7c19267125cdd869cde3fa74dc55ee5b7f97f",
+          "updatedAt": "2026-04-18T13:27:50Z",
+          "version": "0.1.6"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:274af80a13b4b93010eea90fb1fbcb4bb66908e3a1f59a7063d979cc73709730",
+      "sourceHash": "sha256:b14f80845c80d5e684f442e1fae61a427ff44e93a8680246fb9773d4a5ead263",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/globals.css",
@@ -325,13 +333,24 @@
         "web/packages/trakrai-live-transport/README.md",
         "web/packages/trakrai-live-transport/eslint.config.mjs",
         "web/packages/trakrai-live-transport/package.json",
+        "web/packages/trakrai-live-transport/src/generated-contracts/audio_manager.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/cloud_transfer.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/index.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/live_feed.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/ptz_control.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/roi_config.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/runtime_manager.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/video_recorder.ts",
+        "web/packages/trakrai-live-transport/src/generated-contracts/workflow_engine.ts",
         "web/packages/trakrai-live-transport/src/hooks/use-device-service.ts",
+        "web/packages/trakrai-live-transport/src/hooks/use-typed-device-service.ts",
         "web/packages/trakrai-live-transport/src/lib/device-protocol-types.ts",
         "web/packages/trakrai-live-transport/src/lib/live-client.ts",
         "web/packages/trakrai-live-transport/src/lib/live-display-utils.ts",
         "web/packages/trakrai-live-transport/src/lib/live-transport-utils.ts",
         "web/packages/trakrai-live-transport/src/lib/live-types.ts",
         "web/packages/trakrai-live-transport/src/lib/runtime-manager-types.ts",
+        "web/packages/trakrai-live-transport/src/lib/service-contract-runtime.ts",
         "web/packages/trakrai-live-transport/src/providers/live-transport-provider.tsx",
         "web/packages/trakrai-live-transport/src/styles.css",
         "web/packages/trakrai-live-transport/tsconfig.build.json",
@@ -409,7 +428,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "live-feed": {
       "artifacts": {
@@ -1104,5 +1123,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T12:05:21Z"
+  "updatedAt": "2026-04-18T13:27:50Z"
 }
