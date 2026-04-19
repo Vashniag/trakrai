@@ -35,6 +35,21 @@ export const CloudUserButton = () => {
         <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
+          onClick={() => {
+            router.push('/devices' as Route);
+          }}
+        >
+          Devices
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            router.push('/access-control' as Route);
+          }}
+        >
+          Access control
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
           onClick={async () => {
             await signOut({
               fetchOptions: {

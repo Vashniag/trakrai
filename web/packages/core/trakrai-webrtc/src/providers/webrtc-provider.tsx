@@ -37,6 +37,7 @@ type WebRtcSignalSender = (type: 'ice-candidate' | 'sdp-answer', payload: unknow
 
 export type WebRtcProviderProps = Readonly<{
   children: ReactNode;
+  gatewayAccessToken?: string;
   httpBaseUrl: string;
   iceTransportPolicy?: RTCIceTransportPolicy;
 }>;
@@ -73,9 +74,11 @@ const PEER_CLOSED_EVENT_TYPE: WebRtcEvent['type'] = 'peer-closed';
 
 export const WebRtcProvider = ({
   children,
+  gatewayAccessToken,
   httpBaseUrl,
   iceTransportPolicy = 'all',
 }: WebRtcProviderProps) => {
+  const normalizedGatewayAccessToken = normalizeOptionalString(gatewayAccessToken) ?? '';
   const normalizedHttpBaseUrl = normalizeEndpointUrl(httpBaseUrl);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
@@ -256,6 +259,12 @@ export const WebRtcProvider = ({
 
         const iceResponse = await fetch(`${normalizedHttpBaseUrl}/api/ice-config`, {
           cache: 'no-store',
+          headers:
+            normalizedGatewayAccessToken === ''
+              ? undefined
+              : {
+                  Authorization: `Bearer ${normalizedGatewayAccessToken}`,
+                },
         });
         if (!iceResponse.ok) {
           throw new Error(`ICE config request failed with ${iceResponse.status}`);
@@ -381,7 +390,14 @@ export const WebRtcProvider = ({
         emitEvent({ message, type: 'error' });
       }
     },
-    [cleanupPeer, currentSessionId, emitEvent, iceTransportPolicy, normalizedHttpBaseUrl],
+    [
+      cleanupPeer,
+      currentSessionId,
+      emitEvent,
+      iceTransportPolicy,
+      normalizedGatewayAccessToken,
+      normalizedHttpBaseUrl,
+    ],
   );
 
   const handleRemoteIceCandidate = useCallback(

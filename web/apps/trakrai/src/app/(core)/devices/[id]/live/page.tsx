@@ -7,10 +7,11 @@ import { DeviceLivePage } from '@/components/device-live-page';
 import { cloudAppBuildConfig } from '@/lib/build-config';
 
 const DeviceLiveRoutePage = () => {
-  const { httpBaseUrl } = useLiveTransport();
+  const { gatewayAccessToken, httpBaseUrl } = useLiveTransport();
 
   return (
     <WebRtcProvider
+      gatewayAccessToken={gatewayAccessToken}
       httpBaseUrl={httpBaseUrl}
       iceTransportPolicy={cloudAppBuildConfig.iceTransportPolicy}
     >

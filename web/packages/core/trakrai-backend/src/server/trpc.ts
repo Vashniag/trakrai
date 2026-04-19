@@ -1,18 +1,18 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { and, eq, type EmptyRelations } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { type Pool } from 'pg';
 import superjson from 'superjson';
 import { treeifyError, ZodError } from 'zod';
 
+import type { DatabaseClient } from '../db/client';
 import type { StorageProvider } from '../lib/storage/interface';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { OpenApiMeta } from 'trpc-to-openapi';
 import type winston from 'winston';
 
 import { device } from '../db/schema';
 import { withRequestContext } from '../lib/request-context';
 
-export type Database = NodePgDatabase<Record<string, never>, EmptyRelations> & {
+export type Database = DatabaseClient & {
   $client: Pool;
 };
 
@@ -79,6 +79,10 @@ type Context = {
         email: string;
         emailVerified: boolean;
         name: string;
+        role?: string | null | undefined;
+        banned?: boolean | null | undefined;
+        banReason?: string | null | undefined;
+        banExpires?: Date | null | undefined;
       };
     } | null;
   }>;
@@ -152,7 +156,7 @@ export const deviceProcedure = t.procedure
           and(
             eq(device.accessToken, accessToken),
             eq(device.isActive, true),
-            eq(device.deviceId, deviceId),
+            eq(device.id, deviceId),
           ),
         )
         .limit(1);
@@ -172,7 +176,7 @@ export const deviceProcedure = t.procedure
         const devices = await ctx.db
           .select()
           .from(device)
-          .where(and(eq(device.isActive, true), eq(device.deviceId, deviceId)))
+          .where(and(eq(device.isActive, true), eq(device.id, deviceId)))
           .limit(1);
         foundDevice = devices[0];
       }
@@ -195,7 +199,6 @@ export const deviceProcedure = t.procedure
 
 type Device = {
   id: string;
-  deviceId: string;
   name: string;
   description: string | null;
   accessToken: string;

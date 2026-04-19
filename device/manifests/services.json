@@ -7,9 +7,7 @@
       "displayName": "Cloud comm",
       "description": "MQTT bridge, IPC router, edge WebSocket transport, and runtime-config API.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "cloud-comm.json",
       "schemaPath": "device/config-schemas/services/cloud-comm.schema.json",
       "sampleConfigPath": "device/configs/cloud-comm.sample.json",
@@ -29,10 +27,7 @@
           "-config",
           "{{configDir}}/cloud-comm.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "cameraAware": true,
@@ -46,9 +41,7 @@
       "displayName": "Runtime manager",
       "description": "Central device runtime controller for services, logs, configs, and updates.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "runtime-manager.json",
       "schemaPath": "device/config-schemas/services/runtime-manager.schema.json",
       "sampleConfigPath": "device/configs/runtime-manager.sample.json",
@@ -69,14 +62,36 @@
           "{{configDir}}/runtime-manager.json"
         ],
         "runAs": "root",
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "defaultEnabled": true,
         "requiresComponents": []
+      },
+      "cloudApp": {
+        "navigationLabel": "Runtime",
+        "rendererKey": "runtime-manager",
+        "routePath": "runtime",
+        "sortOrder": 10,
+        "permissions": {
+          "read": [
+            "get-status",
+            "get-config",
+            "list-configs",
+            "get-service-definition",
+            "get-service-log"
+          ],
+          "write": [
+            "put-config",
+            "put-runtime-file",
+            "remove-service",
+            "restart-service",
+            "start-service",
+            "stop-service",
+            "update-service",
+            "upsert-service"
+          ]
+        }
       }
     },
     {
@@ -111,9 +126,7 @@
       "displayName": "Cloud transfer",
       "description": "Queued upload/download worker backed by SQLite and presigned URLs.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "cloud-transfer.json",
       "schemaPath": "device/config-schemas/services/cloud-transfer.schema.json",
       "sampleConfigPath": "device/configs/cloud-transfer.sample.json",
@@ -133,16 +146,21 @@
           "-config",
           "{{configDir}}/cloud-transfer.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "defaultEnabled": true,
-        "requiresComponents": [
-          "cloud-api"
-        ]
+        "requiresComponents": ["cloud-api"]
+      },
+      "cloudApp": {
+        "navigationLabel": "Transfers",
+        "rendererKey": "cloud-transfer",
+        "routePath": "transfers",
+        "sortOrder": 30,
+        "permissions": {
+          "read": ["get-transfer", "list-transfers", "get-stats", "get-status"],
+          "write": ["enqueue-upload", "enqueue-download"]
+        }
       }
     },
     {
@@ -151,9 +169,7 @@
       "displayName": "Live feed",
       "description": "On-device WebRTC live streaming service.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "live-feed.json",
       "schemaPath": "device/config-schemas/services/live-feed.schema.json",
       "sampleConfigPath": "device/configs/live-feed.sample.json",
@@ -173,17 +189,28 @@
           "-config",
           "{{configDir}}/live-feed.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "cameraAware": true,
         "defaultEnabled": true,
-        "requiresComponents": [
-          "redis"
-        ]
+        "requiresComponents": ["redis"]
+      },
+      "cloudApp": {
+        "navigationLabel": "Live",
+        "rendererKey": "live-feed",
+        "routePath": "live",
+        "sortOrder": 20,
+        "permissions": {
+          "read": [
+            "start-live",
+            "update-live-layout",
+            "stop-live",
+            "sdp-answer",
+            "ice-candidate"
+          ],
+          "write": []
+        }
       }
     },
     {
@@ -192,9 +219,7 @@
       "displayName": "PTZ control",
       "description": "PTZ command execution service over the shared transport.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "ptz-control.json",
       "schemaPath": "device/config-schemas/services/ptz-control.schema.json",
       "sampleConfigPath": "device/configs/ptz-control.sample.json",
@@ -214,15 +239,27 @@
           "-config",
           "{{configDir}}/ptz-control.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "cameraAware": true,
         "defaultEnabled": true,
         "requiresComponents": []
+      },
+      "cloudApp": {
+        "navigationLabel": "PTZ",
+        "rendererKey": "ptz-control",
+        "sortOrder": 50,
+        "permissions": {
+          "read": ["get-status", "get-position"],
+          "write": [
+            "start-move",
+            "stop-move",
+            "set-zoom",
+            "set-position",
+            "go-home"
+          ]
+        }
       }
     },
     {
@@ -231,9 +268,7 @@
       "displayName": "ROI config",
       "description": "Per-camera PTZ base-location and ROI document service.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "roi-config.json",
       "schemaPath": "device/config-schemas/services/roi-config.schema.json",
       "sampleConfigPath": "device/configs/roi-config.sample.json",
@@ -253,14 +288,20 @@
           "-config",
           "{{configDir}}/roi-config.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "defaultEnabled": true,
         "requiresComponents": []
+      },
+      "cloudApp": {
+        "navigationLabel": "ROI",
+        "rendererKey": "roi-config",
+        "sortOrder": 60,
+        "permissions": {
+          "read": ["get-status", "get-config"],
+          "write": ["save-config"]
+        }
       }
     },
     {
@@ -269,9 +310,7 @@
       "displayName": "RTSP feeder",
       "description": "RTSP ingest service that publishes JPEG frames into Redis.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "rtsp-feeder.json",
       "schemaPath": "device/config-schemas/services/rtsp-feeder.schema.json",
       "sampleConfigPath": "device/configs/rtsp-feeder.sample.json",
@@ -291,18 +330,12 @@
           "-config",
           "{{configDir}}/rtsp-feeder.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "cameraAware": true,
         "defaultEnabled": true,
-        "requiresComponents": [
-          "fake-camera",
-          "redis"
-        ]
+        "requiresComponents": ["fake-camera", "redis"]
       }
     },
     {
@@ -311,9 +344,7 @@
       "displayName": "Video recorder",
       "description": "Rolling JPEG frame buffer, photo capture, clip recording, and upload orchestration.",
       "kind": "go-binary",
-      "configLanguages": [
-        "go"
-      ],
+      "configLanguages": ["go"],
       "configName": "video-recorder.json",
       "schemaPath": "device/config-schemas/services/video-recorder.schema.json",
       "sampleConfigPath": "device/configs/video-recorder.sample.json",
@@ -333,17 +364,21 @@
           "-config",
           "{{configDir}}/video-recorder.json"
         ],
-        "versionCommand": [
-          "{{installPath}}",
-          "--version"
-        ]
+        "versionCommand": ["{{installPath}}", "--version"]
       },
       "local": {
         "cameraAware": true,
         "defaultEnabled": true,
-        "requiresComponents": [
-          "redis"
-        ]
+        "requiresComponents": ["redis"]
+      },
+      "cloudApp": {
+        "navigationLabel": "Recorder",
+        "rendererKey": "video-recorder",
+        "sortOrder": 70,
+        "permissions": {
+          "read": ["get-job", "list-jobs", "get-status"],
+          "write": ["capture-photo", "record-clip"]
+        }
       }
     },
     {
@@ -352,9 +387,7 @@
       "displayName": "Audio manager",
       "description": "Queued text-to-speech generation, local playback, and network-speaker delivery service.",
       "kind": "python-wheel",
-      "configLanguages": [
-        "python"
-      ],
+      "configLanguages": ["python"],
       "configName": "audio-manager.json",
       "schemaPath": "device/config-schemas/services/audio-manager.schema.json",
       "sampleConfigPath": "device/configs/audio-manager.sample.json",
@@ -392,18 +425,21 @@
           "--force-reinstall",
           "{{artifactPath}}"
         ],
-        "versionCommand": [
-          "python3",
-          "-m",
-          "audio_manager",
-          "--version"
-        ]
+        "versionCommand": ["python3", "-m", "audio_manager", "--version"]
       },
       "local": {
         "defaultEnabled": true,
-        "requiresComponents": [
-          "mock-speaker"
-        ]
+        "requiresComponents": ["mock-speaker"]
+      },
+      "cloudApp": {
+        "navigationLabel": "Audio",
+        "rendererKey": "audio-manager",
+        "routePath": "audio",
+        "sortOrder": 40,
+        "permissions": {
+          "read": ["get-job", "list-jobs", "get-status"],
+          "write": ["play-audio"]
+        }
       }
     },
     {
@@ -412,9 +448,7 @@
       "displayName": "Workflow engine",
       "description": "Queued workflow execution service with hot-reloaded workflow JSON.",
       "kind": "python-wheel",
-      "configLanguages": [
-        "python"
-      ],
+      "configLanguages": ["python"],
       "configName": "workflow-engine.json",
       "schemaPath": "device/config-schemas/services/workflow-engine.schema.json",
       "sampleConfigPath": "device/configs/workflow-engine.sample.json",
@@ -452,17 +486,21 @@
           "--force-reinstall",
           "{{artifactPath}}"
         ],
-        "versionCommand": [
-          "python3",
-          "-m",
-          "workflow_engine",
-          "--version"
-        ]
+        "versionCommand": ["python3", "-m", "workflow_engine", "--version"]
       },
       "local": {
         "cameraAware": true,
         "defaultEnabled": true,
         "requiresComponents": []
+      },
+      "cloudApp": {
+        "navigationLabel": "Workflows",
+        "rendererKey": "workflow-engine",
+        "sortOrder": 80,
+        "permissions": {
+          "read": ["get-status"],
+          "write": ["enqueue-detection"]
+        }
       }
     },
     {
@@ -471,9 +509,7 @@
       "displayName": "AI inference",
       "description": "Redis-driven AI inference worker packaged as a Python wheel.",
       "kind": "python-wheel",
-      "configLanguages": [
-        "python"
-      ],
+      "configLanguages": ["python"],
       "configName": "ai-inference.json",
       "schemaPath": "device/config-schemas/services/ai-inference.schema.json",
       "sampleConfigPath": "device/configs/ai-inference.sample.json",
@@ -511,19 +547,12 @@
           "--force-reinstall",
           "{{artifactPath}}"
         ],
-        "versionCommand": [
-          "python3",
-          "-m",
-          "ai_inference",
-          "--version"
-        ]
+        "versionCommand": ["python3", "-m", "ai_inference", "--version"]
       },
       "local": {
         "cameraAware": true,
         "defaultEnabled": false,
-        "requiresComponents": [
-          "redis"
-        ]
+        "requiresComponents": ["redis"]
       }
     }
   ]

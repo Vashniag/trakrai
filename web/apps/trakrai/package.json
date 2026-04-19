@@ -10,13 +10,16 @@
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "auth:generate": "pnpm dlx @better-auth/cli generate --output src/db/auth-schema.ts -y"
+    "db:bootstrap-local": "node --env-file=.env --import tsx ../../scripts/bootstrap-local-db.ts",
+    "db:bootstrap-local-auth": "pnpm run db:bootstrap-local",
+    "auth:generate": "pnpm dlx @better-auth/cli generate --output ../../packages/core/trakrai-backend/src/db/auth-schema.ts -y"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.6.5",
     "@react-email/components": "^1.0.12",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tanstack/react-query": "^5.99.1",
+    "@tanstack/react-table": "^8.21.3",
     "@trakrai/audio-manager-ui": "workspace:*",
     "@trakrai/backend": "workspace:*",
     "@trakrai/cloud-transfer-ui": "workspace:*",

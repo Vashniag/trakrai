@@ -1,3 +1,4 @@
+import { accessControlRouter } from './access-control';
 import { devicesRouter } from './devices';
 import { packageArtifactsRouter } from './package-artifacts';
 
@@ -6,6 +7,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 import { createCallerFactory, createTRPCRouter, publicProcedure } from '../trpc';
 
 export const appRouter = createTRPCRouter({
+  accessControl: accessControlRouter,
   health: publicProcedure.query(() => {
     return { status: 'ok' as const, timestamp: new Date() };
   }),

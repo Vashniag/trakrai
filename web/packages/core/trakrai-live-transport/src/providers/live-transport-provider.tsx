@@ -43,6 +43,7 @@ import {
 export type LiveTransportProviderProps = Readonly<{
   children: ReactNode;
   deviceId: string;
+  gatewayAccessToken?: string;
   httpBaseUrl: string;
   signalingUrl: string;
 }>;
@@ -52,6 +53,7 @@ export type LiveTransportContextValue = {
   clearRuntimeError: () => void;
   deviceId: string;
   deviceStatus: DeviceStatus | null;
+  gatewayAccessToken: string;
   heartbeatAgeSeconds: number | null;
   httpBaseUrl: string;
   logs: ActivityLogEntry[];
@@ -133,6 +135,16 @@ const normalizeServiceName = (service: string | null | undefined): string | null
   return normalizedService !== undefined && normalizedService !== '' ? normalizedService : null;
 };
 
+const appendGatewayAccessToken = (url: string, gatewayAccessToken: string): string => {
+  if (url === '' || gatewayAccessToken === '') {
+    return url;
+  }
+
+  const parsedUrl = new URL(url);
+  parsedUrl.searchParams.set('gatewayAccessToken', gatewayAccessToken);
+  return parsedUrl.toString();
+};
+
 const readPacketRequestId = (packet: TransportPacket): string | null => {
   const payload = unwrapPayload<Record<string, unknown>>(packet.envelope);
   const { requestId } = payload;
@@ -208,21 +220,30 @@ const createTransportProvider = (transportMode: TransportLayer) => {
   const TransportProvider = ({
     children,
     deviceId,
+    gatewayAccessToken,
     httpBaseUrl,
     signalingUrl,
   }: LiveTransportProviderProps) => {
     const normalizedDeviceId = deviceId.trim();
+    const normalizedGatewayAccessToken = normalizeOptionalString(gatewayAccessToken) ?? '';
     const normalizedHttpBaseUrl = normalizeEndpointUrl(httpBaseUrl);
     const normalizedSignalingUrl = normalizeEndpointUrl(signalingUrl);
+    const authorizedSignalingUrl = appendGatewayAccessToken(
+      normalizedSignalingUrl,
+      normalizedGatewayAccessToken,
+    );
     const hasValidTransportConfig =
-      normalizedDeviceId !== '' && normalizedHttpBaseUrl !== '' && normalizedSignalingUrl !== '';
+      normalizedDeviceId !== '' &&
+      normalizedHttpBaseUrl !== '' &&
+      authorizedSignalingUrl !== '' &&
+      (transportMode === 'edge' || normalizedGatewayAccessToken !== '');
     const transportClient = useMemo(() => {
       if (!hasValidTransportConfig) {
         return null;
       }
 
-      return new LiveTransportClient(normalizedSignalingUrl);
-    }, [hasValidTransportConfig, normalizedSignalingUrl]);
+      return new LiveTransportClient(authorizedSignalingUrl);
+    }, [authorizedSignalingUrl, hasValidTransportConfig]);
     const [transportState, setTransportState] = useState<TransportConnectionState>('disconnected');
     const [transportError, setTransportError] = useState<string | null>(null);
     const [deviceViewState, setDeviceViewState] = useState<DeviceViewState>(() =>
@@ -642,6 +663,7 @@ const createTransportProvider = (transportMode: TransportLayer) => {
         clearRuntimeError,
         deviceId: normalizedDeviceId,
         deviceStatus: normalizedDeviceId === '' ? null : scopedDeviceViewState.deviceStatus,
+        gatewayAccessToken: normalizedGatewayAccessToken,
         heartbeatAgeSeconds: normalizedDeviceId === '' ? null : heartbeatAgeSeconds,
         httpBaseUrl: normalizedHttpBaseUrl,
         logs: normalizedDeviceId === '' ? [] : scopedDeviceViewState.logs,
@@ -674,6 +696,7 @@ const createTransportProvider = (transportMode: TransportLayer) => {
         setDevice,
         subscribeToPackets,
         subscribeToTransportStatus,
+        normalizedGatewayAccessToken,
         transportError,
         transportState,
       ],

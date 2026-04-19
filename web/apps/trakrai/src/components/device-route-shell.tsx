@@ -21,15 +21,17 @@ import { useTRPCQuery } from '@/server/react';
 
 import type { RouterOutput } from '@trakrai/backend/server/routers';
 
-type ManagedDevice = RouterOutput['devices']['getById'];
+type DeviceRouteContextValue = RouterOutput['devices']['getRouteContext'];
+type ManagedDevice = DeviceRouteContextValue['device'];
 
-const DeviceRouteContext = createContext<ManagedDevice | null>(null);
+const DeviceRouteContext = createContext<DeviceRouteContextValue | null>(null);
 
 const ACTIVE_CLASSES = 'border-primary/40 bg-primary/10 text-primary';
 const IDLE_CLASSES = 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50';
 
-const DEVICE_ROUTE_ITEMS = (
+const buildDeviceRouteItems = (
   deviceRecordId: string,
+  routeContext: DeviceRouteContextValue,
 ): ReadonlyArray<{
   description: string;
   href: string;
@@ -41,26 +43,16 @@ const DEVICE_ROUTE_ITEMS = (
       href: `/devices/${deviceRecordId}`,
       label: 'Overview',
     },
-    {
-      description: 'WebRTC live monitoring and PTZ controls.',
-      href: `/devices/${deviceRecordId}/live`,
-      label: 'Live',
-    },
-    {
-      description: 'Runtime services and managed binary actions.',
-      href: `/devices/${deviceRecordId}/runtime`,
-      label: 'Runtime',
-    },
-    {
-      description: 'Queued cloud uploads and downloads.',
-      href: `/devices/${deviceRecordId}/transfers`,
-      label: 'Transfers',
-    },
-    {
-      description: 'Audio queue control, playback inspection, and speaker delivery status.',
-      href: `/devices/${deviceRecordId}/audio`,
-      label: 'Audio',
-    },
+    ...routeContext.components
+      .filter((component) => component.routePath !== null && component.routePath.trim() !== '')
+      .map((component) => ({
+        description:
+          component.description !== null && component.description.trim() !== ''
+            ? component.description
+            : `${component.navigationLabel} device app.`,
+        href: `/devices/${deviceRecordId}/${component.routePath}`,
+        label: component.navigationLabel,
+      })),
   ] as const;
 
 type DeviceRouteShellProps = Readonly<{
@@ -69,22 +61,31 @@ type DeviceRouteShellProps = Readonly<{
 }>;
 
 export const useCurrentCloudDevice = (): ManagedDevice => {
-  const device = useContext(DeviceRouteContext);
-  if (device === null) {
+  const routeContext = useContext(DeviceRouteContext);
+  if (routeContext === null) {
     throw new Error('useCurrentCloudDevice must be used within DeviceRouteShell.');
   }
 
-  return device;
+  return routeContext.device;
+};
+
+export const useDeviceRouteContext = (): DeviceRouteContextValue => {
+  const routeContext = useContext(DeviceRouteContext);
+  if (routeContext === null) {
+    throw new Error('useDeviceRouteContext must be used within DeviceRouteShell.');
+  }
+
+  return routeContext;
 };
 
 export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellProps) => {
   const pathname = usePathname();
-  const deviceQuery = useTRPCQuery((api) => ({
-    ...api.devices.getById.queryOptions({ id: deviceRecordId }),
+  const routeContextQuery = useTRPCQuery((api) => ({
+    ...api.devices.getRouteContext.queryOptions({ id: deviceRecordId }),
     retry: false,
   }));
 
-  if (deviceQuery.isLoading) {
+  if (routeContextQuery.isLoading) {
     return (
       <main className="bg-background min-h-screen px-6 py-8 md:px-10">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -94,7 +95,7 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
     );
   }
 
-  if (deviceQuery.error !== null || deviceQuery.data === undefined) {
+  if (routeContextQuery.error !== null || routeContextQuery.data === undefined) {
     return (
       <main className="bg-background min-h-screen px-6 py-8 md:px-10">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -110,7 +111,9 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
               <CardDescription>The requested device route could not be resolved.</CardDescription>
             </CardHeader>
             <CardContent className="py-6 text-sm">
-              {deviceQuery.error instanceof Error ? deviceQuery.error.message : 'Device not found.'}
+              {routeContextQuery.error instanceof Error
+                ? routeContextQuery.error.message
+                : 'Device not found.'}
             </CardContent>
           </Card>
         </div>
@@ -118,15 +121,20 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
     );
   }
 
-  const device = deviceQuery.data;
+  const routeContext = routeContextQuery.data;
+  const { device } = routeContext;
+  const routeItems = buildDeviceRouteItems(deviceRecordId, routeContext);
+  const isOverviewRoute = pathname === `/devices/${deviceRecordId}`;
+  const currentRouteAllowed = isOverviewRoute || routeItems.some((item) => item.href === pathname);
 
   return (
     <CloudTransportProvider
       deviceId={device.deviceId}
+      gatewayAccessToken={routeContext.gatewayAccessToken}
       httpBaseUrl={cloudAppBuildConfig.liveGatewayHttpUrl}
       signalingUrl={cloudAppBuildConfig.liveGatewayWsUrl}
     >
-      <DeviceRouteContext.Provider value={device}>
+      <DeviceRouteContext.Provider value={routeContext}>
         <main className="bg-background min-h-screen px-6 py-8 md:px-10">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
             <section className="space-y-3">
@@ -163,7 +171,7 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
             </section>
 
             <section className="grid gap-3 md:grid-cols-5">
-              {DEVICE_ROUTE_ITEMS(deviceRecordId).map((item) => {
+              {routeItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
@@ -180,7 +188,21 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
               })}
             </section>
 
-            {children}
+            {currentRouteAllowed ? (
+              children
+            ) : (
+              <Card className="border">
+                <CardHeader className="border-b">
+                  <CardTitle>Device app unavailable</CardTitle>
+                  <CardDescription>
+                    This device app is disabled or you do not have access to it.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="py-6 text-sm">
+                  Sysadmin can enable app on device. Scoped admins can grant app access after that.
+                </CardContent>
+              </Card>
+            )}
           </div>
         </main>
       </DeviceRouteContext.Provider>

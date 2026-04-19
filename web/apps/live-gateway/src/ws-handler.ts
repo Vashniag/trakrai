@@ -1,5 +1,9 @@
 import type { Server } from 'http';
 
+import {
+  createTransportActionSelector,
+  verifyDeviceGatewayAccessToken,
+} from '@trakrai/backend/lib/gateway-access-token';
 import { WebSocket, WebSocketServer } from 'ws';
 
 import { config } from './config.js';
@@ -12,7 +16,10 @@ import {
 } from './mqtt-client.js';
 
 type ClientContext = {
+  allowedSelectors: Set<string>;
+  allowedServiceNames: Set<string>;
   deviceId: string;
+  userId: string;
 };
 
 type GatewayWebSocketRateLimit = {
@@ -81,6 +88,7 @@ const defaultGatewayRateLimit: GatewayWebSocketRateLimit = {
   maxPayloadBytes: 1024 * 1024,
   windowMs: 5000,
 };
+const BEARER_PREFIX = 'Bearer ';
 
 const defaultWebSocketDependencies: WebSocketDependencies = {
   now: () => Date.now(),
@@ -125,14 +133,14 @@ const normalizeGatewayRateLimit = (
   };
 };
 
-const getDeviceIdFromRequest = (requestUrl: string | undefined): string => {
+const getRequestedDeviceIdFromRequest = (requestUrl: string | undefined): string | null => {
   if (requestUrl === undefined) {
-    return config.defaultDeviceId;
+    return null;
   }
 
   const parsedUrl = new URL(requestUrl, 'http://localhost');
   const deviceId = parsedUrl.searchParams.get('deviceId')?.trim();
-  return deviceId !== undefined && deviceId !== '' ? deviceId : config.defaultDeviceId;
+  return deviceId !== undefined && deviceId !== '' ? deviceId : null;
 };
 
 const sendJson = (ws: WebSocket, message: Record<string, unknown>): void => {
@@ -155,6 +163,56 @@ const parsePayload = (payload: string): unknown => {
 
 const normalizeOptionalString = (value: unknown): string | null =>
   typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+
+const readGatewayAccessTokenFromRequest = (
+  requestUrl: string | undefined,
+  authorizationHeader: string | string[] | undefined,
+): string | null => {
+  const normalizedAuthorizationHeader = Array.isArray(authorizationHeader)
+    ? authorizationHeader[0]
+    : authorizationHeader;
+
+  if (
+    typeof normalizedAuthorizationHeader === 'string' &&
+    normalizedAuthorizationHeader.startsWith(BEARER_PREFIX)
+  ) {
+    const bearerToken = normalizedAuthorizationHeader.slice(BEARER_PREFIX.length).trim();
+    if (bearerToken !== '') {
+      return bearerToken;
+    }
+  }
+
+  if (requestUrl === undefined) {
+    return null;
+  }
+
+  const parsedUrl = new URL(requestUrl, 'http://localhost');
+  const queryToken = parsedUrl.searchParams.get('gatewayAccessToken')?.trim();
+  return queryToken !== undefined && queryToken !== '' ? queryToken : null;
+};
+
+const sanitizeStatusPayload = (
+  payload: unknown,
+  allowedServiceNames: ReadonlySet<string>,
+): unknown => {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    return payload;
+  }
+
+  const services = (payload as { services?: unknown }).services;
+  if (typeof services !== 'object' || services === null || Array.isArray(services)) {
+    return payload;
+  }
+
+  return {
+    ...(payload as Record<string, unknown>),
+    services: Object.fromEntries(
+      Object.entries(services as Record<string, unknown>).filter(([serviceName]) =>
+        allowedServiceNames.has(serviceName),
+      ),
+    ),
+  };
+};
 
 const unwrapEnvelopePayload = (value: unknown): unknown => {
   if (
@@ -376,6 +434,32 @@ export const resetWebSocketStateForTests = (): void => {
   inboundRateLimits.clear();
 };
 
+const filterPacketForClient = (
+  packet: TransportPacket,
+  clientContext: ClientContext,
+): TransportPacket | null => {
+  if (packet.service !== null && !clientContext.allowedServiceNames.has(packet.service)) {
+    return null;
+  }
+
+  const isStatusPacket =
+    packet.service === null &&
+    (packet.subtopic === 'status' ||
+      (packet.subtopic === 'response' && packet.envelope.type === 'status'));
+
+  if (!isStatusPacket) {
+    return packet;
+  }
+
+  return {
+    ...packet,
+    envelope: {
+      ...packet.envelope,
+      payload: sanitizeStatusPayload(packet.envelope.payload, clientContext.allowedServiceNames),
+    },
+  };
+};
+
 const packetTargets = (packet: TransportPacket): Set<WebSocket> | null => {
   const { requestId, sessionId } = readRoutingIds(packet.envelope);
   if (requestId !== null) {
@@ -451,6 +535,23 @@ const sendSessionInfo = (ws: WebSocket, deviceId: string): void => {
   });
 };
 
+const canClientPublishPacket = (packet: TransportPacket, clientContext: ClientContext): boolean => {
+  if (packet.service === null) {
+    return packet.subtopic === 'command' && packet.envelope.type === 'get-status';
+  }
+
+  if (!clientContext.allowedServiceNames.has(packet.service)) {
+    return false;
+  }
+
+  const selector = createTransportActionSelector(
+    packet.service,
+    packet.subtopic,
+    packet.envelope.type,
+  );
+  return selector !== null && clientContext.allowedSelectors.has(selector);
+};
+
 const syncClientDevice = async (
   ws: WebSocket,
   deviceId: string,
@@ -463,17 +564,17 @@ const syncClientDevice = async (
   }
 
   if (context.deviceId !== nextDeviceId) {
-    await deps.subscribeToDevice(nextDeviceId);
-    clearClientRoutes(ws);
-    deps.unsubscribeFromDevice(context.deviceId);
-    clients.set(ws, { deviceId: nextDeviceId });
+    throw new Error('Device switching is not allowed for this session.');
   }
 
   sendSessionInfo(ws, nextDeviceId);
 
   const cachedStatus = lastKnownStatuses.get(nextDeviceId);
   if (cachedStatus !== undefined) {
-    sendPacket(ws, cachedStatus);
+    const filteredPacket = filterPacketForClient(cachedStatus, context);
+    if (filteredPacket !== null) {
+      sendPacket(ws, filteredPacket);
+    }
   }
 
   requestDeviceStatus(deps.publishMqtt, nextDeviceId);
@@ -535,28 +636,69 @@ export function setupWebSocket(
       if (targetedClients !== null && !targetedClients.has(ws)) {
         continue;
       }
-      sendPacket(ws, packet);
+      const filteredPacket = filterPacketForClient(packet, context);
+      if (filteredPacket === null) {
+        continue;
+      }
+      sendPacket(ws, filteredPacket);
     }
   });
 
   wss.on('connection', async (ws, request) => {
-    const deviceId = getDeviceIdFromRequest(request.url);
-    clients.set(ws, { deviceId });
+    const requestedDeviceId = getRequestedDeviceIdFromRequest(request.url);
+    const gatewayAccessToken = readGatewayAccessTokenFromRequest(
+      request.url,
+      request.headers.authorization,
+    );
+
+    if (gatewayAccessToken === null) {
+      ws.close(1008, 'missing gateway access token');
+      return;
+    }
+
+    let tokenPayload: Awaited<ReturnType<typeof verifyDeviceGatewayAccessToken>>;
+    try {
+      tokenPayload = await verifyDeviceGatewayAccessToken(gatewayAccessToken);
+    } catch {
+      ws.close(1008, 'invalid gateway access token');
+      return;
+    }
+
+    if (requestedDeviceId !== null && requestedDeviceId !== tokenPayload.deviceId) {
+      ws.close(1008, 'device mismatch');
+      return;
+    }
+
+    const context: ClientContext = {
+      allowedSelectors: new Set(tokenPayload.allowedSelectors),
+      allowedServiceNames: new Set(tokenPayload.allowedServiceNames),
+      deviceId: tokenPayload.deviceId,
+      userId: tokenPayload.userId,
+    };
+    clients.set(ws, context);
 
     try {
-      await deps.subscribeToDevice(deviceId);
-      sendSessionInfo(ws, deviceId);
+      await deps.subscribeToDevice(context.deviceId);
+      sendSessionInfo(ws, context.deviceId);
 
-      const cachedStatus = lastKnownStatuses.get(deviceId);
+      const cachedStatus = lastKnownStatuses.get(context.deviceId);
       if (cachedStatus !== undefined) {
-        sendPacket(ws, cachedStatus);
+        const filteredPacket = filterPacketForClient(cachedStatus, context);
+        if (filteredPacket !== null) {
+          sendPacket(ws, filteredPacket);
+        }
       }
 
-      requestDeviceStatus(deps.publishMqtt, deviceId);
+      requestDeviceStatus(deps.publishMqtt, context.deviceId);
     } catch (error) {
-      sendGatewayError(ws, deviceId, error instanceof Error ? error.message : 'subscribe failed', {
-        requestType: 'set-device',
-      });
+      sendGatewayError(
+        ws,
+        context.deviceId,
+        error instanceof Error ? error.message : 'subscribe failed',
+        {
+          requestType: 'set-device',
+        },
+      );
     }
 
     ws.on('message', (data) => {
@@ -590,6 +732,18 @@ export function setupWebSocket(
 
       if (isSetDeviceFrame(message)) {
         const nextDeviceId = normalizeOptionalString(message.deviceId) ?? config.defaultDeviceId;
+        if (nextDeviceId !== context.deviceId) {
+          sendGatewayError(
+            ws,
+            context.deviceId,
+            'Device switching is not allowed for this session.',
+            {
+              requestType: 'set-device',
+            },
+          );
+          return;
+        }
+
         void syncClientDevice(ws, nextDeviceId, deps).catch((error) => {
           sendGatewayError(
             ws,
@@ -617,6 +771,21 @@ export function setupWebSocket(
         message.subtopic.trim(),
         normalizeIncomingEnvelope(message.envelope),
       );
+
+      if (!canClientPublishPacket(normalizedPacket, context)) {
+        sendGatewayError(
+          ws,
+          context.deviceId,
+          'You do not have permission to publish this device app action.',
+          {
+            requestType: normalizedPacket.envelope.type,
+            service: normalizedPacket.service,
+            subtopic: normalizedPacket.subtopic,
+          },
+        );
+        return;
+      }
+
       const requestId = readRoutingIds(normalizedPacket.envelope).requestId;
       if (requestId !== null) {
         registerRequestOwner(ws, requestId);

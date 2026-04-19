@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import Link from 'next/link';
 
@@ -15,6 +15,7 @@ import {
 import { Checkbox } from '@trakrai/design-system/components/checkbox';
 import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
+import { NativeSelect, NativeSelectOption } from '@trakrai/design-system/components/native-select';
 import { Copy, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,24 +26,31 @@ import type { RouterOutput } from '@trakrai/backend/server/routers';
 type ManagedDevice = RouterOutput['devices']['list']['devices'][number];
 type DeviceDraft = Readonly<{
   description: string;
+  departmentId: string;
   isActive: boolean;
   name: string;
 }>;
 
 type CreateDeviceFormState = Readonly<{
   description: string;
-  deviceId: string;
+  departmentId: string;
   name: string;
 }>;
 
 const createEmptyDeviceForm = (): CreateDeviceFormState => ({
   description: '',
-  deviceId: '',
+  departmentId: '',
   name: '',
 });
 
+const EMPTY_DEPARTMENTS: RouterOutput['accessControl']['getManagementConsole']['departments'] = [];
+const EMPTY_CATALOG: RouterOutput['accessControl']['getManagementConsole']['catalog'] = [];
+const EMPTY_INSTALLATIONS: RouterOutput['accessControl']['getManagementConsole']['installations'] =
+  [];
+
 const createDeviceDraft = (device: ManagedDevice): DeviceDraft => ({
   description: device.description ?? '',
+  departmentId: device.departmentId,
   isActive: device.isActive,
   name: device.name,
 });
@@ -57,6 +65,10 @@ export const DeviceManagementPage = () => {
   const invalidateQuery = useInvalidateQuery();
   const devicesQuery = useTRPCQuery((api) => ({
     ...api.devices.list.queryOptions(),
+    retry: false,
+  }));
+  const managementConsoleQuery = useTRPCQuery((api) => ({
+    ...api.accessControl.getManagementConsole.queryOptions(),
     retry: false,
   }));
   const [createForm, setCreateForm] = useState<CreateDeviceFormState>(createEmptyDeviceForm);
@@ -79,11 +91,64 @@ export const DeviceManagementPage = () => {
     await invalidateQuery((api) => api.devices.list);
   };
 
+  const departments = managementConsoleQuery.data?.departments ?? EMPTY_DEPARTMENTS;
+  const catalog = managementConsoleQuery.data?.catalog ?? EMPTY_CATALOG;
+  const installations = managementConsoleQuery.data?.installations ?? EMPTY_INSTALLATIONS;
+  const departmentNameById = useMemo(
+    () => new Map(departments.map((department) => [department.id, department.name])),
+    [departments],
+  );
+  const routeLinksByDeviceId = useMemo(() => {
+    const catalogByKey = new Map(catalog.map((entry) => [entry.key, entry]));
+    const linksByDeviceId = new Map<
+      string,
+      Array<{
+        href: string;
+        label: string;
+        sortOrder: number;
+      }>
+    >();
+
+    for (const installation of installations) {
+      if (!installation.enabled) {
+        continue;
+      }
+
+      const catalogEntry = catalogByKey.get(installation.componentKey);
+      const routePath = catalogEntry?.routePath?.trim() ?? '';
+      if (routePath === '') {
+        continue;
+      }
+
+      const currentLinks = linksByDeviceId.get(installation.deviceId) ?? [];
+      currentLinks.push({
+        href: `/devices/${installation.deviceId}/${routePath}`,
+        label:
+          catalogEntry?.navigationLabel ?? catalogEntry?.displayName ?? installation.componentKey,
+        sortOrder: catalogEntry?.sortOrder ?? 0,
+      });
+      linksByDeviceId.set(installation.deviceId, currentLinks);
+    }
+
+    for (const currentLinks of linksByDeviceId.values()) {
+      currentLinks.sort((left, right) => {
+        const sortOrderDifference = left.sortOrder - right.sortOrder;
+        return sortOrderDifference !== 0
+          ? sortOrderDifference
+          : left.label.localeCompare(right.label);
+      });
+    }
+
+    return linksByDeviceId;
+  }, [catalog, installations]);
+  const selectedDepartmentId =
+    createForm.departmentId !== '' ? createForm.departmentId : (departments[0]?.id ?? '');
+
   const handleCreate = async () => {
     try {
       await createMutation.mutateAsync({
         description: createForm.description,
-        deviceId: createForm.deviceId,
+        departmentId: selectedDepartmentId,
         name: createForm.name,
       });
       toast.success('Device created.');
@@ -100,6 +165,7 @@ export const DeviceManagementPage = () => {
     try {
       await updateMutation.mutateAsync({
         description: draft.description,
+        departmentId: draft.departmentId,
         id: device.id,
         isActive: draft.isActive,
         name: draft.name,
@@ -178,19 +244,27 @@ export const DeviceManagementPage = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="device-create-id">Device ID</Label>
-              <Input
-                disabled={isUnauthorized}
-                id="device-create-id"
-                placeholder="trakrai-device-local"
-                value={createForm.deviceId}
+              <Label htmlFor="device-create-department">Department</Label>
+              <NativeSelect
+                disabled={isUnauthorized || departments.length === 0}
+                id="device-create-department"
+                value={selectedDepartmentId}
                 onChange={(event) => {
                   setCreateForm((currentForm) => ({
                     ...currentForm,
-                    deviceId: event.target.value,
+                    departmentId: event.target.value,
                   }));
                 }}
-              />
+              >
+                {departments.length === 0 ? (
+                  <NativeSelectOption value="">No departments available</NativeSelectOption>
+                ) : null}
+                {departments.map((department) => (
+                  <NativeSelectOption key={department.id} value={department.id}>
+                    {department.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
             </div>
             <div className="space-y-2">
               <Label htmlFor="device-create-description">Description</Label>
@@ -213,7 +287,7 @@ export const DeviceManagementPage = () => {
                 isUnauthorized ||
                 isBusy ||
                 createForm.name.trim() === '' ||
-                createForm.deviceId.trim() === ''
+                selectedDepartmentId.trim() === ''
               }
               type="button"
               onClick={() => {
@@ -256,6 +330,7 @@ export const DeviceManagementPage = () => {
 
             {devices.map((device) => {
               const draft = drafts[device.id] ?? createDeviceDraft(device);
+              const routeLinks = routeLinksByDeviceId.get(device.id) ?? [];
 
               return (
                 <section key={device.id} className="border p-4">
@@ -264,6 +339,10 @@ export const DeviceManagementPage = () => {
                       <div className="font-medium">{device.deviceId}</div>
                       <div className="text-muted-foreground mt-1 text-xs">
                         Created {formatTimestamp(device.createdAt)}
+                      </div>
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        {device.factoryName} /{' '}
+                        {departmentNameById.get(draft.departmentId) ?? 'Unknown'}
                       </div>
                     </div>
                     <div
@@ -297,12 +376,20 @@ export const DeviceManagementPage = () => {
                     <div className="space-y-2">
                       <Label htmlFor={`${device.id}-token`}>Access token</Label>
                       <div className="flex gap-2">
-                        <Input id={`${device.id}-token`} readOnly value={device.accessToken} />
+                        <Input
+                          id={`${device.id}-token`}
+                          readOnly
+                          value={device.accessToken ?? ''}
+                        />
                         <Button
+                          disabled={device.accessToken === null}
                           size="icon-sm"
                           type="button"
                           variant="outline"
                           onClick={() => {
+                            if (device.accessToken === null) {
+                              return;
+                            }
                             void handleCopy(
                               device.accessToken,
                               `Access token for ${device.deviceId}`,
@@ -312,6 +399,28 @@ export const DeviceManagementPage = () => {
                           <Copy />
                         </Button>
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${device.id}-department`}>Department</Label>
+                      <NativeSelect
+                        id={`${device.id}-department`}
+                        value={draft.departmentId}
+                        onChange={(event) => {
+                          setDrafts((currentDrafts) => ({
+                            ...currentDrafts,
+                            [device.id]: {
+                              ...draft,
+                              departmentId: event.target.value,
+                            },
+                          }));
+                        }}
+                      >
+                        {departments.map((department) => (
+                          <NativeSelectOption key={department.id} value={department.id}>
+                            {department.name}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
                     </div>
                     <div className="space-y-2 md:col-span-2">
                       <Label htmlFor={`${device.id}-description`}>Description</Label>
@@ -355,11 +464,15 @@ export const DeviceManagementPage = () => {
                       <Button asChild type="button" variant="outline">
                         <Link href={`/devices/${device.id}`}>Open</Link>
                       </Button>
-                      <Button asChild type="button" variant="outline">
-                        <Link href={`/devices/${device.id}/live`}>Live</Link>
-                      </Button>
+                      {routeLinks.map((routeLink) => (
+                        <Button key={routeLink.href} asChild type="button" variant="outline">
+                          <Link href={routeLink.href}>{routeLink.label}</Link>
+                        </Button>
+                      ))}
                       <Button
-                        disabled={isBusy || draft.name.trim() === ''}
+                        disabled={
+                          isBusy || draft.name.trim() === '' || draft.departmentId.trim() === ''
+                        }
                         type="button"
                         variant="outline"
                         onClick={() => {
@@ -368,15 +481,6 @@ export const DeviceManagementPage = () => {
                       >
                         <Save />
                         Save
-                      </Button>
-                      <Button asChild type="button" variant="outline">
-                        <Link href={`/devices/${device.id}/runtime`}>Runtime</Link>
-                      </Button>
-                      <Button asChild type="button" variant="outline">
-                        <Link href={`/devices/${device.id}/transfers`}>Transfers</Link>
-                      </Button>
-                      <Button asChild type="button" variant="outline">
-                        <Link href={`/devices/${device.id}/audio`}>Audio</Link>
                       </Button>
                       <Button
                         disabled={isBusy}

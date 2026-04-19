@@ -15,11 +15,15 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@azure/storage-blob": "^12.31.0",
+    "@better-auth/passkey": "^1.6.5",
     "@aws-sdk/client-s3": "^3.1032.0",
     "@aws-sdk/s3-request-presigner": "^3.1032.0",
+    "@azure/storage-blob": "^12.31.0",
+    "@openfga/sdk": "^0.9.5",
     "@trpc/server": "^11.16.0",
+    "better-auth": "^1.6.5",
     "drizzle-orm": "1.0.0-beta.15-859cf75",
+    "jose": "^6.2.2",
     "next": "16.2.4",
     "pg": "^8.20.0",
     "superjson": "^2.2.6",
@@ -37,10 +41,22 @@
     "typescript": "^6"
   },
   "exports": {
-    "./db/*": "./src/db/*.ts",
-    "./lib/*": "./src/lib/*.ts",
-    "./server/*": "./src/server/*.ts",
-    "./server/routers": "./src/server/routers/index.ts"
+    "./db/*": {
+      "types": "./src/db/*.ts",
+      "import": "./src/db/*.ts"
+    },
+    "./lib/*": {
+      "types": "./src/lib/*.ts",
+      "import": "./src/lib/*.ts"
+    },
+    "./server/*": {
+      "types": "./src/server/*.ts",
+      "import": "./src/server/*.ts"
+    },
+    "./server/routers": {
+      "types": "./src/server/routers/index.ts",
+      "import": "./src/server/routers/index.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

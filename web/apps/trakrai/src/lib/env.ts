@@ -49,6 +49,15 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string(),
     BETTER_AUTH_URL: z.string(),
 
+    // Local source: `web/apps/trakrai/.env`, usually `http://localhost:8080`.
+    // Deployment source: URL of the OpenFGA HTTP API used for authz graph checks.
+    OPENFGA_API_URL: z.string().url(),
+    OPENFGA_STORE_NAME: z.string().default('trakrai'),
+
+    // Shared signing secret for short-lived device gateway access tokens.
+    // Must match the value configured for the live-gateway service.
+    LIVE_GATEWAY_AUTH_SECRET: z.string(),
+
     // Local source: `web/apps/trakrai/.env`.
     // Deployment source: cloud app runtime environment.
     // Get these from the Microsoft Entra / Azure AD application used for login.
@@ -112,6 +121,9 @@ export const env = createEnv({
     TRAKRAI_PACKAGE_RELEASE_TOKEN: process.env['TRAKRAI_PACKAGE_RELEASE_TOKEN'],
     BETTER_AUTH_SECRET: process.env['BETTER_AUTH_SECRET'],
     BETTER_AUTH_URL: process.env['BETTER_AUTH_URL'],
+    OPENFGA_API_URL: process.env['OPENFGA_API_URL'],
+    OPENFGA_STORE_NAME: process.env['OPENFGA_STORE_NAME'],
+    LIVE_GATEWAY_AUTH_SECRET: process.env['LIVE_GATEWAY_AUTH_SECRET'],
     MICROSOFT_CLIENT_ID: process.env['MICROSOFT_CLIENT_ID'],
     MICROSOFT_CLIENT_SECRET: process.env['MICROSOFT_CLIENT_SECRET'],
     MICROSOFT_TENANT_ID: process.env['MICROSOFT_TENANT_ID'],

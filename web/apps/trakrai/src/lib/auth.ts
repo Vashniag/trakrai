@@ -1,7 +1,5 @@
-import { passkey } from '@better-auth/passkey';
-import * as schema from '@trakrai/backend/db/auth-schema';
+import { createTrakraiAuthOptions } from '@trakrai/backend/lib/auth';
 import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 
 import { db } from '@/db';
 import AuthEmail from '@/emails/auth-email';
@@ -9,41 +7,16 @@ import { env } from '@/lib/env';
 
 import { sendEmail } from './send-email';
 
-const SESSION_CACHE_MAX_AGE_MINUTES = 5;
-const SECONDS_PER_MINUTE = 60;
-
-const resolveTrustedOrigins = (): string[] => {
-  if (env.NODE_ENV === 'development') {
-    return ['http://localhost:3000', 'http://localhost:3100', 'http://localhost:3001'];
-  }
-
-  if (env.VERCEL_URL !== undefined) {
-    return [`https://${env.VERCEL_URL}`];
-  }
-
-  return [];
-};
-
-export const auth = betterAuth({
-  appName: 'trakrai',
-  plugins: [
-    passkey({
-      rpID: env.NODE_ENV === 'development' ? 'localhost' : undefined,
-    }),
-  ],
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema,
-  }),
-  session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: SESSION_CACHE_MAX_AGE_MINUTES * SECONDS_PER_MINUTE,
+export const auth = betterAuth(
+  createTrakraiAuthOptions({
+    db,
+    env: {
+      microsoftClientId: env.MICROSOFT_CLIENT_ID,
+      microsoftClientSecret: env.MICROSOFT_CLIENT_SECRET,
+      microsoftTenantId: env.MICROSOFT_TENANT_ID,
+      nodeEnv: env.NODE_ENV,
+      vercelUrl: env.VERCEL_URL,
     },
-  },
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
       await sendEmail(
         [user.email],
@@ -58,10 +31,6 @@ export const auth = betterAuth({
         }),
       );
     },
-  },
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
       await sendEmail(
         [user.email],
@@ -76,15 +45,5 @@ export const auth = betterAuth({
         }),
       );
     },
-  },
-  trustedOrigins: resolveTrustedOrigins(),
-  socialProviders: {
-    microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID,
-      clientSecret: env.MICROSOFT_CLIENT_SECRET,
-      tenantId: env.MICROSOFT_TENANT_ID,
-      authority: 'https://login.microsoftonline.com',
-      prompt: 'select_account',
-    },
-  },
-});
+  }),
+);

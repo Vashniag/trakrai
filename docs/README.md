@@ -4,6 +4,10 @@ This document is the current source of truth for the `web/` workspace and its de
 
 It replaces the earlier `communication-layer-plan.md`, which described a partially future-looking target state that no longer matches the code exactly.
 
+Related runbooks:
+
+- [Local Postgres + OpenFGA Bringup](./local-db-openfga-bringup.md)
+
 ## Workspace shape
 
 The web side is a pnpm workspace with three top-level buckets:

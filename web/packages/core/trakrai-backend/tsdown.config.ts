@@ -19,7 +19,7 @@ export default defineConfig({
   dts: false,
   entry: {
     ...createEntries('db', '.ts'),
-    'lib/request-context': 'src/lib/request-context.ts',
+    ...createEntries('lib', '.ts'),
     'lib/storage/azure-provider': 'src/lib/storage/azure-provider.ts',
     'lib/storage/interface': 'src/lib/storage/interface.ts',
     'lib/storage/s3-compatible-provider': 'src/lib/storage/s3-compatible-provider.ts',

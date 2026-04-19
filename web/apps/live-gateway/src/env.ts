@@ -19,6 +19,9 @@ export const env = createEnv({
     // Local source: shell env for `pnpm dev`; deployment source: container/service env.
     PORT: z.coerce.number().int().positive().default(4000),
 
+    // Shared HMAC secret used to verify short-lived app-issued gateway access tokens.
+    LIVE_GATEWAY_AUTH_SECRET: z.string(),
+
     // STUN server advertised to browsers for ICE gathering.
     // Get this from your deployed STUN/TURN setup, or keep the public dev default.
     STUN_SERVER_URL: z.string().default('stun:stun.l.google.com:19302'),

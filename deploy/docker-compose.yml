@@ -35,6 +35,32 @@ services:
       timeout: 5s
       retries: 5
 
+  openfga-migrate:
+    image: openfga/openfga:latest
+    restart: 'no'
+    command: migrate
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://${POSTGRES_USER:-trakrai}:${POSTGRES_PASSWORD:-trakrai-local-dev}@postgres:5432/${POSTGRES_DB:-trakrai}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openfga:
+    image: openfga/openfga:latest
+    restart: unless-stopped
+    command: run
+    ports:
+      - '8080:8080'
+      - '8081:8081'
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://${POSTGRES_USER:-trakrai}:${POSTGRES_PASSWORD:-trakrai-local-dev}@postgres:5432/${POSTGRES_DB:-trakrai}?sslmode=disable
+      OPENFGA_LOG_FORMAT: json
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+
   inngest-postgres:
     image: postgres:17
     restart: unless-stopped
@@ -134,6 +160,7 @@ services:
     ports:
       - '4000:4000'
     environment:
+      LIVE_GATEWAY_AUTH_SECRET: ${LIVE_GATEWAY_AUTH_SECRET:-trakrai-local-gateway-secret}
       MQTT_BROKER_URL: mqtt://mosquitto:1883
       PORT: '4000'
       CORS_ORIGIN: '*'
