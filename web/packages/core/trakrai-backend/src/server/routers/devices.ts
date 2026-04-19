@@ -29,7 +29,9 @@ const MAX_DESCRIPTION_LENGTH = 500;
 const MAX_NAME_LENGTH = 255;
 const DEVICE_ACCESS_TOKEN_BYTES = 24;
 const DEVICE_NOT_FOUND_MESSAGE = 'Device not found.';
-const DEVICE_RECORD_ID_MESSAGE = 'Device record ID must be a UUID';
+const DEVICE_RECORD_ID_MESSAGE = 'Device record ID is required';
+
+const textIdSchema = (message: string) => z.string().trim().min(1, message);
 
 const normalizeOptionalString = (value: string): string | null => {
   const normalized = value.trim();
@@ -55,7 +57,7 @@ const buildComponentParentTuple = (componentId: string, deviceId: string) => ({
 });
 
 const createDeviceInputSchema = z.object({
-  departmentId: z.string().uuid('Department ID must be a UUID'),
+  departmentId: textIdSchema('Department ID is required'),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).default(''),
   name: z
     .string()
@@ -65,9 +67,9 @@ const createDeviceInputSchema = z.object({
 });
 
 const updateDeviceInputSchema = z.object({
-  departmentId: z.string().uuid('Department ID must be a UUID'),
+  departmentId: textIdSchema('Department ID is required'),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).default(''),
-  id: z.string().uuid(DEVICE_RECORD_ID_MESSAGE),
+  id: textIdSchema(DEVICE_RECORD_ID_MESSAGE),
   isActive: z.boolean(),
   name: z
     .string()
@@ -77,11 +79,11 @@ const updateDeviceInputSchema = z.object({
 });
 
 const deleteDeviceInputSchema = z.object({
-  id: z.string().uuid(DEVICE_RECORD_ID_MESSAGE),
+  id: textIdSchema(DEVICE_RECORD_ID_MESSAGE),
 });
 
 const getDeviceInputSchema = z.object({
-  id: z.string().uuid(DEVICE_RECORD_ID_MESSAGE),
+  id: textIdSchema(DEVICE_RECORD_ID_MESSAGE),
 });
 
 const deviceListItemSchema = z.object({

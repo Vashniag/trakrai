@@ -5,7 +5,6 @@ import { createContext, useContext, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { Button } from '@trakrai/design-system/components/button';
 import {
   Card,
   CardContent,
@@ -14,14 +13,14 @@ import {
   CardTitle,
 } from '@trakrai/design-system/components/card';
 import { CloudTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
-import { ChevronLeft } from 'lucide-react';
 
+import { StatCard } from '@/components/hierarchy/stat-card';
+import { WorkspaceShell } from '@/components/hierarchy/workspace-shell';
 import { cloudAppBuildConfig } from '@/lib/build-config';
-import { useTRPCQuery } from '@/server/react';
 
 import type { RouterOutput } from '@trakrai/backend/server/routers';
 
-type DeviceRouteContextValue = RouterOutput['devices']['getRouteContext'];
+type DeviceRouteContextValue = RouterOutput['workspace']['getDeviceWorkspace'];
 type ManagedDevice = DeviceRouteContextValue['device'];
 
 const DeviceRouteContext = createContext<DeviceRouteContextValue | null>(null);
@@ -39,9 +38,9 @@ const buildDeviceRouteItems = (
 }> =>
   [
     {
-      description: 'Identity, access, and cloud registration details.',
+      description: 'Basic device details, lifecycle data, and app index.',
       href: `/devices/${deviceRecordId}`,
-      label: 'Overview',
+      label: 'Home',
     },
     ...routeContext.components
       .filter((component) => component.routePath !== null && component.routePath.trim() !== '')
@@ -57,7 +56,7 @@ const buildDeviceRouteItems = (
 
 type DeviceRouteShellProps = Readonly<{
   children: ReactNode;
-  deviceRecordId: string;
+  routeContext: DeviceRouteContextValue;
 }>;
 
 export const useCurrentCloudDevice = (): ManagedDevice => {
@@ -78,54 +77,12 @@ export const useDeviceRouteContext = (): DeviceRouteContextValue => {
   return routeContext;
 };
 
-export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellProps) => {
+export const DeviceRouteShell = ({ children, routeContext }: DeviceRouteShellProps) => {
   const pathname = usePathname();
-  const routeContextQuery = useTRPCQuery((api) => ({
-    ...api.devices.getRouteContext.queryOptions({ id: deviceRecordId }),
-    retry: false,
-  }));
-
-  if (routeContextQuery.isLoading) {
-    return (
-      <main className="bg-background min-h-screen px-6 py-8 md:px-10">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-          <div className="text-muted-foreground">Loading device...</div>
-        </div>
-      </main>
-    );
-  }
-
-  if (routeContextQuery.error !== null || routeContextQuery.data === undefined) {
-    return (
-      <main className="bg-background min-h-screen px-6 py-8 md:px-10">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-          <Button asChild className="w-fit" variant="outline">
-            <Link href="/devices">
-              <ChevronLeft />
-              Back to devices
-            </Link>
-          </Button>
-          <Card className="border">
-            <CardHeader className="border-b">
-              <CardTitle>Device unavailable</CardTitle>
-              <CardDescription>The requested device route could not be resolved.</CardDescription>
-            </CardHeader>
-            <CardContent className="py-6 text-sm">
-              {routeContextQuery.error instanceof Error
-                ? routeContextQuery.error.message
-                : 'Device not found.'}
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    );
-  }
-
-  const routeContext = routeContextQuery.data;
   const { device } = routeContext;
-  const routeItems = buildDeviceRouteItems(deviceRecordId, routeContext);
-  const isOverviewRoute = pathname === `/devices/${deviceRecordId}`;
-  const currentRouteAllowed = isOverviewRoute || routeItems.some((item) => item.href === pathname);
+  const routeItems = buildDeviceRouteItems(device.id, routeContext);
+  const isHomeRoute = pathname === `/devices/${device.id}`;
+  const currentRouteAllowed = isHomeRoute || routeItems.some((item) => item.href === pathname);
 
   return (
     <CloudTransportProvider
@@ -135,76 +92,80 @@ export const DeviceRouteShell = ({ children, deviceRecordId }: DeviceRouteShellP
       signalingUrl={cloudAppBuildConfig.liveGatewayWsUrl}
     >
       <DeviceRouteContext.Provider value={routeContext}>
-        <main className="bg-background min-h-screen px-6 py-8 md:px-10">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-            <section className="space-y-3">
-              <Button asChild className="w-fit" variant="outline">
-                <Link href="/devices">
-                  <ChevronLeft />
-                  Back to devices
-                </Link>
-              </Button>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-muted-foreground text-xs font-medium tracking-[0.24em] uppercase">
-                    TrakrAI Device Console
-                  </p>
-                  <h1 className="text-foreground mt-2 text-3xl font-semibold tracking-tight">
-                    {device.name}
-                  </h1>
-                  <p className="text-muted-foreground mt-1 max-w-3xl text-sm">
-                    {device.description?.trim() !== ''
-                      ? device.description
-                      : 'Cloud-managed device route with live, runtime, and transfer operations.'}
-                  </p>
-                </div>
-                <div
-                  className={`border px-3 py-2 text-[11px] tracking-[0.2em] uppercase ${
-                    device.isActive
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
-                      : 'border-border bg-muted text-muted-foreground'
-                  }`}
+        <WorkspaceShell
+          currentSidebarItemId={device.id}
+          description={`Device workspace for ${device.departmentName} in ${device.factoryName}, with app-level access already resolved on the server.`}
+          eyebrow="Device Workspace"
+          sidebarDescription="Devices visible inside your current department scope."
+          sidebarItems={routeContext.devices.map((deviceRow) => ({
+            badge: `${deviceRow.enabledAppCount}/${deviceRow.totalAppCount}`,
+            description: deviceRow.description,
+            href: `/devices/${deviceRow.id}`,
+            id: deviceRow.id,
+            label: deviceRow.name,
+            meta: deviceRow.isActive ? 'Active' : 'Paused',
+          }))}
+          sidebarTitle="Devices"
+          stats={
+            <>
+              <StatCard
+                description="Installed device applications."
+                title="Installed Apps"
+                value={routeContext.stats.totalAppCount}
+              />
+              <StatCard
+                description="Applications currently enabled on this device."
+                title="Enabled Apps"
+                value={routeContext.stats.enabledAppCount}
+              />
+              <StatCard
+                description="Apps visible to the current signed-in user."
+                title="Visible Apps"
+                value={routeContext.stats.visibleAppCount}
+              />
+              <StatCard
+                description="Direct device-level viewers."
+                title="Direct Users"
+                value={routeContext.stats.directUserCount}
+              />
+            </>
+          }
+          title={device.name}
+        >
+          <section className="flex flex-wrap gap-3">
+            {routeItems.map((item) => {
+              const isActive = pathname === item.href;
+
+              return (
+                <Link
+                  key={item.href}
+                  className={`border px-4 py-3 text-left transition ${isActive ? ACTIVE_CLASSES : IDLE_CLASSES}`}
+                  href={item.href}
                 >
-                  {device.isActive ? 'Active' : 'Paused'}
-                </div>
-              </div>
-            </section>
+                  <div className="font-medium">{item.label}</div>
+                  <div className="text-muted-foreground mt-1 text-xs">{item.description}</div>
+                </Link>
+              );
+            })}
+          </section>
 
-            <section className="grid gap-3 md:grid-cols-5">
-              {routeItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    className={`border px-4 py-4 text-left transition ${
-                      isActive ? ACTIVE_CLASSES : IDLE_CLASSES
-                    }`}
-                    href={item.href}
-                  >
-                    <div className="font-medium">{item.label}</div>
-                    <div className="text-muted-foreground mt-1 text-xs">{item.description}</div>
-                  </Link>
-                );
-              })}
-            </section>
-
-            {currentRouteAllowed ? (
-              children
-            ) : (
-              <Card className="border">
-                <CardHeader className="border-b">
-                  <CardTitle>Device app unavailable</CardTitle>
-                  <CardDescription>
-                    This device app is disabled or you do not have access to it.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="py-6 text-sm">
-                  Sysadmin can enable app on device. Scoped admins can grant app access after that.
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </main>
+          {currentRouteAllowed ? (
+            children
+          ) : (
+            <Card className="border">
+              <CardHeader className="border-b">
+                <CardTitle>Device app unavailable</CardTitle>
+                <CardDescription>
+                  This device app is disabled or outside your current access scope.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="py-6 text-sm">
+                Sysadmin can enable the app for this device. Scoped admins can then grant app-level
+                read or write access.
+              </CardContent>
+            </Card>
+          )}
+        </WorkspaceShell>
       </DeviceRouteContext.Provider>
     </CloudTransportProvider>
   );

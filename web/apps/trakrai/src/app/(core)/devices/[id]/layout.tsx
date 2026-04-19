@@ -1,4 +1,5 @@
 import { DeviceRouteShell } from '@/components/device-route-shell';
+import { fetchQuery } from '@/server/server';
 
 const DeviceRouteLayout = async ({
   children,
@@ -8,8 +9,13 @@ const DeviceRouteLayout = async ({
   params: Promise<{ id: string }>;
 }>) => {
   const { id } = await params;
+  const routeContext = await fetchQuery((trpc) =>
+    trpc.workspace.getDeviceWorkspace.queryOptions({
+      deviceId: id,
+    }),
+  );
 
-  return <DeviceRouteShell deviceRecordId={id}>{children}</DeviceRouteShell>;
+  return <DeviceRouteShell routeContext={routeContext}>{children}</DeviceRouteShell>;
 };
 
 export default DeviceRouteLayout;

@@ -1,0 +1,22 @@
+import { createLoader, type SearchParams } from 'nuqs/server';
+
+import { AccessControlDevicesPage } from '@/app/(core)/access-control/_components/access-control-devices-page';
+import { paginatedNameSearchParsers } from '@/components/hierarchy/page-params';
+import { fetchQuery } from '@/server/server';
+
+const loader = createLoader(paginatedNameSearchParsers);
+
+const AccessControlDevicesRoutePage = async ({
+  searchParams,
+}: Readonly<{
+  searchParams: Promise<SearchParams>;
+}>) => {
+  const pageParams = await loader(searchParams);
+  const data = await fetchQuery((trpc) =>
+    trpc.accessControl.listScopeDevices.queryOptions(pageParams),
+  );
+
+  return <AccessControlDevicesPage data={data} />;
+};
+
+export default AccessControlDevicesRoutePage;

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppHeader } from '@trakrai/design-system/components/app-header';
 import { ThemeToggleButton } from '@trakrai/design-system/components/theme-toggle-button';
 
+import { CloudSysadminButton } from '@/components/cloud-sysadmin-button';
 import { CloudUserButton } from '@/components/cloud-user-button';
 
 export const CloudCoreHeader = () => (
@@ -17,21 +18,16 @@ export const CloudCoreHeader = () => (
         <nav className="flex items-center gap-2 text-sm">
           <Link
             className="text-muted-foreground hover:text-foreground transition-colors"
-            href="/devices"
+            href="/factories"
           >
-            Devices
-          </Link>
-          <Link
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            href="/access-control"
-          >
-            Access control
+            Factories
           </Link>
         </nav>
       </div>
     }
     rightContent={
       <>
+        <CloudSysadminButton />
         <ThemeToggleButton />
         <CloudUserButton />
       </>

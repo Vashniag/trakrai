@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { assertUserCanManageScope, requireSysAdmin } from './helpers';
 import { readManagementConsoleData } from './management-console';
+import { accessControlQueryProcedures } from './queries';
 import {
   assignmentInputSchema,
   componentCatalogInputSchema,
@@ -64,6 +65,7 @@ const buildComponentParentTuple = (componentId: string, deviceId: string) => ({
 });
 
 export const accessControlRouter = createTRPCRouter({
+  ...accessControlQueryProcedures,
   createCatalogEntry: protectedProcedure
     .input(componentCatalogInputSchema)
     .mutation(async ({ input, ctx }) => {

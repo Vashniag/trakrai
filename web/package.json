@@ -20,6 +20,7 @@
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:bootstrap-local": "node --env-file=apps/trakrai/.env --import tsx ./scripts/bootstrap-local-db.ts",
+    "db:seed-demo": "node --env-file=apps/trakrai/.env --import tsx ./scripts/seed-demo-data.ts",
     "duplicate:check": "jscpd . --pattern \"**/*.{ts,tsx}\" --ignore \"**/node_modules/**,**/.next/**,**/dist/**,**/build/**\"",
     "test": "turbo run test",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
@@ -30,6 +31,7 @@
     "precommit": "lint-staged && pnpm typecheck"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
     "@types/node": "^25.6.0",
     "@workspace/typescript-config": "workspace:*",
     "better-auth": "^1.6.5",

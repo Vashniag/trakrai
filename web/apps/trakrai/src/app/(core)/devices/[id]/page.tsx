@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@trakrai/design-system/components/card';
 
-import { useCurrentCloudDevice } from '@/components/device-route-shell';
+import { useCurrentCloudDevice, useDeviceRouteContext } from '@/components/device-route-shell';
 
 const formatTimestamp = (value: Date): string =>
   new Intl.DateTimeFormat(undefined, {
@@ -18,6 +18,7 @@ const formatTimestamp = (value: Date): string =>
 
 const DeviceOverviewPage = () => {
   const device = useCurrentCloudDevice();
+  const routeContext = useDeviceRouteContext();
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
@@ -53,7 +54,9 @@ const DeviceOverviewPage = () => {
             <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
               Access token
             </div>
-            <div className="text-sm font-medium break-all">{device.accessToken}</div>
+            <div className="text-sm font-medium break-all">
+              {device.accessToken ?? 'Visible only to sysadmin.'}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -90,6 +93,30 @@ const DeviceOverviewPage = () => {
             </div>
             <div className="mt-2 text-sm font-medium">{formatTimestamp(device.updatedAt)}</div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border xl:col-span-2">
+        <CardHeader className="border-b">
+          <CardTitle className="text-xl">Device apps</CardTitle>
+          <CardDescription>
+            Apps currently enabled on this device and accessible in the top sub-navigation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 py-6 md:grid-cols-2 xl:grid-cols-4">
+          {routeContext.components.map((component) => (
+            <div key={component.id} className="border p-4">
+              <div className="font-medium">{component.navigationLabel}</div>
+              <div className="text-muted-foreground mt-1 text-xs">
+                {component.description?.trim() !== ''
+                  ? component.description
+                  : `${component.navigationLabel} is available on this device.`}
+              </div>
+              <div className="text-muted-foreground mt-3 text-[11px] tracking-[0.16em] uppercase">
+                {component.accessLevel === 'write' ? 'Read / write' : 'Read only'}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>

@@ -17,12 +17,18 @@ import { useSession, signOut } from '@/lib/auth-client';
 import type { Route } from 'next';
 
 const fallbackEmail = 'Account';
+const isSysadmin = (role: string | null | undefined): boolean =>
+  (role ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .includes('admin');
 
 export const CloudUserButton = () => {
   const router = useRouter();
   const { data } = useSession();
 
   const email = data?.user.email ?? fallbackEmail;
+  const showSysadmin = isSysadmin(data?.user.role);
 
   return (
     <DropdownMenu>
@@ -36,18 +42,20 @@ export const CloudUserButton = () => {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
-            router.push('/devices' as Route);
+            router.push('/factories' as Route);
           }}
         >
-          Devices
+          Factories
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            router.push('/access-control' as Route);
-          }}
-        >
-          Access control
-        </DropdownMenuItem>
+        {showSysadmin ? (
+          <DropdownMenuItem
+            onClick={() => {
+              router.push('/sysadmin/factories' as Route);
+            }}
+          >
+            Sysadmin
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async () => {

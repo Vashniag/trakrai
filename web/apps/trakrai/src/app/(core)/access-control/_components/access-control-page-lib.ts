@@ -60,25 +60,27 @@ export const EMPTY_DEVICES: ManagementConsole['devices'] = [];
 export const EMPTY_CATALOG: ManagementConsole['catalog'] = [];
 export const EMPTY_INSTALLATIONS: ManagementConsole['installations'] = [];
 
+const textIdSchema = z.string().trim().min(1);
+
 export const createFactorySchema = z.object({
   description: z.string(),
   name: z.string().trim().min(1),
 });
 
 export const updateFactorySchema = createFactorySchema.extend({
-  id: z.string().uuid(),
+  id: textIdSchema,
 });
 export type CreateFactoryValues = z.infer<typeof createFactorySchema>;
 export type UpdateFactoryValues = z.infer<typeof updateFactorySchema>;
 
 export const createDepartmentSchema = z.object({
   description: z.string(),
-  factoryId: z.string().uuid(),
+  factoryId: textIdSchema,
   name: z.string().trim().min(1),
 });
 
 export const updateDepartmentSchema = createDepartmentSchema.extend({
-  id: z.string().uuid(),
+  id: textIdSchema,
 });
 export type CreateDepartmentValues = z.infer<typeof createDepartmentSchema>;
 export type UpdateDepartmentValues = z.infer<typeof updateDepartmentSchema>;
@@ -132,7 +134,7 @@ export type BanUserValues = z.infer<typeof banUserSchema>;
 
 export const factoryAssignmentSchema = z.object({
   role: z.enum(['admin', 'viewer']),
-  scopeId: z.string().uuid(),
+  scopeId: textIdSchema,
   scopeType: z.literal('factory'),
   userId: z.string().min(1),
 });
@@ -140,7 +142,7 @@ export type FactoryAssignmentValues = z.infer<typeof factoryAssignmentSchema>;
 
 export const departmentAssignmentSchema = z.object({
   role: z.enum(['admin', 'viewer']),
-  scopeId: z.string().uuid(),
+  scopeId: textIdSchema,
   scopeType: z.literal('department'),
   userId: z.string().min(1),
 });
@@ -148,7 +150,7 @@ export type DepartmentAssignmentValues = z.infer<typeof departmentAssignmentSche
 
 export const deviceAssignmentSchema = z.object({
   role: z.literal('viewer'),
-  scopeId: z.string().uuid(),
+  scopeId: textIdSchema,
   scopeType: z.literal('device'),
   userId: z.string().min(1),
 });
@@ -156,7 +158,7 @@ export type DeviceAssignmentValues = z.infer<typeof deviceAssignmentSchema>;
 
 export const componentAssignmentSchema = z.object({
   accessLevel: z.enum(['read', 'write']),
-  scopeId: z.string().uuid(),
+  scopeId: textIdSchema,
   scopeType: z.literal('component'),
   userId: z.string().min(1),
 });
@@ -192,10 +194,10 @@ export const formatDateTime = (value: Date | null | undefined): string => {
 export const toTitleCase = (value: string): string =>
   value.replace(/[-_]/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 
-export const formatUserLabel = (userRow: ManagedUser): string => {
+export const formatUserLabel = (userRow: Pick<ManagedUser, 'email' | 'name'>): string => {
   const normalizedName = userRow.name.trim();
   return normalizedName === '' ? userRow.email : `${normalizedName} (${userRow.email})`;
 };
 
-export const describeBanState = (userRow: ManagedUser): string =>
+export const describeBanState = (userRow: Pick<ManagedUser, 'banExpires' | 'banned'>): string =>
   userRow.banned === true ? `Banned until ${formatDateTime(userRow.banExpires)}` : 'Active';

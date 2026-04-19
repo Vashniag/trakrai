@@ -1,6 +1,7 @@
 import {
   ClientWriteRequestOnDuplicateWrites,
   ClientWriteRequestOnMissingDeletes,
+  type OpenFgaClient,
   type TupleKey,
   type TupleKeyWithoutCondition,
 } from '@openfga/sdk';
@@ -19,11 +20,42 @@ const DEFAULT_WRITE_OPTIONS = {
     onDuplicateWrites: ClientWriteRequestOnDuplicateWrites.Ignore,
     onMissingDeletes: ClientWriteRequestOnMissingDeletes.Ignore,
   },
-  transaction: {
-    maxParallelRequests: 4,
-    maxPerChunk: 50,
-  },
 } as const;
+
+const MAX_TUPLES_PER_WRITE = 50;
+const MAX_PARALLEL_REQUESTS = 4;
+
+const chunkArray = <TValue>(values: readonly TValue[], size: number): TValue[][] => {
+  const chunks: TValue[][] = [];
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+
+  return chunks;
+};
+
+const writeTupleChunks = async (
+  client: OpenFgaClient,
+  chunkedWrites: readonly Readonly<{
+    deletes?: readonly TupleKeyWithoutCondition[];
+    writes?: readonly TupleKey[];
+  }>[],
+) => {
+  for (const requestBatch of chunkArray(chunkedWrites, MAX_PARALLEL_REQUESTS)) {
+    await Promise.all(
+      requestBatch.map((requestChunk) =>
+        client.write(
+          {
+            ...(requestChunk.deletes === undefined ? {} : { deletes: [...requestChunk.deletes] }),
+            ...(requestChunk.writes === undefined ? {} : { writes: [...requestChunk.writes] }),
+          },
+          DEFAULT_WRITE_OPTIONS,
+        ),
+      ),
+    );
+  }
+};
 
 const normalizeTupleKeysForDelete = (
   tupleKeys: readonly TupleKeyWithoutCondition[],
@@ -40,11 +72,11 @@ export const writeAuthzTuples = async (tupleKeys: readonly TupleKey[]): Promise<
   }
 
   const { client } = await ensureAuthzState();
-  await client.write(
-    {
-      writes: [...tupleKeys],
-    },
-    DEFAULT_WRITE_OPTIONS,
+  await writeTupleChunks(
+    client,
+    chunkArray(tupleKeys, MAX_TUPLES_PER_WRITE).map((writes) => ({
+      writes,
+    })),
   );
 };
 
@@ -56,11 +88,11 @@ export const deleteAuthzTuples = async (
   }
 
   const { client } = await ensureAuthzState();
-  await client.write(
-    {
-      deletes: normalizeTupleKeysForDelete(tupleKeys),
-    },
-    DEFAULT_WRITE_OPTIONS,
+  await writeTupleChunks(
+    client,
+    chunkArray(normalizeTupleKeysForDelete(tupleKeys), MAX_TUPLES_PER_WRITE).map((deletes) => ({
+      deletes,
+    })),
   );
 };
 

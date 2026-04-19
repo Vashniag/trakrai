@@ -1,6 +1,7 @@
 import { accessControlRouter } from './access-control';
 import { devicesRouter } from './devices';
 import { packageArtifactsRouter } from './package-artifacts';
+import { workspaceRouter } from './workspace/router';
 
 import type { inferRouterOutputs } from '@trpc/server';
 
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   }),
   devices: devicesRouter,
   packageArtifacts: packageArtifactsRouter,
+  workspace: workspaceRouter,
 });
 
 export type AppRouter = typeof appRouter;
