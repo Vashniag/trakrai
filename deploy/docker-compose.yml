@@ -154,8 +154,8 @@ services:
 
   live-gateway:
     build:
-      context: ../web/apps/live-gateway
-      dockerfile: Dockerfile
+      context: ../web
+      dockerfile: apps/live-gateway/Dockerfile
     restart: unless-stopped
     ports:
       - '4000:4000'

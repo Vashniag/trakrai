@@ -9,6 +9,9 @@ import { setupWebSocket } from './ws-handler.js';
 
 const app = express();
 const BEARER_PREFIX = 'Bearer ';
+const DEFAULT_ALLOW_HEADERS = 'Authorization, Content-Type';
+const ALLOW_METHODS = 'GET, OPTIONS';
+const allowedOrigins = new Set(config.corsAllowedOrigins);
 
 const readGatewayAccessToken = (request: express.Request): string | null => {
   const authorizationHeader = request.header('authorization') ?? request.header('Authorization');
@@ -26,12 +29,49 @@ const readGatewayAccessToken = (request: express.Request): string | null => {
   return queryToken !== '' ? queryToken : null;
 };
 
+const resolveAllowOrigin = (requestOrigin: string | undefined): string => {
+  const normalizedOrigin = requestOrigin?.trim();
+
+  if (allowedOrigins.size === 0) {
+    return normalizedOrigin !== undefined && normalizedOrigin !== '' ? normalizedOrigin : '*';
+  }
+
+  if (normalizedOrigin === undefined || normalizedOrigin === '') {
+    return '';
+  }
+
+  return allowedOrigins.has(normalizedOrigin) ? normalizedOrigin : '';
+};
+
 // CORS middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  const requestOriginHeader = req.header('origin') ?? undefined;
+  const allowOrigin = resolveAllowOrigin(requestOriginHeader);
+
+  if (allowOrigin !== '') {
+    res.header('Access-Control-Allow-Origin', allowOrigin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.header(
+    'Vary',
+    'Origin, Access-Control-Request-Headers, Access-Control-Request-Private-Network',
+  );
+  res.header('Access-Control-Allow-Methods', ALLOW_METHODS);
+  res.header(
+    'Access-Control-Allow-Headers',
+    req.header('access-control-request-headers') ?? DEFAULT_ALLOW_HEADERS,
+  );
+
+  if (req.header('access-control-request-private-network') === 'true') {
+    res.header('Access-Control-Allow-Private-Network', 'true');
+  }
+
   if (req.method === 'OPTIONS') {
+    if (allowOrigin === '') {
+      res.sendStatus(403);
+      return;
+    }
     res.sendStatus(204);
     return;
   }

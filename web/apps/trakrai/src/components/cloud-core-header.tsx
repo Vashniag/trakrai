@@ -16,7 +16,7 @@ type CloudCoreHeaderProps = {
 
 export const CloudCoreHeader = ({ leftContent }: CloudCoreHeaderProps) => (
   <AppHeader
-    className="sticky top-0 z-30"
+    className="sticky top-0"
     leftContent={leftContent}
     rightContent={
       <>

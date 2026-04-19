@@ -537,7 +537,16 @@ const sendSessionInfo = (ws: WebSocket, deviceId: string): void => {
 
 const canClientPublishPacket = (packet: TransportPacket, clientContext: ClientContext): boolean => {
   if (packet.service === null) {
-    return packet.subtopic === 'command' && packet.envelope.type === 'get-status';
+    if (packet.subtopic !== 'command') {
+      return false;
+    }
+
+    if (packet.envelope.type === 'get-status') {
+      return true;
+    }
+
+    // Backward compatibility: some gateway tokens still carry unscoped selector names.
+    return clientContext.allowedSelectors.has(packet.envelope.type);
   }
 
   if (!clientContext.allowedServiceNames.has(packet.service)) {
@@ -549,7 +558,12 @@ const canClientPublishPacket = (packet: TransportPacket, clientContext: ClientCo
     packet.subtopic,
     packet.envelope.type,
   );
-  return selector !== null && clientContext.allowedSelectors.has(selector);
+  if (selector !== null && clientContext.allowedSelectors.has(selector)) {
+    return true;
+  }
+
+  // Backward compatibility: some gateway tokens still carry unscoped selector names.
+  return clientContext.allowedSelectors.has(packet.envelope.type);
 };
 
 const syncClientDevice = async (

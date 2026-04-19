@@ -5,13 +5,23 @@ FROM python:3.8-slim AS builder
 ARG PACKAGE_DIR
 ARG BUILD_WHEELHOUSE=0
 ARG PACKAGE_VERSION=0.1.0
+ARG REQUIREMENTS_FILE=requirements.txt
+ARG WHEELHOUSE_ABI=
+ARG WHEELHOUSE_IMPLEMENTATION=cp
+ARG WHEELHOUSE_PLATFORM=
+ARG WHEELHOUSE_PYTHON_VERSION=
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     BUILD_WHEELHOUSE=${BUILD_WHEELHOUSE} \
     PACKAGE_DIR=${PACKAGE_DIR} \
-    PACKAGE_VERSION=${PACKAGE_VERSION}
+    PACKAGE_VERSION=${PACKAGE_VERSION} \
+    REQUIREMENTS_FILE=${REQUIREMENTS_FILE} \
+    WHEELHOUSE_ABI=${WHEELHOUSE_ABI} \
+    WHEELHOUSE_IMPLEMENTATION=${WHEELHOUSE_IMPLEMENTATION} \
+    WHEELHOUSE_PLATFORM=${WHEELHOUSE_PLATFORM} \
+    WHEELHOUSE_PYTHON_VERSION=${WHEELHOUSE_PYTHON_VERSION}
 
 WORKDIR /workspace
 
@@ -40,8 +50,19 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python -m build --wheel --outdir /out
 RUN --mount=type=cache,target=/root/.cache/pip \
     mkdir -p /wheelhouse \
-    && if [ "${BUILD_WHEELHOUSE}" = "1" ] && [ -f requirements.txt ] && grep -Eq '^[^#[:space:]]' requirements.txt; then \
-        python -m pip wheel --wheel-dir /wheelhouse -r requirements.txt; \
+    && if [ "${BUILD_WHEELHOUSE}" = "1" ] && [ -f "${REQUIREMENTS_FILE}" ] && grep -Eq '^[^#[:space:]]' "${REQUIREMENTS_FILE}"; then \
+        if [ -n "${WHEELHOUSE_PLATFORM}" ] && [ -n "${WHEELHOUSE_PYTHON_VERSION}" ] && [ -n "${WHEELHOUSE_ABI}" ]; then \
+            python -m pip download \
+                --dest /wheelhouse \
+                --only-binary=:all: \
+                --platform "${WHEELHOUSE_PLATFORM}" \
+                --implementation "${WHEELHOUSE_IMPLEMENTATION}" \
+                --python-version "${WHEELHOUSE_PYTHON_VERSION}" \
+                --abi "${WHEELHOUSE_ABI}" \
+                -r "${REQUIREMENTS_FILE}"; \
+        else \
+            python -m pip wheel --wheel-dir /wheelhouse -r "${REQUIREMENTS_FILE}"; \
+        fi; \
     fi
 
 FROM scratch AS export

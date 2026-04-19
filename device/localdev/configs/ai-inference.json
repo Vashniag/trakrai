@@ -8,7 +8,7 @@
     "key_prefix": "camera"
   },
   "inference": {
-    "device": "0",
+    "device": "cpu",
     "poll_interval_ms": 5,
     "idle_sleep_ms": 40,
     "min_brightness": 25,
@@ -16,7 +16,7 @@
     "inference_image_size": [512, 512],
     "confidence_threshold": 0.35,
     "iou_threshold": 0.45,
-    "fp16_inference": true,
+    "fp16_inference": false,
     "models": [
       {
         "weights_path": "/home/hacklab/trakrai-device-runtime/shared/models/yolov5n.pt",

@@ -17,6 +17,11 @@ class BuildSpec:
     artifact_key: str = ""
     binary_name: str = ""
     build_wheelhouse: bool = False
+    wheelhouse_abi: str = ""
+    wheelhouse_implementation: str = ""
+    wheelhouse_platform: str = ""
+    wheelhouse_python_version: str = ""
+    requirements_file: str = ""
     cmd_path: str = ""
     module_name: str = ""
     package_dir: str = ""
@@ -171,6 +176,11 @@ def load_services() -> tuple[ServiceManifest, ...]:
                     module_name=str(build.get("moduleName", "")),
                     package_dir=str(build.get("packageDir", "")),
                     platform_strategy=str(build.get("platformStrategy", "platform")),
+                    requirements_file=str(build.get("requirementsFile", "")),
+                    wheelhouse_abi=str(build.get("wheelhouseAbi", "")),
+                    wheelhouse_implementation=str(build.get("wheelhouseImplementation", "")),
+                    wheelhouse_platform=str(build.get("wheelhousePlatform", "")),
+                    wheelhouse_python_version=str(build.get("wheelhousePythonVersion", "")),
                     workspace_filter=str(build.get("workspaceFilter", "")),
                 ),
                 runtime=RuntimeSpec(

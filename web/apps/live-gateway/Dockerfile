@@ -1,18 +1,22 @@
-FROM node:22-alpine AS builder
-WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
-COPY package.json ./
-RUN pnpm install --no-frozen-lockfile
-COPY tsconfig.json ./
-COPY src/ ./src/
-RUN pnpm build
+FROM node:22-alpine AS base
 
-FROM node:22-alpine
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.33.0 --activate \
-    && apk add --no-cache wget
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json .
-RUN pnpm install --prod --no-frozen-lockfile
+RUN apk add --no-cache wget
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/live-gateway ./apps/live-gateway
+COPY packages/core ./packages/core
+COPY packages/trakrai-apps ./packages/trakrai-apps
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @trakrai/live-gateway build
+
+WORKDIR /app/apps/live-gateway
+ENV NODE_ENV=production
+
 EXPOSE 4000
 CMD ["node", "dist/index.js"]

@@ -19,12 +19,10 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInput,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -45,7 +43,6 @@ type WorkspaceSidebarItem = Readonly<{
 }>;
 
 type WorkspaceShellProps = Readonly<{
-  actions?: React.ReactNode;
   breadcrumbs: ReadonlyArray<{
     href?: string;
     label: string;
@@ -57,7 +54,7 @@ type WorkspaceShellProps = Readonly<{
   sidebarDescription: string;
   sidebarItems: WorkspaceSidebarItem[];
   sidebarTitle: string;
-  stats: React.ReactNode;
+  stats?: React.ReactNode;
   title: string;
 }>;
 const SidebarList = ({
@@ -86,7 +83,7 @@ const SidebarList = ({
 
   return (
     <>
-      <SidebarHeader className="gap-3 border-b">
+      <SidebarHeader className="border-sidebar-border h-16 border-b">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg">
@@ -102,55 +99,39 @@ const SidebarList = ({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SidebarInput
-          aria-label={`Filter ${title.toLowerCase()}`}
-          placeholder={`Search ${title.toLowerCase()}`}
-          value={filterValue}
-          onChange={(event) => {
-            setFilterValue(event.target.value);
-          }}
-        />
       </SidebarHeader>
 
       <SidebarContent className="overflow-hidden">
-        <SidebarGroup className="min-h-0 flex-1 p-0">
-          <div className="flex items-center justify-between px-4 pt-3">
-            <SidebarGroupLabel className="h-auto px-0 py-0">
-              {filterValue.trim() === '' ? title : 'Filtered results'}
-            </SidebarGroupLabel>
-            <div className="text-sidebar-foreground/50 text-[11px] tracking-[0.18em] uppercase">
-              {filteredItems.length}
-            </div>
-          </div>
-
+        <SidebarGroup className="min-h-0 flex-1 flex-col gap-3 p-3">
+          <SidebarInput
+            aria-label={`Filter ${title.toLowerCase()}`}
+            placeholder={`Search ${title.toLowerCase()}`}
+            value={filterValue}
+            onChange={(event) => {
+              setFilterValue(event.target.value);
+            }}
+          />
           <SidebarGroupContent className="min-h-0 flex-1">
             <ScrollArea className="h-full">
-              <div className="p-2">
-                <SidebarMenu>
-                  {filteredItems.map((item) => {
-                    const isActive = item.id === currentSidebarItemId;
-
-                    return (
-                      <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton asChild isActive={isActive}>
-                          <Link href={item.href}>
-                            <span>{item.label}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                        {item.badge !== undefined ? (
-                          <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                        ) : null}
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-
-                {filteredItems.length === 0 ? (
-                  <div className="text-sidebar-foreground/60 px-3 py-8 text-sm">
-                    No {title.toLowerCase()} match that filter.
-                  </div>
-                ) : null}
-              </div>
+              <SidebarMenu>
+                {filteredItems.map((item) => {
+                  const isActive = item.id === currentSidebarItemId;
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.href}>
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+              {filteredItems.length === 0 ? (
+                <div className="text-sidebar-foreground/60 px-3 py-8 text-sm">
+                  No {title.toLowerCase()} match that filter.
+                </div>
+              ) : null}
             </ScrollArea>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -160,7 +141,6 @@ const SidebarList = ({
 };
 
 export const WorkspaceShell = ({
-  actions,
   breadcrumbs,
   children,
   currentSidebarItemId,
@@ -213,13 +193,11 @@ export const WorkspaceShell = ({
           </div>
         }
       />
-
       <div className="bg-background flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-6 py-6 md:px-8">
-          {actions !== undefined ? (
-            <div className="flex shrink-0 items-center justify-end gap-3">{actions}</div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3">
+          {stats !== undefined ? (
+            <section className="grid shrink-0 gap-3 md:grid-cols-2 xl:grid-cols-4">{stats}</section>
           ) : null}
-          <section className="grid shrink-0 gap-4 md:grid-cols-2 xl:grid-cols-4">{stats}</section>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
         </div>
       </div>

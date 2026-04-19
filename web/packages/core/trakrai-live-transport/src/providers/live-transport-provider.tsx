@@ -77,7 +77,7 @@ export type LiveTransportContextValue = {
 
 const LiveTransportContext = createContext<LiveTransportContextValue | null>(null);
 
-const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const DEFAULT_RESPONSE_SUBTOPICS = ['response'] as const;
 
 type PendingRequest = Readonly<{

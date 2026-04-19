@@ -515,11 +515,15 @@
       "sampleConfigPath": "device/configs/ai-inference.sample.json",
       "build": {
         "artifactKey": "ai-wheel",
-        "buildWheelhouse": false,
+        "buildWheelhouse": true,
         "context": "device/python",
         "dockerfile": "Dockerfile.wheel",
         "moduleName": "ai_inference",
         "packageDir": "ai_inference",
+        "requirementsFile": "requirements-local.txt",
+        "wheelhousePlatform": "manylinux2014_aarch64",
+        "wheelhousePythonVersion": "38",
+        "wheelhouseAbi": "cp38",
         "platformStrategy": "platform"
       },
       "runtime": {

@@ -34,6 +34,11 @@ export const env = createEnv({
     TURN_SERVER_URL: z.string().optional(),
     TURN_USERNAME: z.string().default('trakrai'),
 
+    // Comma-separated list of allowed browser origins for CORS.
+    // Example: "http://localhost:3000,https://trakrai.example.com"
+    // Leave unset to allow all origins.
+    CORS_ALLOWED_ORIGINS: z.string().optional(),
+
     // WebSocket payload/rate-limit guardrails for this service.
     // Tune only when the transport contract intentionally changes.
     WS_MAX_PAYLOAD_BYTES: z.coerce

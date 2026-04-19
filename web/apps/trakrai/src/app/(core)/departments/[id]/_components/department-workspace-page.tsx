@@ -105,18 +105,7 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
       }
       title={data.selectedDepartment.name}
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
-        <div className="border-b px-6 py-4">
-          <h2 className="text-base font-semibold">Devices</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
-          <ServerDataTable
-            columns={columns}
-            data={data.table.rows}
-            pageCount={data.table.pageCount}
-          />
-        </div>
-      </section>
+      <ServerDataTable columns={columns} data={data.table.rows} pageCount={data.table.pageCount} />
     </WorkspaceShell>
   );
 };

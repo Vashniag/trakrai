@@ -7,7 +7,6 @@ import { usePathname } from 'next/navigation';
 
 import { CloudTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
 
-import { StatCard } from '@/components/hierarchy/stat-card';
 import { WorkspaceShell } from '@/components/hierarchy/workspace-shell';
 import { cloudAppBuildConfig } from '@/lib/build-config';
 
@@ -104,13 +103,6 @@ export const DeviceRouteShell = ({ children, routeContext }: DeviceRouteShellPro
             meta: deviceRow.isActive ? 'Active' : 'Paused',
           }))}
           sidebarTitle="Devices"
-          stats={
-            <>
-              <StatCard title="Installed Apps" value={routeContext.stats.totalAppCount} />
-              <StatCard title="Enabled Apps" value={routeContext.stats.enabledAppCount} />
-              <StatCard title="Visible Apps" value={routeContext.stats.visibleAppCount} />
-            </>
-          }
           title={device.name}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">

@@ -25,6 +25,11 @@ RUN set -eux; \
       file \
       gpg-agent \
       iproute2 \
+      libgl1 \
+      libglib2.0-0 \
+      libsm6 \
+      libxext6 \
+      libxrender1 \
       procps \
       redis-tools \
       software-properties-common \
