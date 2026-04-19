@@ -236,10 +236,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.12.zip",
-          "remotePath": "edge-ui/0.1.12/universal/edge-ui-v0.1.12.zip",
-          "sha256": "d361289d01a1cd4a7c1fc381b40f4b05639915c80831067b61062e47a569bb41",
-          "updatedAt": "2026-04-18T19:35:39Z"
+          "fileName": "edge-ui-v0.1.13.zip",
+          "remotePath": "edge-ui/0.1.13/universal/edge-ui-v0.1.13.zip",
+          "sha256": "523257720383ec1d6547da7f4a2f4342088450ce424a7edcd172cfcef4066226",
+          "updatedAt": "2026-04-19T04:50:39Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -323,11 +323,19 @@
           "sha256": "d361289d01a1cd4a7c1fc381b40f4b05639915c80831067b61062e47a569bb41",
           "updatedAt": "2026-04-18T19:35:39Z",
           "version": "0.1.12"
+        },
+        {
+          "fileName": "edge-ui-v0.1.13.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.13/universal/edge-ui-v0.1.13.zip",
+          "sha256": "523257720383ec1d6547da7f4a2f4342088450ce424a7edcd172cfcef4066226",
+          "updatedAt": "2026-04-19T04:50:39Z",
+          "version": "0.1.13"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:b0d8c7d79ded230d436f3cfc69411ade3500403029d5ba17cb0273a2a44f32fd",
+      "sourceHash": "sha256:ae90205eec2ce59bd3c49a06fa15669f2bb98467263fe9fd97899eb4f0f1d51f",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -358,11 +366,28 @@
         "web/packages/core/trakrai-backend/eslint.config.mjs",
         "web/packages/core/trakrai-backend/package.json",
         "web/packages/core/trakrai-backend/src/db/auth-schema.ts",
+        "web/packages/core/trakrai-backend/src/db/client.ts",
         "web/packages/core/trakrai-backend/src/db/schema.ts",
+        "web/packages/core/trakrai-backend/src/lib/auth.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/assignments.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/constants.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/device-access.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/index.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/model.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/mutations.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/openfga-state.ts",
+        "web/packages/core/trakrai-backend/src/lib/authz/relations.ts",
+        "web/packages/core/trakrai-backend/src/lib/device-component-manifest.ts",
+        "web/packages/core/trakrai-backend/src/lib/gateway-access-token.ts",
         "web/packages/core/trakrai-backend/src/lib/request-context.ts",
         "web/packages/core/trakrai-backend/src/lib/storage/azure-provider.ts",
         "web/packages/core/trakrai-backend/src/lib/storage/interface.ts",
         "web/packages/core/trakrai-backend/src/lib/storage/s3-compatible-provider.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/access-control.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/access-control/helpers.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/access-control/management-console.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/access-control/router.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/access-control/schemas.ts",
         "web/packages/core/trakrai-backend/src/server/routers/devices.ts",
         "web/packages/core/trakrai-backend/src/server/routers/index.ts",
         "web/packages/core/trakrai-backend/src/server/routers/package-artifacts.ts",
@@ -393,6 +418,7 @@
         "web/packages/core/trakrai-design-system/src/components/combobox.tsx",
         "web/packages/core/trakrai-design-system/src/components/command.tsx",
         "web/packages/core/trakrai-design-system/src/components/context-menu.tsx",
+        "web/packages/core/trakrai-design-system/src/components/data-table.tsx",
         "web/packages/core/trakrai-design-system/src/components/data-table/config.ts",
         "web/packages/core/trakrai-design-system/src/components/data-table/data-table-action-bar.tsx",
         "web/packages/core/trakrai-design-system/src/components/data-table/data-table-date-filter.tsx",
@@ -770,7 +796,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.12"
+      "version": "0.1.13"
     },
     "live-feed": {
       "artifacts": {
@@ -1513,5 +1539,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-18T19:35:39Z"
+  "updatedAt": "2026-04-19T04:50:39Z"
 }
