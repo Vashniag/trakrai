@@ -236,10 +236,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.13.zip",
-          "remotePath": "edge-ui/0.1.13/universal/edge-ui-v0.1.13.zip",
-          "sha256": "523257720383ec1d6547da7f4a2f4342088450ce424a7edcd172cfcef4066226",
-          "updatedAt": "2026-04-19T04:50:39Z"
+          "fileName": "edge-ui-v0.1.14.zip",
+          "remotePath": "edge-ui/0.1.14/universal/edge-ui-v0.1.14.zip",
+          "sha256": "a9683b264b89052fac296e603882dd67ddb8bac455fdac495386819a36c6b09d",
+          "updatedAt": "2026-04-19T06:47:48Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -331,11 +331,19 @@
           "sha256": "523257720383ec1d6547da7f4a2f4342088450ce424a7edcd172cfcef4066226",
           "updatedAt": "2026-04-19T04:50:39Z",
           "version": "0.1.13"
+        },
+        {
+          "fileName": "edge-ui-v0.1.14.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.14/universal/edge-ui-v0.1.14.zip",
+          "sha256": "a9683b264b89052fac296e603882dd67ddb8bac455fdac495386819a36c6b09d",
+          "updatedAt": "2026-04-19T06:47:48Z",
+          "version": "0.1.14"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:ae90205eec2ce59bd3c49a06fa15669f2bb98467263fe9fd97899eb4f0f1d51f",
+      "sourceHash": "sha256:7cb7ecdbd1bc89511c1483b773d61826a23c83397261b1c9686b58b31bb75f03",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -386,11 +394,14 @@
         "web/packages/core/trakrai-backend/src/server/routers/access-control.ts",
         "web/packages/core/trakrai-backend/src/server/routers/access-control/helpers.ts",
         "web/packages/core/trakrai-backend/src/server/routers/access-control/management-console.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/access-control/queries.ts",
         "web/packages/core/trakrai-backend/src/server/routers/access-control/router.ts",
         "web/packages/core/trakrai-backend/src/server/routers/access-control/schemas.ts",
         "web/packages/core/trakrai-backend/src/server/routers/devices.ts",
         "web/packages/core/trakrai-backend/src/server/routers/index.ts",
         "web/packages/core/trakrai-backend/src/server/routers/package-artifacts.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/workspace/router.ts",
+        "web/packages/core/trakrai-backend/src/server/routers/workspace/schemas.ts",
         "web/packages/core/trakrai-backend/src/server/trpc.ts",
         "web/packages/core/trakrai-backend/tsconfig.build.json",
         "web/packages/core/trakrai-backend/tsconfig.json",
@@ -796,7 +807,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.13"
+      "version": "0.1.14"
     },
     "live-feed": {
       "artifacts": {
@@ -1539,5 +1550,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-19T04:50:39Z"
+  "updatedAt": "2026-04-19T06:47:48Z"
 }
