@@ -1,3 +1,4 @@
+import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
 import { createDatabase } from '@trakrai/backend/db/client';
 
 import { env } from '@/lib/env';
@@ -16,6 +17,7 @@ const database = createDatabase({
   max: 20,
 });
 const { db, pool } = database;
+instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
 export { db };
 
 pool.on('error', (err) => {

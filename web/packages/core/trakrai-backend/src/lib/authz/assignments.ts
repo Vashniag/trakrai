@@ -7,10 +7,11 @@ import {
   AUTHZ_TYPE_DEVICE,
   AUTHZ_TYPE_DEVICE_COMPONENT,
   AUTHZ_TYPE_FACTORY,
+  createAuthzObject,
   parseAuthzObject,
   parseAuthzUserId,
 } from './constants';
-import { ensureAuthzState, readAllTuples } from './openfga-state';
+import { ensureAuthzState, readAllTuples, readTuplesForObject } from './openfga-state';
 
 type ScopedAssignmentsFilterOptions = Readonly<{
   componentIds?: string[];
@@ -52,6 +53,13 @@ const createOptionalSet = (values: readonly string[] | undefined): ReadonlySet<s
 const shouldInclude = (candidateId: string, filterValues: ReadonlySet<string> | null): boolean =>
   filterValues === null || filterValues.has(candidateId);
 
+const createScopedObjects = (filters: ScopedAssignmentsFilterOptions): string[] => [
+  ...(filters.factoryIds ?? []).map((id) => createAuthzObject(AUTHZ_TYPE_FACTORY, id)),
+  ...(filters.departmentIds ?? []).map((id) => createAuthzObject(AUTHZ_TYPE_DEPARTMENT, id)),
+  ...(filters.deviceIds ?? []).map((id) => createAuthzObject(AUTHZ_TYPE_DEVICE, id)),
+  ...(filters.componentIds ?? []).map((id) => createAuthzObject(AUTHZ_TYPE_DEVICE_COMPONENT, id)),
+];
+
 export const getScopedAssignments = async (options?: ScopedAssignmentsFilterOptions) => {
   const filters = options ?? {};
   if (
@@ -76,7 +84,13 @@ export const getScopedAssignments = async (options?: ScopedAssignmentsFilterOpti
   const userIds = createOptionalSet(filters.userIds);
 
   const { client } = await ensureAuthzState();
-  const tuples = await readAllTuples(client);
+  const scopedObjects = Array.from(new Set(createScopedObjects(filters)));
+  const tuples =
+    scopedObjects.length === 0
+      ? await readAllTuples(client)
+      : (
+          await Promise.all(scopedObjects.map((object) => readTuplesForObject(client, object)))
+        ).flat();
 
   const factoryAssignmentRows: FactoryAssignmentRow[] = [];
   const departmentAssignmentRows: DepartmentAssignmentRow[] = [];
