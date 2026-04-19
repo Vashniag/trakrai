@@ -51,7 +51,9 @@ export const createTrakraiAuthOptions = ({
 }: CreateTrakraiAuthOptions): BetterAuthOptionsInput => ({
   appName: 'trakrai',
   plugins: [
-    admin(),
+    admin({
+      allowImpersonatingAdmins: true,
+    }),
     passkey({
       rpID: env.nodeEnv === 'development' ? 'localhost' : undefined,
     }),

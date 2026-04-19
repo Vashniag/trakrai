@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { StopImpersonatingButton } from '@/components/stop-impersonating-button';
 import { fetchQuery } from '@/server/server';
 
 const FactoriesLandingPage = async () => {
@@ -18,6 +19,7 @@ const FactoriesLandingPage = async () => {
           <p className="text-muted-foreground text-sm">
             Open the sysadmin panel to create a factory and attach departments and devices.
           </p>
+          <StopImpersonatingButton />
         </section>
       </div>
     </main>

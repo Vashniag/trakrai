@@ -23,6 +23,7 @@ import {
 import { AccessControlShell } from '@/app/(core)/access-control/_components/access-control-shell';
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
 import { StatCard } from '@/components/hierarchy/stat-card';
+import { authClient, useSession } from '@/lib/auth-client';
 import { betterAuthAdminApi } from '@/lib/better-auth-admin';
 
 import type { ColumnDef } from '@tanstack/react-table';
@@ -33,6 +34,7 @@ type UserRow = UsersPageData['table']['rows'][number];
 
 export const AccessControlUsersPage = ({ data }: Readonly<{ data: UsersPageData }>) => {
   const router = useRouter();
+  const { data: sessionData } = useSession();
 
   const createUserMutation = useMutation({
     mutationFn: async (values: {
@@ -104,6 +106,17 @@ export const AccessControlUsersPage = ({ data }: Readonly<{ data: UsersPageData 
     },
     [refresh, removeUserMutation],
   );
+
+  const handleImpersonate = useCallback(async (userId: string) => {
+    try {
+      await authClient.admin.impersonateUser({
+        userId,
+      });
+      window.location.href = '/factories';
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to impersonate user.');
+    }
+  }, []);
 
   const columns = useMemo<ColumnDef<UserRow>[]>(
     () => [
@@ -245,6 +258,18 @@ export const AccessControlUsersPage = ({ data }: Readonly<{ data: UsersPageData 
                 }
               />
             )}
+            {row.original.id !== sessionData?.user.id ? (
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void handleImpersonate(row.original.id);
+                }}
+              >
+                Impersonate
+              </Button>
+            ) : null}
             <Button
               size="sm"
               type="button"
@@ -263,9 +288,11 @@ export const AccessControlUsersPage = ({ data }: Readonly<{ data: UsersPageData 
     [
       banUserMutation,
       handleDelete,
+      handleImpersonate,
       handleUnban,
       refresh,
       resetPasswordMutation,
+      sessionData?.user,
       setUserRoleMutation,
     ],
   );

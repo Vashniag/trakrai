@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@trakrai/design-system/components/dropdown-menu';
 
-import { useSession, signOut } from '@/lib/auth-client';
+import { authClient, useSession, signOut } from '@/lib/auth-client';
 
 import type { Route } from 'next';
 
@@ -29,6 +29,8 @@ export const CloudUserButton = () => {
 
   const email = data?.user.email ?? fallbackEmail;
   const showSysadmin = isSysadmin(data?.user.role);
+  const isImpersonating =
+    data?.session.impersonatedBy !== null && data?.session.impersonatedBy !== undefined;
 
   return (
     <DropdownMenu>
@@ -39,6 +41,11 @@ export const CloudUserButton = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
+        {isImpersonating ? (
+          <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+            Impersonating session
+          </DropdownMenuLabel>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
@@ -50,10 +57,20 @@ export const CloudUserButton = () => {
         {showSysadmin ? (
           <DropdownMenuItem
             onClick={() => {
-              router.push('/sysadmin/factories' as Route);
+              router.push('/access-control/users' as Route);
             }}
           >
             Sysadmin
+          </DropdownMenuItem>
+        ) : null}
+        {isImpersonating ? (
+          <DropdownMenuItem
+            onClick={async () => {
+              await authClient.admin.stopImpersonating();
+              window.location.href = '/access-control/users';
+            }}
+          >
+            Stop impersonating
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />
