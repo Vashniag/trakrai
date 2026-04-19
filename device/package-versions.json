@@ -236,10 +236,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.15.zip",
-          "remotePath": "edge-ui/0.1.15/universal/edge-ui-v0.1.15.zip",
-          "sha256": "4ecff76b7a61a50d24a1e355790d7a2605777127bb81773ebbbdaa52204d9193",
-          "updatedAt": "2026-04-19T09:50:16Z"
+          "fileName": "edge-ui-v0.1.16.zip",
+          "remotePath": "edge-ui/0.1.16/universal/edge-ui-v0.1.16.zip",
+          "sha256": "25885bec41679251814f27c306a32bb2bc7c419835bbcc88442b8acf54316f65",
+          "updatedAt": "2026-04-19T11:14:14Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -347,11 +347,19 @@
           "sha256": "4ecff76b7a61a50d24a1e355790d7a2605777127bb81773ebbbdaa52204d9193",
           "updatedAt": "2026-04-19T09:50:16Z",
           "version": "0.1.15"
+        },
+        {
+          "fileName": "edge-ui-v0.1.16.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.16/universal/edge-ui-v0.1.16.zip",
+          "sha256": "25885bec41679251814f27c306a32bb2bc7c419835bbcc88442b8acf54316f65",
+          "updatedAt": "2026-04-19T11:14:14Z",
+          "version": "0.1.16"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:bb73789bbfbde40061596513fe28d5dac20d71bb840f26642439ef20aa7a5353",
+      "sourceHash": "sha256:1a8a4c447b6ffebf788c4a283fc6d4144ed29104b157d95fece045b7f23d5076",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -393,6 +401,7 @@
         "web/packages/core/trakrai-backend/src/lib/authz/mutations.ts",
         "web/packages/core/trakrai-backend/src/lib/authz/openfga-state.ts",
         "web/packages/core/trakrai-backend/src/lib/authz/relations.ts",
+        "web/packages/core/trakrai-backend/src/lib/device-access-token.ts",
         "web/packages/core/trakrai-backend/src/lib/device-component-manifest.ts",
         "web/packages/core/trakrai-backend/src/lib/gateway-access-token.ts",
         "web/packages/core/trakrai-backend/src/lib/request-context.ts",
@@ -815,7 +824,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.15"
+      "version": "0.1.16"
     },
     "live-feed": {
       "artifacts": {
@@ -1558,5 +1567,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-19T09:50:16Z"
+  "updatedAt": "2026-04-19T11:14:14Z"
 }
