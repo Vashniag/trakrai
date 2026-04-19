@@ -2,14 +2,6 @@
 
 import { useParams } from 'next/navigation';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { useDeviceRouteContext } from '@/components/device-route-shell';
 
 const DynamicDeviceAppRoutePage = () => {
@@ -23,25 +15,17 @@ const DynamicDeviceAppRoutePage = () => {
 
   if (component === undefined) {
     return (
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle>Device app not found</CardTitle>
-          <CardDescription>This route does not match any registered device app.</CardDescription>
-        </CardHeader>
-      </Card>
+      <section className="border p-6">
+        <h1 className="text-lg font-semibold tracking-tight">Device app not found</h1>
+      </section>
     );
   }
 
   return (
-    <Card className="border">
-      <CardHeader className="border-b">
-        <CardTitle>{component.navigationLabel}</CardTitle>
-        <CardDescription>
-          Device app registered dynamically. Cloud renderer not mapped yet.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 py-6 text-sm">
-        <p>{component.description ?? 'No description provided.'}</p>
+    <section className="space-y-4 border p-6 text-sm">
+      <h1 className="text-lg font-semibold tracking-tight">{component.navigationLabel}</h1>
+      <div className="space-y-3">
+        {component.description?.trim() !== '' ? <p>{component.description}</p> : null}
         <div>
           <span className="text-muted-foreground">Renderer key:</span>{' '}
           {component.rendererKey ?? 'None'}
@@ -52,8 +36,8 @@ const DynamicDeviceAppRoutePage = () => {
         <div>
           <span className="text-muted-foreground">Access:</span> {component.accessLevel}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 };
 

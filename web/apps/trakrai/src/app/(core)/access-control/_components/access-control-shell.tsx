@@ -73,6 +73,10 @@ export const AccessControlShell = ({
         </Button>
       ) : undefined
     }
+    breadcrumbs={[
+      { href: '/access-control/users', label: 'Access Control' },
+      { label: tabs.find((tab) => tab.id === currentTab)?.label ?? title },
+    ]}
     currentSidebarItemId={currentTab}
     description={description}
     eyebrow="Advanced Permissions"

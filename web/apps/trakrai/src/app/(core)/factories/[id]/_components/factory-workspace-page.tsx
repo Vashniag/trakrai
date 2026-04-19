@@ -4,14 +4,6 @@ import { useMemo } from 'react';
 
 import Link from 'next/link';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
 import { StatCard } from '@/components/hierarchy/stat-card';
 import { WorkspaceShell } from '@/components/hierarchy/workspace-shell';
@@ -23,7 +15,7 @@ type FactoryWorkspace = RouterOutput['workspace']['getFactoryWorkspace'];
 type DepartmentRow = FactoryWorkspace['table']['rows'][number];
 
 const formatTimestamp = (value: Date): string =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(value);
@@ -35,18 +27,13 @@ export const FactoryWorkspacePage = ({ data }: Readonly<{ data: FactoryWorkspace
         accessorKey: 'name',
         id: 'name',
         cell: ({ row }) => (
-          <div className="space-y-1">
+          <div>
             <Link
               className="text-foreground font-medium underline-offset-4 hover:underline"
               href={`/departments/${row.original.id}`}
             >
               {row.original.name}
             </Link>
-            <div className="text-muted-foreground text-xs">
-              {row.original.description?.trim() !== ''
-                ? row.original.description
-                : 'No department description.'}
-            </div>
           </div>
         ),
         enableColumnFilter: true,
@@ -88,6 +75,7 @@ export const FactoryWorkspacePage = ({ data }: Readonly<{ data: FactoryWorkspace
 
   return (
     <WorkspaceShell
+      breadcrumbs={[{ label: data.selectedFactory.name }]}
       currentSidebarItemId={data.selectedFactory.id}
       description="Factory workspace with scoped department navigation, aggregated stats, and a server-paginated directory."
       eyebrow="Factory Workspace"
@@ -127,21 +115,18 @@ export const FactoryWorkspacePage = ({ data }: Readonly<{ data: FactoryWorkspace
       }
       title={data.selectedFactory.name}
     >
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">Departments</CardTitle>
-          <CardDescription>
-            Search and paginate departments without loading the full factory into the browser.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-base font-semibold">Departments</h2>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
             pageCount={data.table.pageCount}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </WorkspaceShell>
   );
 };

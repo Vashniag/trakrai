@@ -1,17 +1,9 @@
 'use client';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { useCurrentCloudDevice, useDeviceRouteContext } from '@/components/device-route-shell';
 
 const formatTimestamp = (value: Date): string =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(value);
@@ -22,14 +14,11 @@ const DeviceOverviewPage = () => {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-xl">Basic details</CardTitle>
-          <CardDescription>
-            Core identity and authentication data for this cloud-managed device.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 py-6 md:grid-cols-2">
+      <section className="border">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-xl font-semibold">Basic details</h2>
+        </div>
+        <div className="grid gap-4 px-6 py-6 md:grid-cols-2">
           <div className="space-y-1">
             <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
               Device name
@@ -46,9 +35,9 @@ const DeviceOverviewPage = () => {
             <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
               Description
             </div>
-            <div className="text-sm">
-              {device.description?.trim() !== '' ? device.description : 'No description provided.'}
-            </div>
+            {device.description?.trim() !== '' ? (
+              <div className="text-sm">{device.description}</div>
+            ) : null}
           </div>
           <div className="space-y-1">
             <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
@@ -58,17 +47,14 @@ const DeviceOverviewPage = () => {
               {device.accessToken ?? 'Visible only to sysadmin.'}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-xl">Lifecycle</CardTitle>
-          <CardDescription>
-            Operational status and record timestamps for this device entry.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 py-6">
+      <section className="border">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-xl font-semibold">Lifecycle</h2>
+        </div>
+        <div className="space-y-4 px-6 py-6">
           <div className="flex items-center justify-between gap-4 border p-4">
             <span className="text-sm">Authentication state</span>
             <span
@@ -93,32 +79,27 @@ const DeviceOverviewPage = () => {
             </div>
             <div className="mt-2 text-sm font-medium">{formatTimestamp(device.updatedAt)}</div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card className="border xl:col-span-2">
-        <CardHeader className="border-b">
-          <CardTitle className="text-xl">Device apps</CardTitle>
-          <CardDescription>
-            Apps currently enabled on this device and accessible in the top sub-navigation.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 py-6 md:grid-cols-2 xl:grid-cols-4">
+      <section className="border xl:col-span-2">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-xl font-semibold">Device apps</h2>
+        </div>
+        <div className="grid gap-4 px-6 py-6 md:grid-cols-2 xl:grid-cols-4">
           {routeContext.components.map((component) => (
             <div key={component.id} className="border p-4">
               <div className="font-medium">{component.navigationLabel}</div>
-              <div className="text-muted-foreground mt-1 text-xs">
-                {component.description?.trim() !== ''
-                  ? component.description
-                  : `${component.navigationLabel} is available on this device.`}
-              </div>
+              {component.description?.trim() !== '' ? (
+                <div className="text-muted-foreground mt-1 text-xs">{component.description}</div>
+              ) : null}
               <div className="text-muted-foreground mt-3 text-[11px] tracking-[0.16em] uppercase">
                 {component.accessLevel === 'write' ? 'Read / write' : 'Read only'}
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 };

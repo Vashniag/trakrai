@@ -2,13 +2,6 @@
 
 import { Badge } from '@trakrai/design-system/components/badge';
 import { Button } from '@trakrai/design-system/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
 import {
   Table,
@@ -64,14 +57,9 @@ export const AccessControlAssignmentsSection = ({
   upsertAssignmentMutation,
   userOptions,
 }: Props) => (
-  <Card className="border">
-    <CardHeader className="border-b">
-      <CardTitle className="text-base">Assignments</CardTitle>
-      <CardDescription>
-        Grant inherited viewer/admin scope at factory, department, device, or device app level.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4 py-6">
+  <section className="space-y-4 border p-6">
+    <h2 className="text-base font-semibold tracking-tight">Assignments</h2>
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <MutationModal
           defaultValues={{
@@ -244,6 +232,6 @@ export const AccessControlAssignmentsSection = ({
           ))}
         </TableBody>
       </Table>
-    </CardContent>
-  </Card>
+    </div>
+  </section>
 );

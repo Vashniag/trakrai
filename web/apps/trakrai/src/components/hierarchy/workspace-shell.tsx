@@ -1,7 +1,39 @@
+'use client';
+
+import { Fragment, useMemo, useState } from 'react';
+
 import Link from 'next/link';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@trakrai/design-system/components/card';
-import { cn } from '@trakrai/design-system/lib/utils';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@trakrai/design-system/components/breadcrumb';
+import { ScrollArea } from '@trakrai/design-system/components/scroll-area';
+import { Separator } from '@trakrai/design-system/components/separator';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInput,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+} from '@trakrai/design-system/components/sidebar';
+
+import { CloudCoreHeader } from '@/components/cloud-core-header';
 
 type WorkspaceSidebarItem = Readonly<{
   badge?: number | string;
@@ -14,6 +46,10 @@ type WorkspaceSidebarItem = Readonly<{
 
 type WorkspaceShellProps = Readonly<{
   actions?: React.ReactNode;
+  breadcrumbs: ReadonlyArray<{
+    href?: string;
+    label: string;
+  }>;
   children: React.ReactNode;
   currentSidebarItemId: string;
   description: string;
@@ -24,111 +60,169 @@ type WorkspaceShellProps = Readonly<{
   stats: React.ReactNode;
   title: string;
 }>;
-
-const ACTIVE_CLASSES = 'border-primary/30 bg-primary/8 text-foreground';
-const IDLE_CLASSES =
-  'border-border/80 bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground';
-
 const SidebarList = ({
   currentSidebarItemId,
   items,
   title,
-  description,
 }: Readonly<{
   currentSidebarItemId: string;
-  description: string;
   items: WorkspaceSidebarItem[];
   title: string;
-}>) => (
-  <Card className="border">
-    <CardHeader className="border-b">
-      <CardTitle className="text-base">{title}</CardTitle>
-      <div className="text-muted-foreground text-sm">{description}</div>
-    </CardHeader>
-    <CardContent className="space-y-2 py-4">
-      {items.map((item) => {
-        const isActive = item.id === currentSidebarItemId;
+}>) => {
+  const [filterValue, setFilterValue] = useState('');
 
-        return (
-          <Link
-            key={item.id}
-            className={cn(
-              'block border p-3 transition-colors',
-              isActive ? ACTIVE_CLASSES : IDLE_CLASSES,
-            )}
-            href={item.href}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate font-medium">{item.label}</div>
-                {item.description !== undefined &&
-                item.description !== null &&
-                item.description !== '' ? (
-                  <div className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-                    {item.description}
-                  </div>
-                ) : null}
-                {item.meta !== undefined && item.meta !== null && item.meta !== '' ? (
-                  <div className="text-muted-foreground mt-2 text-[11px] tracking-[0.14em] uppercase">
-                    {item.meta}
+  const filteredItems = useMemo(() => {
+    const normalizedFilter = filterValue.trim().toLowerCase();
+    if (normalizedFilter === '') {
+      return items;
+    }
+
+    return items.filter((item) =>
+      [item.label, item.description]
+        .filter((value): value is string => value !== undefined && value !== null && value !== '')
+        .some((value) => value.toLowerCase().includes(normalizedFilter)),
+    );
+  }, [filterValue, items]);
+
+  return (
+    <>
+      <SidebarHeader className="gap-3 border-b">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild size="lg">
+              <Link href="/factories">
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <span className="text-sm font-semibold">T</span>
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-medium">TrakrAI</span>
+                  <span>{title}</span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <SidebarInput
+          aria-label={`Filter ${title.toLowerCase()}`}
+          placeholder={`Search ${title.toLowerCase()}`}
+          value={filterValue}
+          onChange={(event) => {
+            setFilterValue(event.target.value);
+          }}
+        />
+      </SidebarHeader>
+
+      <SidebarContent className="overflow-hidden">
+        <SidebarGroup className="min-h-0 flex-1 p-0">
+          <div className="flex items-center justify-between px-4 pt-3">
+            <SidebarGroupLabel className="h-auto px-0 py-0">
+              {filterValue.trim() === '' ? title : 'Filtered results'}
+            </SidebarGroupLabel>
+            <div className="text-sidebar-foreground/50 text-[11px] tracking-[0.18em] uppercase">
+              {filteredItems.length}
+            </div>
+          </div>
+
+          <SidebarGroupContent className="min-h-0 flex-1">
+            <ScrollArea className="h-full">
+              <div className="p-2">
+                <SidebarMenu>
+                  {filteredItems.map((item) => {
+                    const isActive = item.id === currentSidebarItemId;
+
+                    return (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton asChild isActive={isActive}>
+                          <Link href={item.href}>
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {item.badge !== undefined ? (
+                          <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                        ) : null}
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+
+                {filteredItems.length === 0 ? (
+                  <div className="text-sidebar-foreground/60 px-3 py-8 text-sm">
+                    No {title.toLowerCase()} match that filter.
                   </div>
                 ) : null}
               </div>
-              {item.badge !== undefined ? (
-                <div className="border px-2 py-1 text-[10px] tracking-[0.18em] uppercase">
-                  {item.badge}
-                </div>
-              ) : null}
-            </div>
-          </Link>
-        );
-      })}
-    </CardContent>
-  </Card>
-);
+            </ScrollArea>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </>
+  );
+};
 
 export const WorkspaceShell = ({
   actions,
+  breadcrumbs,
   children,
   currentSidebarItemId,
-  description,
-  eyebrow,
-  sidebarDescription,
   sidebarItems,
   sidebarTitle,
   stats,
-  title,
 }: WorkspaceShellProps) => (
-  <main className="bg-background min-h-[calc(100vh-3.5rem)] px-6 py-8 md:px-10">
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-      <section className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          {eyebrow !== undefined ? (
-            <div className="text-muted-foreground text-[11px] tracking-[0.22em] uppercase">
-              {eyebrow}
-            </div>
+  <SidebarProvider className="bg-background h-svh min-h-svh overflow-hidden">
+    <Sidebar className="h-svh border-r" collapsible="offcanvas">
+      <SidebarList
+        currentSidebarItemId={currentSidebarItemId}
+        items={sidebarItems}
+        title={sidebarTitle}
+      />
+      <SidebarSeparator />
+      <SidebarRail />
+    </Sidebar>
+
+    <SidebarInset className="min-h-svh overflow-hidden">
+      <CloudCoreHeader
+        leftContent={
+          <div className="flex min-w-0 items-center gap-2">
+            <SidebarTrigger className="-ml-1 shrink-0" />
+            <Separator
+              className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+              orientation="vertical"
+            />
+            <Breadcrumb className="min-w-0">
+              <BreadcrumbList>
+                {breadcrumbs.map((item, index) => {
+                  const isLastItem = index === breadcrumbs.length - 1;
+
+                  return (
+                    <Fragment key={item.href ?? item.label}>
+                      <BreadcrumbItem className={isLastItem ? undefined : 'hidden md:inline-flex'}>
+                        {isLastItem || item.href === undefined ? (
+                          <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink asChild>
+                            <Link href={item.href}>{item.label}</Link>
+                          </BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                      {!isLastItem ? <BreadcrumbSeparator className="hidden md:block" /> : null}
+                    </Fragment>
+                  );
+                })}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        }
+      />
+
+      <div className="bg-background flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-6 py-6 md:px-8">
+          {actions !== undefined ? (
+            <div className="flex shrink-0 items-center justify-end gap-3">{actions}</div>
           ) : null}
-          <h1 className="text-foreground text-3xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-muted-foreground max-w-4xl text-sm">{description}</p>
-        </div>
-        {actions}
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <SidebarList
-            currentSidebarItemId={currentSidebarItemId}
-            description={sidebarDescription}
-            items={sidebarItems}
-            title={sidebarTitle}
-          />
-        </div>
-
-        <div className="space-y-6">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats}</section>
-          {children}
+          <section className="grid shrink-0 gap-4 md:grid-cols-2 xl:grid-cols-4">{stats}</section>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
         </div>
       </div>
-    </div>
-  </main>
+    </SidebarInset>
+  </SidebarProvider>
 );

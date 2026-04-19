@@ -1,13 +1,6 @@
 'use client';
 
 import { Button } from '@trakrai/design-system/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
 import {
   Table,
@@ -42,15 +35,10 @@ export const AccessControlDeviceAppCatalogSection = ({
   refreshConsole,
   updateCatalogMutation,
 }: Props) => (
-  <Card className="border">
-    <CardHeader className="border-b">
+  <section className="space-y-4 border p-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <CardTitle className="text-base">Device app catalog</CardTitle>
-          <CardDescription>
-            Register device apps dynamically. Auth uses catalog actions, not hardcoded app names.
-          </CardDescription>
-        </div>
+        <h2 className="text-base font-semibold tracking-tight">Device app catalog</h2>
         {isSysadmin ? (
           <MutationModal
             defaultValues={{
@@ -89,8 +77,7 @@ export const AccessControlDeviceAppCatalogSection = ({
           />
         ) : null}
       </div>
-    </CardHeader>
-    <CardContent className="py-6">
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -166,6 +153,6 @@ export const AccessControlDeviceAppCatalogSection = ({
           })}
         </TableBody>
       </Table>
-    </CardContent>
-  </Card>
+    </div>
+  </section>
 );

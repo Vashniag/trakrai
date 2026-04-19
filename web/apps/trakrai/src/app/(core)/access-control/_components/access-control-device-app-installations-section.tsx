@@ -3,13 +3,6 @@
 import { Badge } from '@trakrai/design-system/components/badge';
 import { Button } from '@trakrai/design-system/components/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,15 +31,9 @@ export const AccessControlDeviceAppInstallationsSection = ({
   refreshConsole,
   setInstallationStateMutation,
 }: Props) => (
-  <Card className="border">
-    <CardHeader className="border-b">
-      <CardTitle className="text-base">Device app installations</CardTitle>
-      <CardDescription>
-        Sysadmin enable or disable each app per device. Disabled apps stay inaccessible even if
-        assigned.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="py-6">
+  <section className="space-y-4 border p-6">
+    <h2 className="text-base font-semibold tracking-tight">Device app installations</h2>
+    <div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -104,6 +91,6 @@ export const AccessControlDeviceAppInstallationsSection = ({
           ))}
         </TableBody>
       </Table>
-    </CardContent>
-  </Card>
+    </div>
+  </section>
 );

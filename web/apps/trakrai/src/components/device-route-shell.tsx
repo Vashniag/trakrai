@@ -5,13 +5,6 @@ import { createContext, useContext, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { CloudTransportProvider } from '@trakrai/live-transport/providers/live-transport-provider';
 
 import { StatCard } from '@/components/hierarchy/stat-card';
@@ -32,23 +25,17 @@ const buildDeviceRouteItems = (
   deviceRecordId: string,
   routeContext: DeviceRouteContextValue,
 ): ReadonlyArray<{
-  description: string;
   href: string;
   label: string;
 }> =>
   [
     {
-      description: 'Basic device details, lifecycle data, and app index.',
       href: `/devices/${deviceRecordId}`,
       label: 'Home',
     },
     ...routeContext.components
       .filter((component) => component.routePath !== null && component.routePath.trim() !== '')
       .map((component) => ({
-        description:
-          component.description !== null && component.description.trim() !== ''
-            ? component.description
-            : `${component.navigationLabel} device app.`,
         href: `/devices/${deviceRecordId}/${component.routePath}`,
         label: component.navigationLabel,
       })),
@@ -93,6 +80,17 @@ export const DeviceRouteShell = ({ children, routeContext }: DeviceRouteShellPro
     >
       <DeviceRouteContext.Provider value={routeContext}>
         <WorkspaceShell
+          breadcrumbs={[
+            {
+              href: `/factories/${device.factoryId}`,
+              label: device.factoryName,
+            },
+            {
+              href: `/departments/${device.departmentId}`,
+              label: device.departmentName,
+            },
+            { label: device.name },
+          ]}
           currentSidebarItemId={device.id}
           description={`Device workspace for ${device.departmentName} in ${device.factoryName}, with app-level access already resolved on the server.`}
           eyebrow="Device Workspace"
@@ -132,39 +130,38 @@ export const DeviceRouteShell = ({ children, routeContext }: DeviceRouteShellPro
           }
           title={device.name}
         >
-          <section className="flex flex-wrap gap-3">
-            {routeItems.map((item) => {
-              const isActive = pathname === item.href;
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+            <section className="flex shrink-0 flex-wrap gap-3">
+              {routeItems.map((item) => {
+                const isActive = pathname === item.href;
 
-              return (
-                <Link
-                  key={item.href}
-                  className={`border px-4 py-3 text-left transition ${isActive ? ACTIVE_CLASSES : IDLE_CLASSES}`}
-                  href={item.href}
-                >
-                  <div className="font-medium">{item.label}</div>
-                  <div className="text-muted-foreground mt-1 text-xs">{item.description}</div>
-                </Link>
-              );
-            })}
-          </section>
+                return (
+                  <Link
+                    key={item.href}
+                    className={`border px-4 py-2.5 text-left text-sm transition ${isActive ? ACTIVE_CLASSES : IDLE_CLASSES}`}
+                    href={item.href}
+                  >
+                    <div className="font-medium">{item.label}</div>
+                  </Link>
+                );
+              })}
+            </section>
 
-          {currentRouteAllowed ? (
-            children
-          ) : (
-            <Card className="border">
-              <CardHeader className="border-b">
-                <CardTitle>Device app unavailable</CardTitle>
-                <CardDescription>
+            {currentRouteAllowed ? (
+              <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+            ) : (
+              <section className="border px-6 py-6 text-sm">
+                <h2 className="text-base font-semibold">Device app unavailable</h2>
+                <p className="text-muted-foreground mt-3">
                   This device app is disabled or outside your current access scope.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="py-6 text-sm">
-                Sysadmin can enable the app for this device. Scoped admins can then grant app-level
-                read or write access.
-              </CardContent>
-            </Card>
-          )}
+                </p>
+                <p className="text-muted-foreground mt-2">
+                  Sysadmin can enable the app for this device. Scoped admins can then grant
+                  app-level read or write access.
+                </p>
+              </section>
+            )}
+          </div>
         </WorkspaceShell>
       </DeviceRouteContext.Provider>
     </CloudTransportProvider>

@@ -1,13 +1,5 @@
 import { redirect } from 'next/navigation';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { fetchQuery } from '@/server/server';
 
 const FactoriesLandingPage = async () => {
@@ -21,17 +13,12 @@ const FactoriesLandingPage = async () => {
   return (
     <main className="bg-background min-h-[calc(100vh-3.5rem)] px-6 py-8 md:px-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <Card className="border">
-          <CardHeader className="border-b">
-            <CardTitle>No factories available</CardTitle>
-            <CardDescription>
-              A sysadmin needs to create a factory before users can browse the hierarchy.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-muted-foreground py-6 text-sm">
+        <section className="space-y-3 border p-6">
+          <h1 className="text-lg font-semibold tracking-tight">No factories available</h1>
+          <p className="text-muted-foreground text-sm">
             Open the sysadmin panel to create a factory and attach departments and devices.
-          </CardContent>
-        </Card>
+          </p>
+        </section>
       </div>
     </main>
   );

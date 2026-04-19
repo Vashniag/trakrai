@@ -39,7 +39,7 @@ export const ServerDataTable = <TData extends { id: string }>({
   });
 
   return (
-    <DataTable getItemValue={(item) => item.id} table={table}>
+    <DataTable className="min-h-0 flex-1" getItemValue={(item) => item.id} table={table}>
       <DataTableToolbar table={table} viewOptions={viewOptions}>
         {toolbarChildren}
       </DataTableToolbar>

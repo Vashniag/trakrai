@@ -185,7 +185,7 @@ export const formatDateTime = (value: Date | null | undefined): string => {
     return 'Never';
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(value);

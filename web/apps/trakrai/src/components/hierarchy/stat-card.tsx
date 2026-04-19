@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
+import { Card, CardHeader, CardTitle } from '@trakrai/design-system/components/card';
 
 type StatCardProps = Readonly<{
   description: string;
@@ -12,12 +6,11 @@ type StatCardProps = Readonly<{
   value: number | string;
 }>;
 
-export const StatCard = ({ description, title, value }: StatCardProps) => (
+export const StatCard = ({ description: _description, title, value }: StatCardProps) => (
   <Card className="border">
-    <CardHeader className="border-b pb-3">
-      <CardDescription className="text-[11px] tracking-[0.18em] uppercase">{title}</CardDescription>
+    <CardHeader className="border-b pb-4">
+      <div className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">{title}</div>
       <CardTitle className="text-3xl tracking-tight">{value}</CardTitle>
     </CardHeader>
-    <CardContent className="text-muted-foreground pt-4 text-sm">{description}</CardContent>
   </Card>
 );

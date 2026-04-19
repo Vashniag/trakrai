@@ -59,6 +59,10 @@ export const SysadminShell = ({
         <Link href="/access-control">Advanced Permissions</Link>
       </Button>
     }
+    breadcrumbs={[
+      { href: '/sysadmin/factories', label: 'Sysadmin' },
+      { label: tabs.find((tab) => tab.id === currentTab)?.label ?? title },
+    ]}
     currentSidebarItemId={currentTab}
     description={description}
     eyebrow="Sysadmin Panel"

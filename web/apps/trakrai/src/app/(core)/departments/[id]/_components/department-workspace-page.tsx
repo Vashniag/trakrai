@@ -4,14 +4,6 @@ import { useMemo } from 'react';
 
 import Link from 'next/link';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
 import { StatCard } from '@/components/hierarchy/stat-card';
 import { WorkspaceShell } from '@/components/hierarchy/workspace-shell';
@@ -23,7 +15,7 @@ type DepartmentWorkspace = RouterOutput['workspace']['getDepartmentWorkspace'];
 type DeviceRow = DepartmentWorkspace['table']['rows'][number];
 
 const formatTimestamp = (value: Date): string =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(value);
@@ -35,18 +27,13 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
         accessorKey: 'name',
         id: 'name',
         cell: ({ row }) => (
-          <div className="space-y-1">
+          <div>
             <Link
               className="text-foreground font-medium underline-offset-4 hover:underline"
               href={`/devices/${row.original.id}`}
             >
               {row.original.name}
             </Link>
-            <div className="text-muted-foreground text-xs">
-              {row.original.description?.trim() !== ''
-                ? row.original.description
-                : 'No device description.'}
-            </div>
           </div>
         ),
         enableColumnFilter: true,
@@ -93,6 +80,13 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
 
   return (
     <WorkspaceShell
+      breadcrumbs={[
+        {
+          href: `/factories/${data.selectedDepartment.factoryId}`,
+          label: data.selectedDepartment.factoryName,
+        },
+        { label: data.selectedDepartment.name },
+      ]}
       currentSidebarItemId={data.selectedDepartment.id}
       description={`Department inside ${data.selectedDepartment.factoryName}, with paginated device browsing and app activity summaries.`}
       eyebrow="Department Workspace"
@@ -132,21 +126,18 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
       }
       title={data.selectedDepartment.name}
     >
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">Devices</CardTitle>
-          <CardDescription>
-            Search and paginate devices inside this department while keeping queries server-side.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-base font-semibold">Devices</h2>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
             pageCount={data.table.pageCount}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </WorkspaceShell>
   );
 };

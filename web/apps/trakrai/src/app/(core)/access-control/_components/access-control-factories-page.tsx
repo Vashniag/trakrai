@@ -4,14 +4,6 @@ import { useMemo } from 'react';
 
 import Link from 'next/link';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { AccessControlScopeManagerModal } from '@/app/(core)/access-control/_components/access-control-scope-manager-modal';
 import { AccessControlShell } from '@/app/(core)/access-control/_components/access-control-shell';
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
@@ -119,21 +111,18 @@ export const AccessControlFactoriesPage = ({
       }
       title="Factory Permissions"
     >
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">Factory Scopes</CardTitle>
-          <CardDescription>
-            Paginated server-side factory directory with direct admin and viewer counts.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-base font-semibold">Factory Scopes</h2>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
             pageCount={data.table.pageCount}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </AccessControlShell>
   );
 };

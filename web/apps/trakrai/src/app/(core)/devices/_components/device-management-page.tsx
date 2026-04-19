@@ -5,13 +5,6 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import { Button } from '@trakrai/design-system/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { Checkbox } from '@trakrai/design-system/components/checkbox';
 import { Input } from '@trakrai/design-system/components/input';
 import { Label } from '@trakrai/design-system/components/label';
@@ -56,7 +49,7 @@ const createDeviceDraft = (device: ManagedDevice): DeviceDraft => ({
 });
 
 const formatTimestamp = (value: Date): string =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(value);
@@ -221,14 +214,9 @@ export const DeviceManagementPage = () => {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        <Card className="border">
-          <CardHeader className="border-b">
-            <CardTitle className="text-base">Create device</CardTitle>
-            <CardDescription>
-              Register a cloud-managed device and mint its fixed bearer token in one step.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 py-6">
+        <section className="space-y-4 border p-6">
+          <h2 className="text-base font-semibold tracking-tight">Create device</h2>
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="device-create-name">Device name</Label>
               <Input
@@ -297,21 +285,12 @@ export const DeviceManagementPage = () => {
               <Plus />
               Create device
             </Button>
-            <div className="text-muted-foreground text-[11px]">
-              The access token is generated server-side and stays fixed unless the device record is
-              replaced.
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        <Card className="border">
-          <CardHeader className="border-b">
-            <CardTitle className="text-base">Managed devices</CardTitle>
-            <CardDescription>
-              Stored device identities and their bearer tokens for cloud-to-device authentication.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 py-6">
+        <section className="space-y-4 border p-6">
+          <h2 className="text-base font-semibold tracking-tight">Managed devices</h2>
+          <div className="space-y-4">
             {devicesQuery.isLoading ? (
               <div className="text-muted-foreground">Loading devices...</div>
             ) : null}
@@ -498,8 +477,8 @@ export const DeviceManagementPage = () => {
                 </section>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
     </div>
   );

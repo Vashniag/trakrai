@@ -6,13 +6,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@trakrai/design-system/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
 import { z } from 'zod';
 
@@ -169,14 +162,11 @@ export const SysadminDevicesPage = ({ data }: Readonly<{ data: DevicesPageData }
       }
       title="Devices"
     >
-      <Card className="border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">Device Inventory</CardTitle>
-          <CardDescription>
-            Paginated registry of devices with server-side search, app counts, and edit modals.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
+        <div className="border-b px-6 py-4">
+          <h2 className="text-base font-semibold">Device Inventory</h2>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
@@ -208,8 +198,8 @@ export const SysadminDevicesPage = ({ data }: Readonly<{ data: DevicesPageData }
               />
             }
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </SysadminShell>
   );
 };

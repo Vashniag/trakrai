@@ -6,6 +6,7 @@ import { DataTablePagination } from './data-table-pagination';
 
 import { getCommonPinningStyles } from '../../lib/data-table';
 import { cn } from '../../lib/utils';
+import { ScrollArea } from '../scroll-area';
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '../sortable';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../table';
 
@@ -42,73 +43,81 @@ export const DataTable = <TData extends object>({
   const hasSelectedRows = table.getFilteredSelectedRowModel().rows.length > 0;
 
   return (
-    <div className={cn('flex w-full flex-col gap-2.5 overflow-auto', className)} {...props}>
+    <div className={cn('flex min-h-0 w-full flex-col gap-2.5', className)} {...props}>
       {children}
-      <div className={cn('overflow-hidden', showBorder && 'border')}>
-        <Sortable
-          getItemValue={(item) => getItemValue(item.original)}
-          value={rows}
-          onValueChange={onValueChange}
-        >
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className={cn(background && 'bg-background')}
-                      colSpan={header.colSpan}
-                      style={{
-                        ...getCommonPinningStyles({ column: header.column, withBorder: true }),
-                      }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <SortableContent asChild>
-              <TableBody>
-                {hasRows ? (
-                  rows.map((row) => (
-                    <SortableItem
-                      key={getItemValue(row.original)}
-                      asChild
-                      value={getItemValue(row.original)}
-                    >
-                      <TableRow data-state={row.getIsSelected() && 'selected'}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className={cn('h-10 py-1', background && 'bg-background')}
-                            style={{
-                              ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
-                            }}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </SortableItem>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell className="h-24 text-center" colSpan={table.getAllColumns().length}>
-                      No results.
-                    </TableCell>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ScrollArea className={cn('h-full w-full rounded-none', showBorder && 'border')}>
+          <Sortable
+            getItemValue={(item) => getItemValue(item.original)}
+            value={rows}
+            onValueChange={onValueChange}
+          >
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className={cn('sticky top-0 z-10', background && 'bg-background')}
+                        colSpan={header.colSpan}
+                        style={{
+                          ...getCommonPinningStyles({ column: header.column, withBorder: true }),
+                        }}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                )}
-              </TableBody>
-            </SortableContent>
-          </Table>
-          <SortableOverlay>
-            <div className="bg-primary/10 size-full rounded-none" />
-          </SortableOverlay>
-        </Sortable>
+                ))}
+              </TableHeader>
+              <SortableContent asChild>
+                <TableBody>
+                  {hasRows ? (
+                    rows.map((row) => (
+                      <SortableItem
+                        key={getItemValue(row.original)}
+                        asChild
+                        value={getItemValue(row.original)}
+                      >
+                        <TableRow data-state={row.getIsSelected() && 'selected'}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell
+                              key={cell.id}
+                              className={cn('h-10 py-1', background && 'bg-background')}
+                              style={{
+                                ...getCommonPinningStyles({
+                                  column: cell.column,
+                                  withBorder: true,
+                                }),
+                              }}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </SortableItem>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        className="h-24 text-center"
+                        colSpan={table.getAllColumns().length}
+                      >
+                        No results.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </SortableContent>
+            </Table>
+            <SortableOverlay>
+              <div className="bg-primary/10 size-full rounded-none" />
+            </SortableOverlay>
+          </Sortable>
+        </ScrollArea>
       </div>
       <div className="flex flex-col gap-2.5">
         {enablePagination === true && <DataTablePagination table={table} />}

@@ -1,12 +1,5 @@
 'use client';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { Separator } from '@trakrai/design-system/components/separator';
 
 import type { ManagementConsole } from './access-control-page-lib';
@@ -24,12 +17,9 @@ export const AccessControlHierarchySummary = ({
   deviceCount,
   factoryCount,
 }: Props) => (
-  <Card className="border">
-    <CardHeader className="border-b">
-      <CardTitle className="text-base">Hierarchy summary</CardTitle>
-      <CardDescription>Root to leaf model driving inherited read and admin scope.</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4 py-6">
+  <section className="space-y-4 border p-6">
+    <h2 className="text-base font-semibold tracking-tight">Hierarchy summary</h2>
+    <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           ['Factories', factoryCount],
@@ -59,6 +49,6 @@ export const AccessControlHierarchySummary = ({
           </div>
         </>
       ) : null}
-    </CardContent>
-  </Card>
+    </div>
+  </section>
 );

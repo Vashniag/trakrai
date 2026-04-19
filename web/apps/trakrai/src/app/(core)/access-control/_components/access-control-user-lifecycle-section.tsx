@@ -2,13 +2,6 @@
 
 import { Badge } from '@trakrai/design-system/components/badge';
 import { Button } from '@trakrai/design-system/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
 import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
 import {
   Table,
@@ -60,15 +53,9 @@ export const AccessControlUserLifecycleSection = ({
   unbanUserMutation,
   userRows,
 }: Props) => (
-  <Card className="border">
-    <CardHeader className="border-b">
-      <CardTitle className="text-base">User lifecycle</CardTitle>
-      <CardDescription>
-        Better Auth admin plugin controls global user accounts. Scoped admins only manage
-        assignments.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4 py-6">
+  <section className="space-y-4 border p-6">
+    <h2 className="text-base font-semibold tracking-tight">User lifecycle</h2>
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {isSysadmin ? (
           <MutationModal
@@ -278,6 +265,6 @@ export const AccessControlUserLifecycleSection = ({
           ))}
         </TableBody>
       </Table>
-    </CardContent>
-  </Card>
+    </div>
+  </section>
 );

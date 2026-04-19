@@ -2,14 +2,6 @@ import { type ReactNode } from 'react';
 
 import Link from 'next/link';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@trakrai/design-system/components/card';
-
 import { ForgotPasswordForm, LoginForm, RegisterForm, ResetPasswordForm } from './components';
 
 const AuthComponents: {
@@ -56,15 +48,15 @@ export default async function Page(props: Readonly<PageProps<'/auth/[...path]'>>
         <Link className="flex items-center gap-2 self-center text-lg font-semibold" href="/">
           TrakrAI
         </Link>
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl">{AuthComponent.title}</CardTitle>
-            <CardDescription>{AuthComponent.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <section className="space-y-6 border bg-white p-6 shadow-sm">
+          <div className="space-y-1 text-center">
+            <h1 className="text-xl font-semibold tracking-tight">{AuthComponent.title}</h1>
+            <p className="text-muted-foreground text-sm">{AuthComponent.description}</p>
+          </div>
+          <div>
             <AuthComponent.Component />
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
     </div>
   );
