@@ -7,6 +7,7 @@ It replaces the earlier `communication-layer-plan.md`, which described a partial
 Related runbooks:
 
 - [Local Postgres + OpenFGA Bringup](./local-db-openfga-bringup.md)
+- [Permission Management And OpenFGA Flow](./permission-management-openfga-flow.md)
 
 ## Workspace shape
 
