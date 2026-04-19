@@ -236,10 +236,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.14.zip",
-          "remotePath": "edge-ui/0.1.14/universal/edge-ui-v0.1.14.zip",
-          "sha256": "a9683b264b89052fac296e603882dd67ddb8bac455fdac495386819a36c6b09d",
-          "updatedAt": "2026-04-19T06:47:48Z"
+          "fileName": "edge-ui-v0.1.15.zip",
+          "remotePath": "edge-ui/0.1.15/universal/edge-ui-v0.1.15.zip",
+          "sha256": "4ecff76b7a61a50d24a1e355790d7a2605777127bb81773ebbbdaa52204d9193",
+          "updatedAt": "2026-04-19T09:50:16Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -339,11 +339,19 @@
           "sha256": "a9683b264b89052fac296e603882dd67ddb8bac455fdac495386819a36c6b09d",
           "updatedAt": "2026-04-19T06:47:48Z",
           "version": "0.1.14"
+        },
+        {
+          "fileName": "edge-ui-v0.1.15.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.15/universal/edge-ui-v0.1.15.zip",
+          "sha256": "4ecff76b7a61a50d24a1e355790d7a2605777127bb81773ebbbdaa52204d9193",
+          "updatedAt": "2026-04-19T09:50:16Z",
+          "version": "0.1.15"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:7cb7ecdbd1bc89511c1483b773d61826a23c83397261b1c9686b58b31bb75f03",
+      "sourceHash": "sha256:bb73789bbfbde40061596513fe28d5dac20d71bb840f26642439ef20aa7a5353",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -807,7 +815,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.14"
+      "version": "0.1.15"
     },
     "live-feed": {
       "artifacts": {
@@ -1550,5 +1558,5 @@
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-19T06:47:48Z"
+  "updatedAt": "2026-04-19T09:50:16Z"
 }
