@@ -7,6 +7,7 @@ import {
 } from '@openfga/sdk';
 
 import {
+  AUTHZ_RELATION_CHILD,
   AUTHZ_RELATION_PARENT,
   createAuthzObject,
   createAuthzUser,
@@ -66,6 +67,29 @@ const normalizeTupleKeysForDelete = (
     user: tupleKey.user,
   }));
 
+export const createObjectParentTupleKeys = (
+  objectType: AuthzObjectType,
+  objectId: string,
+  parentType: AuthzObjectType,
+  parentId: string,
+): readonly [TupleKey, TupleKey] => {
+  const object = createAuthzObject(objectType, objectId);
+  const parentObject = createAuthzObject(parentType, parentId);
+
+  return [
+    {
+      object,
+      relation: AUTHZ_RELATION_PARENT,
+      user: parentObject,
+    },
+    {
+      object: parentObject,
+      relation: AUTHZ_RELATION_CHILD,
+      user: object,
+    },
+  ] as const;
+};
+
 export const writeAuthzTuples = async (tupleKeys: readonly TupleKey[]): Promise<void> => {
   if (tupleKeys.length === 0) {
     return;
@@ -104,31 +128,48 @@ export const setObjectParentRelation = async (
 ): Promise<void> => {
   const { client } = await ensureAuthzState();
   const object = createAuthzObject(objectType, objectId);
-  const expectedParentTuple: TupleKey = {
-    object,
-    relation: AUTHZ_RELATION_PARENT,
-    user: createAuthzObject(parentType, parentId),
-  };
+  const [expectedParentTuple, expectedChildTuple] = createObjectParentTupleKeys(
+    objectType,
+    objectId,
+    parentType,
+    parentId,
+  );
 
   const existingParentTuples = (await readTuplesForObject(client, object)).filter(
     (tupleKey) => tupleKey.relation === AUTHZ_RELATION_PARENT,
   );
+  const existingChildTuples = existingParentTuples.map((tupleKey) => ({
+    object: tupleKey.user,
+    relation: AUTHZ_RELATION_CHILD,
+    user: object,
+  }));
   const deletes = existingParentTuples.filter(
     (tupleKey) =>
       tupleKey.user !== expectedParentTuple.user || tupleKey.object !== expectedParentTuple.object,
   );
+  const childDeletes = existingChildTuples.filter(
+    (tupleKey) =>
+      tupleKey.object !== expectedChildTuple.object || tupleKey.user !== expectedChildTuple.user,
+  );
   const hasExpectedParent = existingParentTuples.some(
     (tupleKey) => tupleKey.user === expectedParentTuple.user,
   );
+  const hasExpectedChild = existingChildTuples.some(
+    (tupleKey) =>
+      tupleKey.object === expectedChildTuple.object && tupleKey.user === expectedChildTuple.user,
+  );
 
-  if (deletes.length === 0 && hasExpectedParent) {
+  if (deletes.length === 0 && childDeletes.length === 0 && hasExpectedParent && hasExpectedChild) {
     return;
   }
 
   await client.write(
     {
-      deletes: normalizeTupleKeysForDelete(deletes),
-      writes: hasExpectedParent ? [] : [expectedParentTuple],
+      deletes: normalizeTupleKeysForDelete([...deletes, ...childDeletes]),
+      writes: [
+        ...(hasExpectedParent ? [] : [expectedParentTuple]),
+        ...(hasExpectedChild ? [] : [expectedChildTuple]),
+      ],
     },
     DEFAULT_WRITE_OPTIONS,
   );
@@ -188,9 +229,17 @@ export const deleteObjectAuthzRelations = async (
     return;
   }
 
+  const parentChildDeletes = existingTuples
+    .filter((tupleKey) => tupleKey.relation === AUTHZ_RELATION_PARENT)
+    .map((tupleKey) => ({
+      object: tupleKey.user,
+      relation: AUTHZ_RELATION_CHILD,
+      user: object,
+    }));
+
   await client.write(
     {
-      deletes: normalizeTupleKeysForDelete(existingTuples),
+      deletes: normalizeTupleKeysForDelete([...existingTuples, ...parentChildDeletes]),
     },
     DEFAULT_WRITE_OPTIONS,
   );

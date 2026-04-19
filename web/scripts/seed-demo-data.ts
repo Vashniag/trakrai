@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import { hashPassword } from 'better-auth/crypto';
 import { faker } from '@faker-js/faker';
-import { eq, like } from 'drizzle-orm';
+import { eq, inArray, like } from 'drizzle-orm';
 
 import { account, user } from '../packages/core/trakrai-backend/src/db/auth-schema.ts';
 import { createDatabase } from '../packages/core/trakrai-backend/src/db/client.ts';
@@ -12,7 +14,6 @@ import {
 } from '../packages/core/trakrai-backend/src/db/schema.ts';
 import {
   AUTHZ_RELATION_ADMIN,
-  AUTHZ_RELATION_PARENT,
   AUTHZ_RELATION_READER,
   AUTHZ_RELATION_VIEWER,
   AUTHZ_RELATION_WRITER,
@@ -22,11 +23,13 @@ import {
   AUTHZ_TYPE_FACTORY,
   createAuthzObject,
   createAuthzUser,
+  createObjectParentTupleKeys,
   deleteAuthzTuples,
   ensureAuthzState,
   readAllTuples,
   writeAuthzTuples,
 } from '../packages/core/trakrai-backend/src/lib/authz/index.ts';
+import { createDeviceAccessToken } from '../packages/core/trakrai-backend/src/lib/device-access-token.ts';
 
 import {
   readRequiredEnvString,
@@ -43,12 +46,10 @@ const DEMO_DEVICES_PER_DEPARTMENT = 20;
 const DEMO_USERS_PER_FACTORY = 10;
 const DEMO_USER_COUNT = DEMO_FACTORY_COUNT * DEMO_USERS_PER_FACTORY;
 
-const DEMO_FACTORY_PREFIX = 'demo-factory-';
-const DEMO_DEPARTMENT_PREFIX = 'demo-department-';
-const DEMO_DEVICE_PREFIX = 'demo-device-';
+const DEMO_ENTITY_DESCRIPTION_PREFIX = '[demo-seed]';
 const DEMO_USER_PREFIX = 'demo-user-';
-const DEMO_DEVICE_TOKEN_PREFIX = 'demo-device-token-';
 const CREDENTIAL_PROVIDER_ID = 'credential';
+const DEMO_RANDOM_SEED_DEFAULT = 20260419;
 
 type DemoUserRecord = Readonly<{
   email: string;
@@ -58,11 +59,21 @@ type DemoUserRecord = Readonly<{
   slotIndex: number;
 }>;
 
-type DemoFactoryRecord = typeof factory.$inferInsert;
-type DemoDepartmentRecord = typeof department.$inferInsert;
+type DemoFactoryRecord = typeof factory.$inferInsert &
+  Readonly<{
+    factoryIndex: number;
+  }>;
+
+type DemoDepartmentRecord = typeof department.$inferInsert &
+  Readonly<{
+    departmentIndex: number;
+    factoryIndex: number;
+  }>;
+
 type DemoDeviceRecord = typeof device.$inferInsert &
   Readonly<{
     departmentIndex: number;
+    deviceIndex: number;
     factoryIndex: number;
   }>;
 
@@ -87,6 +98,14 @@ type DemoRelationCounts = Readonly<{
 }>;
 
 const padNumber = (value: number, width: number): string => value.toString().padStart(width, '0');
+
+const getDemoSeed = (offset = 0): number => {
+  const configuredSeed = Number.parseInt(
+    process.env.DEMO_RANDOM_SEED ?? `${DEMO_RANDOM_SEED_DEFAULT}`,
+    10,
+  );
+  return Number.isNaN(configuredSeed) ? DEMO_RANDOM_SEED_DEFAULT + offset : configuredSeed + offset;
+};
 
 const createMulberry32 = (seed: number) => {
   let state = seed >>> 0;
@@ -155,25 +174,35 @@ const pickRandomDistinctItems = <TValue>(
   return picked;
 };
 
-const buildDemoFactoryId = (factoryIndex: number): string =>
-  `${DEMO_FACTORY_PREFIX}${padNumber(factoryIndex + 1, 2)}`;
-
-const buildDemoDepartmentId = (factoryIndex: number, departmentIndex: number): string =>
-  `${DEMO_DEPARTMENT_PREFIX}${padNumber(factoryIndex + 1, 2)}-${padNumber(departmentIndex + 1, 2)}`;
-
-const buildDemoDeviceId = (
-  factoryIndex: number,
-  departmentIndex: number,
-  deviceIndex: number,
-): string =>
-  `${DEMO_DEVICE_PREFIX}${padNumber(factoryIndex + 1, 2)}-${padNumber(departmentIndex + 1, 2)}-${padNumber(deviceIndex + 1, 2)}`;
-
 const buildDemoUserId = (userIndex: number): string =>
   `${DEMO_USER_PREFIX}${padNumber(userIndex + 1, 3)}`;
 
+const createDemoDescription = (kind: string): string => `${DEMO_ENTITY_DESCRIPTION_PREFIX} ${kind}`;
+
+const createUniqueNameFactory = (buildCandidate: () => string, fallbackPrefix: string) => {
+  const usedNames = new Set<string>();
+
+  return (index: number): string => {
+    let attempts = 0;
+
+    while (attempts < 20) {
+      const candidate = buildCandidate().trim();
+      if (candidate !== '' && !usedNames.has(candidate)) {
+        usedNames.add(candidate);
+        return candidate;
+      }
+
+      attempts += 1;
+    }
+
+    const fallback = `${fallbackPrefix} ${randomUUID().slice(0, 8)}`;
+    usedNames.add(fallback);
+    return fallback;
+  };
+};
+
 const buildDemoUsers = (): DemoUserRecord[] => {
-  const seed = Number.parseInt(process.env.DEMO_RANDOM_SEED ?? '20260419', 10);
-  faker.seed(Number.isNaN(seed) ? 20260419 : seed);
+  faker.seed(getDemoSeed(0));
 
   return Array.from({ length: DEMO_USER_COUNT }, (_, userIndex) => {
     const name = faker.person.fullName();
@@ -223,38 +252,67 @@ const buildDemoUserGroups = (
   );
 };
 
-const buildDemoFactories = (): DemoFactoryRecord[] =>
-  Array.from({ length: DEMO_FACTORY_COUNT }, (_, factoryIndex) => ({
-    description: `Seeded demo factory ${padNumber(factoryIndex + 1, 2)}.`,
-    id: buildDemoFactoryId(factoryIndex),
-    name: `Factory ${padNumber(factoryIndex + 1, 2)}`,
+const buildDemoFactories = (): DemoFactoryRecord[] => {
+  faker.seed(getDemoSeed(10));
+  const nextFactoryName = createUniqueNameFactory(
+    () => `${faker.company.name()} Facility`,
+    'Factory',
+  );
+
+  return Array.from({ length: DEMO_FACTORY_COUNT }, (_, factoryIndex) => ({
+    description: createDemoDescription('factory'),
+    factoryIndex,
+    id: randomUUID(),
+    name: nextFactoryName(factoryIndex),
   }));
+};
 
-const buildDemoDepartments = (): DemoDepartmentRecord[] =>
-  Array.from({ length: DEMO_FACTORY_COUNT }, (_, factoryIndex) =>
+const buildDemoDepartments = (factories: readonly DemoFactoryRecord[]): DemoDepartmentRecord[] => {
+  faker.seed(getDemoSeed(20));
+  const nextDepartmentName = createUniqueNameFactory(
+    () => `${faker.commerce.department()} ${faker.word.noun()}`,
+    'Department',
+  );
+
+  return factories.flatMap((demoFactory) =>
     Array.from({ length: DEMO_DEPARTMENTS_PER_FACTORY }, (_, departmentIndex) => ({
-      description: `Seeded demo department ${padNumber(departmentIndex + 1, 2)} for factory ${padNumber(factoryIndex + 1, 2)}.`,
-      factoryId: buildDemoFactoryId(factoryIndex),
-      id: buildDemoDepartmentId(factoryIndex, departmentIndex),
-      name: `Department ${padNumber(departmentIndex + 1, 2)}`,
+      departmentIndex,
+      description: createDemoDescription('department'),
+      factoryId: demoFactory.id,
+      factoryIndex: demoFactory.factoryIndex,
+      id: randomUUID(),
+      name: nextDepartmentName(
+        demoFactory.factoryIndex * DEMO_DEPARTMENTS_PER_FACTORY + departmentIndex,
+      ),
     })),
-  ).flat();
+  );
+};
 
-const buildDemoDevices = (): DemoDeviceRecord[] =>
-  Array.from({ length: DEMO_FACTORY_COUNT }, (_, factoryIndex) =>
-    Array.from({ length: DEMO_DEPARTMENTS_PER_FACTORY }, (_, departmentIndex) =>
-      Array.from({ length: DEMO_DEVICES_PER_DEPARTMENT }, (_, deviceIndex) => ({
-        accessToken: `${DEMO_DEVICE_TOKEN_PREFIX}${padNumber(factoryIndex + 1, 2)}-${padNumber(departmentIndex + 1, 2)}-${padNumber(deviceIndex + 1, 2)}`,
-        departmentId: buildDemoDepartmentId(factoryIndex, departmentIndex),
-        departmentIndex,
-        description: `Seeded demo device ${padNumber(deviceIndex + 1, 2)} for department ${padNumber(departmentIndex + 1, 2)}.`,
-        factoryIndex,
-        id: buildDemoDeviceId(factoryIndex, departmentIndex, deviceIndex),
-        isActive: true,
-        name: `Device ${padNumber(deviceIndex + 1, 2)}`,
-      })),
-    ).flat(),
-  ).flat();
+const buildDemoDevices = (departments: readonly DemoDepartmentRecord[]): DemoDeviceRecord[] => {
+  faker.seed(getDemoSeed(30));
+  const nextDeviceName = createUniqueNameFactory(
+    () => `${faker.vehicle.manufacturer()} ${faker.vehicle.model()}`,
+    'Device',
+  );
+
+  return departments.flatMap((demoDepartment) =>
+    Array.from({ length: DEMO_DEVICES_PER_DEPARTMENT }, (_, deviceIndex) => ({
+      accessToken: createDeviceAccessToken(),
+      departmentId: demoDepartment.id,
+      departmentIndex: demoDepartment.departmentIndex,
+      description: createDemoDescription('device'),
+      deviceIndex,
+      factoryIndex: demoDepartment.factoryIndex,
+      id: randomUUID(),
+      isActive: true,
+      name: nextDeviceName(
+        demoDepartment.factoryIndex * DEMO_DEPARTMENTS_PER_FACTORY * DEMO_DEVICES_PER_DEPARTMENT +
+          demoDepartment.departmentIndex * DEMO_DEVICES_PER_DEPARTMENT +
+          deviceIndex,
+      ),
+    })),
+  );
+};
 
 const clearPreviousDemoData = async (database: LocalDatabase) => {
   const [demoUsers, demoFactories, demoDepartments, demoDevices, demoInstallations] =
@@ -266,20 +324,20 @@ const clearPreviousDemoData = async (database: LocalDatabase) => {
       database
         .select({ id: factory.id })
         .from(factory)
-        .where(like(factory.id, `${DEMO_FACTORY_PREFIX}%`)),
+        .where(like(factory.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`)),
       database
         .select({ id: department.id })
         .from(department)
-        .where(like(department.id, `${DEMO_DEPARTMENT_PREFIX}%`)),
+        .where(like(department.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`)),
       database
         .select({ id: device.id })
         .from(device)
-        .where(like(device.id, `${DEMO_DEVICE_PREFIX}%`)),
+        .where(like(device.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`)),
       database
         .select({ id: deviceComponentInstallation.id })
         .from(deviceComponentInstallation)
         .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-        .where(like(device.id, `${DEMO_DEVICE_PREFIX}%`)),
+        .where(like(device.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`)),
     ]);
 
   const authzObjectIds = new Set([
@@ -303,9 +361,15 @@ const clearPreviousDemoData = async (database: LocalDatabase) => {
     })),
   );
 
-  await database.delete(device).where(like(device.id, `${DEMO_DEVICE_PREFIX}%`));
-  await database.delete(department).where(like(department.id, `${DEMO_DEPARTMENT_PREFIX}%`));
-  await database.delete(factory).where(like(factory.id, `${DEMO_FACTORY_PREFIX}%`));
+  await database
+    .delete(device)
+    .where(like(device.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`));
+  await database
+    .delete(department)
+    .where(like(department.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`));
+  await database
+    .delete(factory)
+    .where(like(factory.description, `${DEMO_ENTITY_DESCRIPTION_PREFIX}%`));
   await database.delete(user).where(like(user.id, `${DEMO_USER_PREFIX}%`));
 
   return {
@@ -355,15 +419,38 @@ const insertDemoHierarchy = async (
   departments: readonly DemoDepartmentRecord[],
   devices: readonly DemoDeviceRecord[],
 ) => {
-  await database.insert(factory).values([...factories]);
-  await database.insert(department).values([...departments]);
+  await database.insert(factory).values(
+    factories.map((demoFactory) => ({
+      description: demoFactory.description,
+      id: demoFactory.id,
+      name: demoFactory.name,
+    })),
+  );
+  await database.insert(department).values(
+    departments.map((demoDepartment) => ({
+      description: demoDepartment.description,
+      factoryId: demoDepartment.factoryId,
+      id: demoDepartment.id,
+      name: demoDepartment.name,
+    })),
+  );
   await insertInChunks(devices, 500, async (chunk) => {
-    await database.insert(device).values([...chunk]);
+    await database.insert(device).values(
+      chunk.map((demoDevice) => ({
+        accessToken: demoDevice.accessToken,
+        departmentId: demoDevice.departmentId,
+        description: demoDevice.description,
+        id: demoDevice.id,
+        isActive: demoDevice.isActive,
+        name: demoDevice.name,
+      })),
+    );
   });
 };
 
 const buildDemoAuthzTuples = (
   demoUsers: readonly DemoUserRecord[],
+  demoFactories: readonly DemoFactoryRecord[],
   demoDepartments: readonly DemoDepartmentRecord[],
   demoDevices: readonly DemoDeviceRecord[],
   installationsByDeviceId: ReadonlyMap<
@@ -371,28 +458,37 @@ const buildDemoAuthzTuples = (
     ReadonlyArray<Readonly<{ componentKey: string; id: string }>>
   >,
 ) => {
-  const seed = Number.parseInt(process.env.DEMO_RANDOM_SEED ?? '20260419', 10);
-  const random = createMulberry32(Number.isNaN(seed) ? 20260419 : seed);
+  const random = createMulberry32(getDemoSeed(40));
   const userGroups = buildDemoUserGroups(demoUsers);
 
-  const factoryTuples = Array.from(userGroups.entries()).flatMap(([factoryIndex, group]) => [
-    {
-      object: createAuthzObject(AUTHZ_TYPE_FACTORY, buildDemoFactoryId(factoryIndex)),
-      relation: AUTHZ_RELATION_ADMIN,
-      user: createAuthzUser(group.factoryAdminId),
-    },
-    ...group.factoryViewerIds.map((userId) => ({
-      object: createAuthzObject(AUTHZ_TYPE_FACTORY, buildDemoFactoryId(factoryIndex)),
-      relation: AUTHZ_RELATION_VIEWER,
-      user: createAuthzUser(userId),
-    })),
-  ]);
+  const factoryTuples = demoFactories.flatMap((demoFactory) => {
+    const group = userGroups.get(demoFactory.factoryIndex);
+    if (group === undefined) {
+      throw new Error(`Missing user group for factory index ${demoFactory.factoryIndex}.`);
+    }
 
-  const departmentParentTuples = demoDepartments.map((demoDepartment) => ({
-    object: createAuthzObject(AUTHZ_TYPE_DEPARTMENT, demoDepartment.id),
-    relation: AUTHZ_RELATION_PARENT,
-    user: createAuthzObject(AUTHZ_TYPE_FACTORY, demoDepartment.factoryId),
-  }));
+    return [
+      {
+        object: createAuthzObject(AUTHZ_TYPE_FACTORY, demoFactory.id),
+        relation: AUTHZ_RELATION_ADMIN,
+        user: createAuthzUser(group.factoryAdminId),
+      },
+      ...group.factoryViewerIds.map((userId) => ({
+        object: createAuthzObject(AUTHZ_TYPE_FACTORY, demoFactory.id),
+        relation: AUTHZ_RELATION_VIEWER,
+        user: createAuthzUser(userId),
+      })),
+    ];
+  });
+
+  const departmentParentTuples = demoDepartments.flatMap((demoDepartment) =>
+    createObjectParentTupleKeys(
+      AUTHZ_TYPE_DEPARTMENT,
+      demoDepartment.id,
+      AUTHZ_TYPE_FACTORY,
+      demoDepartment.factoryId,
+    ),
+  );
 
   const departmentAccessEntries = new Map<
     string,
@@ -403,11 +499,7 @@ const buildDemoAuthzTuples = (
   >();
 
   const departmentAccessTuples = demoDepartments.flatMap((demoDepartment) => {
-    const factoryIndex = Number.parseInt(
-      demoDepartment.factoryId.slice(DEMO_FACTORY_PREFIX.length),
-      10,
-    );
-    const group = userGroups.get(factoryIndex - 1);
+    const group = userGroups.get(demoDepartment.factoryIndex);
     if (group === undefined) {
       throw new Error(`Missing user group for factory ${demoDepartment.factoryId}.`);
     }
@@ -433,11 +525,26 @@ const buildDemoAuthzTuples = (
     ];
   });
 
-  const deviceParentTuples = demoDevices.map((demoDevice) => ({
-    object: createAuthzObject(AUTHZ_TYPE_DEVICE, demoDevice.id),
-    relation: AUTHZ_RELATION_PARENT,
-    user: createAuthzObject(AUTHZ_TYPE_DEPARTMENT, demoDevice.departmentId),
-  }));
+  const deviceParentTuples = demoDevices.flatMap((demoDevice) =>
+    createObjectParentTupleKeys(
+      AUTHZ_TYPE_DEVICE,
+      demoDevice.id,
+      AUTHZ_TYPE_DEPARTMENT,
+      demoDevice.departmentId,
+    ),
+  );
+
+  const componentParentTuples = Array.from(installationsByDeviceId.entries()).flatMap(
+    ([deviceId, installationRows]) =>
+      installationRows.flatMap((installation) =>
+        createObjectParentTupleKeys(
+          AUTHZ_TYPE_DEVICE_COMPONENT,
+          installation.id,
+          AUTHZ_TYPE_DEVICE,
+          deviceId,
+        ),
+      ),
+  );
 
   const deviceViewerTuples = demoDevices.map((demoDevice) => {
     const group = userGroups.get(demoDevice.factoryIndex);
@@ -503,7 +610,7 @@ const buildDemoAuthzTuples = (
     componentReaders: componentReaderTuples.length,
     componentWriters: componentWriterTuples.length,
     departmentAdmins: demoDepartments.length,
-    departmentParents: departmentParentTuples.length,
+    departmentParents: demoDepartments.length,
     departmentViewers: demoDepartments.length,
     deviceParents: demoDevices.length,
     deviceViewers: deviceViewerTuples.length,
@@ -519,6 +626,7 @@ const buildDemoAuthzTuples = (
       ...departmentAccessTuples,
       ...deviceParentTuples,
       ...deviceViewerTuples,
+      ...componentParentTuples,
       ...componentReaderTuples,
       ...componentWriterTuples,
     ],
@@ -533,8 +641,8 @@ const main = async () => {
   try {
     const demoUsers = buildDemoUsers();
     const demoFactories = buildDemoFactories();
-    const demoDepartments = buildDemoDepartments();
-    const demoDevices = buildDemoDevices();
+    const demoDepartments = buildDemoDepartments(demoFactories);
+    const demoDevices = buildDemoDevices(demoDepartments);
 
     const [reset, sysadmin] = await Promise.all([clearPreviousDemoData(db), upsertSysadmin(db)]);
 
@@ -550,8 +658,12 @@ const main = async () => {
         id: deviceComponentInstallation.id,
       })
       .from(deviceComponentInstallation)
-      .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-      .where(like(device.id, `${DEMO_DEVICE_PREFIX}%`));
+      .where(
+        inArray(
+          deviceComponentInstallation.deviceId,
+          demoDevices.map((demoDevice) => demoDevice.id),
+        ),
+      );
 
     const installationsByDeviceId = new Map<
       string,
@@ -569,6 +681,7 @@ const main = async () => {
 
     const { relationCounts, tuples } = buildDemoAuthzTuples(
       demoUsers,
+      demoFactories,
       demoDepartments,
       demoDevices,
       installationsByDeviceId,

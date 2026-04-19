@@ -137,10 +137,11 @@ const ensureAuthorizationModelId = async (storeId: string): Promise<string> => {
 const createAuthzState = async (): Promise<AuthzState> => {
   const storeId = await ensureStoreId();
   const authorizationModelId = await ensureAuthorizationModelId(storeId);
+  const client = createScopedOpenFgaClient(storeId, authorizationModelId);
 
   return {
     authorizationModelId,
-    client: createScopedOpenFgaClient(storeId, authorizationModelId),
+    client,
     storeId,
   };
 };

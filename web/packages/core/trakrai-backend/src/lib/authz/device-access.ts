@@ -1,16 +1,15 @@
 import { eq } from 'drizzle-orm';
 
+import { getScopedAssignments } from './assignments';
 import {
+  AUTHZ_RELATION_CAN_NAVIGATE,
   AUTHZ_RELATION_CAN_MANAGE_USERS,
   AUTHZ_RELATION_CAN_READ,
+  AUTHZ_RELATION_CAN_WRITE,
   AUTHZ_TYPE_DEVICE,
   type DeviceComponentAccessRecord,
 } from './constants';
-import {
-  checkUserObjectRelation,
-  getReadableComponentIdsForUser,
-  getWritableComponentIdsForUser,
-} from './relations';
+import { checkUserObjectRelation } from './relations';
 
 import type { Database } from '../../server/trpc';
 
@@ -39,6 +38,18 @@ export const getDeviceComponentAccessForUser = async (
     throw new Error('Device not found.');
   }
 
+  const canNavigateDevice = isSysadmin
+    ? true
+    : await checkUserObjectRelation(
+        userId,
+        AUTHZ_RELATION_CAN_NAVIGATE,
+        AUTHZ_TYPE_DEVICE,
+        foundDevice.id,
+      );
+  if (!canNavigateDevice) {
+    throw new Error('You do not have access to this device.');
+  }
+
   const canReadDevice = isSysadmin
     ? true
     : await checkUserObjectRelation(
@@ -47,9 +58,6 @@ export const getDeviceComponentAccessForUser = async (
         AUTHZ_TYPE_DEVICE,
         foundDevice.id,
       );
-  if (!canReadDevice) {
-    throw new Error('You do not have access to this device.');
-  }
 
   const installationRows = await db
     .select({
@@ -72,8 +80,8 @@ export const getDeviceComponentAccessForUser = async (
     )
     .where(eq(deviceComponentInstallation.deviceId, deviceRecordId));
 
-  const [canManageUsers, readableComponentIds, writableComponentIds] = isSysadmin
-    ? [true, null, null]
+  const [canManageUsers, componentAssignments] = isSysadmin
+    ? [true, null]
     : await Promise.all([
         checkUserObjectRelation(
           userId,
@@ -81,15 +89,34 @@ export const getDeviceComponentAccessForUser = async (
           AUTHZ_TYPE_DEVICE,
           foundDevice.id,
         ),
-        getReadableComponentIdsForUser(userId),
-        getWritableComponentIdsForUser(userId),
+        getScopedAssignments({
+          componentIds: installationRows.map((row) => row.id),
+          userIds: [userId],
+        }),
       ]);
 
+  const directAccessByComponentId = new Map<
+    string,
+    typeof AUTHZ_RELATION_CAN_READ | typeof AUTHZ_RELATION_CAN_WRITE
+  >();
+
+  for (const assignment of componentAssignments?.componentAssignmentRows ?? []) {
+    directAccessByComponentId.set(
+      assignment.componentId,
+      assignment.accessLevel === 'write' ? AUTHZ_RELATION_CAN_WRITE : AUTHZ_RELATION_CAN_READ,
+    );
+  }
+
   const components: DeviceComponentAccessRecord[] = installationRows
-    .filter((row) => row.enabled && (isSysadmin || readableComponentIds?.has(row.id) === true))
+    .filter(
+      (row) =>
+        row.enabled && (isSysadmin || canReadDevice || directAccessByComponentId.has(row.id)),
+    )
     .map((row) => {
       const accessLevel: DeviceComponentAccessRecord['accessLevel'] =
-        isSysadmin || writableComponentIds?.has(row.id) === true ? 'write' : 'read';
+        isSysadmin || directAccessByComponentId.get(row.id) === AUTHZ_RELATION_CAN_WRITE
+          ? 'write'
+          : 'read';
 
       return {
         accessLevel,

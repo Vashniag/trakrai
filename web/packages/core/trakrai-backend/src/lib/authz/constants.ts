@@ -3,9 +3,11 @@ import type { TupleKey } from '@openfga/sdk';
 export const DEFAULT_OPENFGA_STORE_NAME = 'trakrai';
 
 export const AUTHZ_RELATION_ADMIN = 'admin';
+export const AUTHZ_RELATION_CAN_NAVIGATE = 'can_navigate';
 export const AUTHZ_RELATION_CAN_MANAGE_USERS = 'can_manage_users';
 export const AUTHZ_RELATION_CAN_READ = 'can_read';
 export const AUTHZ_RELATION_CAN_WRITE = 'can_write';
+export const AUTHZ_RELATION_CHILD = 'child';
 export const AUTHZ_RELATION_PARENT = 'parent';
 export const AUTHZ_RELATION_READER = 'reader';
 export const AUTHZ_RELATION_VIEWER = 'viewer';
@@ -19,9 +21,11 @@ export const AUTHZ_TYPE_USER = 'user';
 
 export type AuthzRelation =
   | typeof AUTHZ_RELATION_ADMIN
+  | typeof AUTHZ_RELATION_CAN_NAVIGATE
   | typeof AUTHZ_RELATION_CAN_MANAGE_USERS
   | typeof AUTHZ_RELATION_CAN_READ
   | typeof AUTHZ_RELATION_CAN_WRITE
+  | typeof AUTHZ_RELATION_CHILD
   | typeof AUTHZ_RELATION_PARENT
   | typeof AUTHZ_RELATION_READER
   | typeof AUTHZ_RELATION_VIEWER

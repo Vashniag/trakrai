@@ -1,4 +1,5 @@
 import {
+  AUTHZ_RELATION_CAN_NAVIGATE,
   AUTHZ_RELATION_CAN_MANAGE_USERS,
   AUTHZ_RELATION_CAN_READ,
   AUTHZ_RELATION_CAN_WRITE,
@@ -71,6 +72,15 @@ export const getUserManagementScopeIds = async (userId: string) => {
 
 export const getReadableDeviceIdsForUser = async (userId: string) =>
   listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_READ, AUTHZ_TYPE_DEVICE);
+
+export const getNavigableFactoryIdsForUser = async (userId: string) =>
+  listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_NAVIGATE, AUTHZ_TYPE_FACTORY);
+
+export const getNavigableDepartmentIdsForUser = async (userId: string) =>
+  listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_NAVIGATE, AUTHZ_TYPE_DEPARTMENT);
+
+export const getNavigableDeviceIdsForUser = async (userId: string) =>
+  listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_NAVIGATE, AUTHZ_TYPE_DEVICE);
 
 export const getReadableComponentIdsForUser = async (userId: string) =>
   listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_READ, AUTHZ_TYPE_DEVICE_COMPONENT);

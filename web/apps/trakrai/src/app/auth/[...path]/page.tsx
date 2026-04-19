@@ -48,7 +48,7 @@ export default async function Page(props: Readonly<PageProps<'/auth/[...path]'>>
         <Link className="flex items-center gap-2 self-center text-lg font-semibold" href="/">
           TrakrAI
         </Link>
-        <section className="space-y-6 border bg-white p-6 shadow-sm">
+        <section className="bg-card space-y-6 border p-6 shadow-sm">
           <div className="space-y-1 text-center">
             <h1 className="text-xl font-semibold tracking-tight">{AuthComponent.title}</h1>
             <p className="text-muted-foreground text-sm">{AuthComponent.description}</p>

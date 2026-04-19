@@ -35,6 +35,7 @@ import {
   AUTHZ_TYPE_DEVICE,
   AUTHZ_TYPE_DEVICE_COMPONENT,
   AUTHZ_TYPE_FACTORY,
+  createObjectParentTupleKeys,
   replaceDirectUserRelation,
   setObjectParentRelation,
   writeAuthzTuples,
@@ -57,12 +58,6 @@ const readInstallationOrThrow = async (db: Database, installationId: string) => 
 
   return installation;
 };
-
-const buildComponentParentTuple = (componentId: string, deviceId: string) => ({
-  object: `${AUTHZ_TYPE_DEVICE_COMPONENT}:${componentId}`,
-  relation: 'parent',
-  user: `${AUTHZ_TYPE_DEVICE}:${deviceId}`,
-});
 
 export const accessControlRouter = createTRPCRouter({
   ...accessControlQueryProcedures,
@@ -110,8 +105,13 @@ export const accessControlRouter = createTRPCRouter({
           .returning();
 
         await writeAuthzTuples(
-          createdInstallations.map((installation) =>
-            buildComponentParentTuple(installation.id, installation.deviceId),
+          createdInstallations.flatMap((installation) =>
+            createObjectParentTupleKeys(
+              AUTHZ_TYPE_DEVICE_COMPONENT,
+              installation.id,
+              AUTHZ_TYPE_DEVICE,
+              installation.deviceId,
+            ),
           ),
         );
       }
@@ -244,9 +244,14 @@ export const accessControlRouter = createTRPCRouter({
           });
         }
 
-        await writeAuthzTuples([
-          buildComponentParentTuple(createdInstallation.id, createdInstallation.deviceId),
-        ]);
+        await writeAuthzTuples(
+          createObjectParentTupleKeys(
+            AUTHZ_TYPE_DEVICE_COMPONENT,
+            createdInstallation.id,
+            AUTHZ_TYPE_DEVICE,
+            createdInstallation.deviceId,
+          ),
+        );
         return createdInstallation;
       }
 

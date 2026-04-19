@@ -70,12 +70,12 @@ That means:
 
 These are the direct relations currently modeled in OpenFGA.
 
-| Object type        | Direct relations             | Meaning                                              |
-| ------------------ | ---------------------------- | ---------------------------------------------------- |
-| `factory`          | `admin`, `viewer`            | top-level scope assignment                           |
-| `department`       | `parent`, `admin`, `viewer`  | child of factory, optional direct scoped assignments |
-| `device`           | `parent`, `viewer`           | child of department, readable assignment point       |
-| `device_component` | `parent`, `reader`, `writer` | installed app on a device                            |
+| Object type        | Direct relations                      | Meaning                                              |
+| ------------------ | ------------------------------------- | ---------------------------------------------------- |
+| `factory`          | `child`, `admin`, `viewer`            | top-level scope assignment + reverse hierarchy edge  |
+| `department`       | `parent`, `child`, `admin`, `viewer`  | child of factory, optional direct scoped assignments |
+| `device`           | `parent`, `child`, `viewer`           | child of department, readable assignment point       |
+| `device_component` | `parent`, `reader`, `writer`          | installed app on a device                            |
 
 ### Important non-features
 
@@ -94,6 +94,8 @@ flowchart TD
   FA["factory.admin"] --> FCA["factory.can_manage_users"]
   FA --> FV["factory.viewer"]
   FV --> FCR["factory.can_read"]
+  FCH["factory.child"] --> FCN["factory.can_navigate"]
+  FCR --> FCN
 
   DP["department.parent"] --> DA["department.admin inherits parent.admin"]
   DA --> DCA["department.can_manage_users"]
@@ -101,6 +103,8 @@ flowchart TD
   DP --> DVW2["department.viewer inherits parent.viewer"]
   DVW --> DCR["department.can_read"]
   DVW2 --> DCR
+  DCH["department.child"] --> DCN["department.can_navigate"]
+  DCR --> DCN
 
   VP["device.parent"] --> VAD["device.admin inherits parent.admin"]
   VAD --> VCA["device.can_manage_users"]
@@ -108,6 +112,8 @@ flowchart TD
   VP --> DVV2["device.viewer inherits parent.viewer"]
   DVV --> VCR["device.can_read"]
   DVV2 --> VCR
+  VCH["device.child"] --> VCN["device.can_navigate"]
+  VCR --> VCN
 
   CP["device_component.parent"] --> CMA["device_component.can_manage_users inherits parent.admin"]
   CP --> CRI["device_component.reader inherits parent.viewer"]
@@ -116,6 +122,7 @@ flowchart TD
   CRI --> CCR
   CRI2 --> CCR
   CW --> CCW["device_component.can_write"]
+  CCR --> CCN["device_component.can_navigate"]
 ```
 
 ## 5. Effective Permission Matrix
@@ -132,6 +139,10 @@ flowchart TD
   - can read that factory subtree
   - inherited downward as viewer to departments and devices
   - inherited to device app installations as component reader
+- `factory.can_navigate`
+  - can open the factory page shell
+  - is granted by `factory.can_read` or by any navigable descendant through `factory.child`
+  - does **not** imply full factory read access
 
 ### Department scope
 
@@ -144,6 +155,10 @@ flowchart TD
   - can read that department subtree
   - inherited as viewer to child devices
   - inherited as component reader to installed apps under those devices
+- `department.can_navigate`
+  - can open the department page shell
+  - is granted by `department.can_read` or by any navigable child device
+  - does **not** imply full department read access
 
 ### Device scope
 
@@ -151,6 +166,10 @@ flowchart TD
   - can read that device
   - automatically reads all installed apps under that device through component reader inheritance
   - does **not** gain manage-users power by itself
+- `device.can_navigate`
+  - can open the device page shell
+  - is granted by `device.can_read` or by any readable child component
+  - does **not** imply full device read access
 
 ### Device app scope
 
@@ -159,6 +178,9 @@ flowchart TD
 - `device_component.writer`
   - can write one installed app
   - also implies read on that installed app
+- `device_component.can_navigate`
+  - equals `device_component.can_read`
+  - participates in upward parent-chain navigation
 
 ## 6. Sysadmin Model
 

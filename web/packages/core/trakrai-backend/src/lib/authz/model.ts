@@ -37,6 +37,19 @@ const createParentUserset = (relation: string): Userset => ({
   },
 });
 
+const createChildUserset = (relation: string): Userset => ({
+  tupleToUserset: {
+    tupleset: {
+      object: '',
+      relation: 'child',
+    },
+    computedUserset: {
+      object: '',
+      relation,
+    },
+  },
+});
+
 const createUnionUserset = (...children: Userset[]): Userset => ({
   union: {
     child: children,
@@ -56,14 +69,22 @@ const createTypeDefinitions = (): TypeDefinition[] => [
     type: AUTHZ_TYPE_FACTORY,
     relations: {
       admin: createDirectUserset(),
+      can_navigate: createUnionUserset(
+        createComputedUserset('can_read'),
+        createChildUserset('can_navigate'),
+      ),
       can_manage_users: createComputedUserset('admin'),
       can_read: createComputedUserset('viewer'),
+      child: createDirectUserset(),
       viewer: createUnionUserset(createDirectUserset(), createComputedUserset('admin')),
     },
     metadata: {
       relations: {
         admin: {
           directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_USER)],
+        },
+        child: {
+          directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_DEPARTMENT)],
         },
         viewer: {
           directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_USER)],
@@ -75,8 +96,13 @@ const createTypeDefinitions = (): TypeDefinition[] => [
     type: AUTHZ_TYPE_DEPARTMENT,
     relations: {
       admin: createUnionUserset(createDirectUserset(), createParentUserset('admin')),
+      can_navigate: createUnionUserset(
+        createComputedUserset('can_read'),
+        createChildUserset('can_navigate'),
+      ),
       can_manage_users: createComputedUserset('admin'),
       can_read: createComputedUserset('viewer'),
+      child: createDirectUserset(),
       parent: createDirectUserset(),
       viewer: createUnionUserset(
         createDirectUserset(),
@@ -88,6 +114,9 @@ const createTypeDefinitions = (): TypeDefinition[] => [
       relations: {
         admin: {
           directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_USER)],
+        },
+        child: {
+          directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_DEVICE)],
         },
         parent: {
           directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_FACTORY)],
@@ -102,8 +131,13 @@ const createTypeDefinitions = (): TypeDefinition[] => [
     type: AUTHZ_TYPE_DEVICE,
     relations: {
       admin: createParentUserset('admin'),
+      can_navigate: createUnionUserset(
+        createComputedUserset('can_read'),
+        createChildUserset('can_navigate'),
+      ),
       can_manage_users: createComputedUserset('admin'),
       can_read: createComputedUserset('viewer'),
+      child: createDirectUserset(),
       parent: createDirectUserset(),
       viewer: createUnionUserset(
         createDirectUserset(),
@@ -113,6 +147,9 @@ const createTypeDefinitions = (): TypeDefinition[] => [
     },
     metadata: {
       relations: {
+        child: {
+          directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_DEVICE_COMPONENT)],
+        },
         parent: {
           directly_related_user_types: [directRelationMetadata(AUTHZ_TYPE_DEPARTMENT)],
         },
@@ -125,6 +162,7 @@ const createTypeDefinitions = (): TypeDefinition[] => [
   {
     type: AUTHZ_TYPE_DEVICE_COMPONENT,
     relations: {
+      can_navigate: createComputedUserset('can_read'),
       can_manage_users: createParentUserset('admin'),
       can_read: createComputedUserset('reader'),
       can_write: createComputedUserset('writer'),

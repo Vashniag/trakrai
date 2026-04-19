@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import { TRPCError } from '@trpc/server';
 import { desc, eq, inArray } from 'drizzle-orm';
@@ -15,19 +15,20 @@ import {
   AUTHZ_TYPE_DEPARTMENT,
   AUTHZ_TYPE_DEVICE,
   AUTHZ_TYPE_DEVICE_COMPONENT,
+  createObjectParentTupleKeys,
   deleteObjectAuthzRelations,
   getDeviceComponentAccessForUser,
-  getReadableDeviceIdsForUser,
+  getNavigableDeviceIdsForUser,
   getUserManagementScopeIds,
   isSysAdminRole,
   setObjectParentRelation,
   writeAuthzTuples,
 } from '../../lib/authz';
+import { createDeviceAccessToken } from '../../lib/device-access-token';
 import { createTRPCRouter, type Database, protectedProcedure } from '../trpc';
 
 const MAX_DESCRIPTION_LENGTH = 500;
 const MAX_NAME_LENGTH = 255;
-const DEVICE_ACCESS_TOKEN_BYTES = 24;
 const DEVICE_NOT_FOUND_MESSAGE = 'Device not found.';
 const DEVICE_RECORD_ID_MESSAGE = 'Device record ID is required';
 
@@ -38,9 +39,6 @@ const normalizeOptionalString = (value: string): string | null => {
   return normalized === '' ? null : normalized;
 };
 
-const createDeviceAccessToken = (): string =>
-  `trd_${randomBytes(DEVICE_ACCESS_TOKEN_BYTES).toString('hex')}`;
-
 const requireSysAdmin = (role: string | null | undefined) => {
   if (!isSysAdminRole(role)) {
     throw new TRPCError({
@@ -49,12 +47,6 @@ const requireSysAdmin = (role: string | null | undefined) => {
     });
   }
 };
-
-const buildComponentParentTuple = (componentId: string, deviceId: string) => ({
-  object: `${AUTHZ_TYPE_DEVICE_COMPONENT}:${componentId}`,
-  relation: 'parent',
-  user: `${AUTHZ_TYPE_DEVICE}:${deviceId}`,
-});
 
 const createDeviceInputSchema = z.object({
   departmentId: textIdSchema('Department ID is required'),
@@ -202,8 +194,13 @@ export const devicesRouter = createTRPCRouter({
           .returning();
 
         await writeAuthzTuples(
-          createdInstallations.map((installation) =>
-            buildComponentParentTuple(installation.id, installation.deviceId),
+          createdInstallations.flatMap((installation) =>
+            createObjectParentTupleKeys(
+              AUTHZ_TYPE_DEVICE_COMPONENT,
+              installation.id,
+              AUTHZ_TYPE_DEVICE,
+              installation.deviceId,
+            ),
           ),
         );
       }
@@ -264,8 +261,8 @@ export const devicesRouter = createTRPCRouter({
       }
 
       if (!isSysAdminRole(ctx.user.role)) {
-        const readableDeviceIds = await getReadableDeviceIdsForUser(ctx.user.id);
-        if (!readableDeviceIds.has(input.id)) {
+        const navigableDeviceIds = await getNavigableDeviceIdsForUser(ctx.user.id);
+        if (!navigableDeviceIds.has(input.id)) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: 'You do not have access to this device.',
@@ -347,7 +344,7 @@ export const devicesRouter = createTRPCRouter({
         ? await readJoinedDevices(ctx.db)
         : await readJoinedDevices(
             ctx.db,
-            Array.from(await getReadableDeviceIdsForUser(ctx.user.id)),
+            Array.from(await getNavigableDeviceIdsForUser(ctx.user.id)),
           );
 
       const manageableDeviceIds = sysadmin

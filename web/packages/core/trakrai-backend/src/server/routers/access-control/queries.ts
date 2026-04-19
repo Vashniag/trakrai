@@ -92,14 +92,18 @@ const buildNavigation = (
   const showFactories = isSysadmin || manageableFactoryIds.length > 0;
   const showScopedTabs =
     isSysadmin || manageableFactoryIds.length > 0 || manageableDepartmentIds.length > 0;
+  let defaultHref = '/access-control/apps';
+
+  if (showUsers) {
+    defaultHref = '/access-control/users';
+  } else if (showScopedTabs) {
+    defaultHref = '/access-control/devices';
+  } else if (showFactories) {
+    defaultHref = '/access-control/factories';
+  }
+
   const navigation = {
-    defaultHref: showUsers
-      ? '/access-control/users'
-      : showScopedTabs
-        ? '/access-control/devices'
-        : showFactories
-          ? '/access-control/factories'
-          : '/access-control/apps',
+    defaultHref,
     isSysadmin,
     showApps: showScopedTabs,
     showDepartments: showScopedTabs,
@@ -125,9 +129,10 @@ const buildDepartmentFilterCondition = (input: HierarchyFilterInput) =>
   input.departmentId.length === 0 ? undefined : inArray(department.id, input.departmentId);
 
 const buildHierarchyFilterCondition = (input: HierarchyFilterInput) => {
-  const conditions = [buildFactoryFilterCondition(input), buildDepartmentFilterCondition(input)].filter(
-    (condition) => condition !== undefined,
-  );
+  const conditions = [
+    buildFactoryFilterCondition(input),
+    buildDepartmentFilterCondition(input),
+  ].filter((condition) => condition !== undefined);
 
   return conditions.length === 0 ? undefined : and(...conditions);
 };
@@ -450,7 +455,10 @@ export const accessControlQueryProcedures = {
                 )
                 .where(searchCondition)
                 .groupBy(deviceComponentCatalog.key)
-                .orderBy(asc(deviceComponentCatalog.sortOrder), asc(deviceComponentCatalog.displayName))
+                .orderBy(
+                  asc(deviceComponentCatalog.sortOrder),
+                  asc(deviceComponentCatalog.displayName),
+                )
                 .limit(input.perPage)
                 .offset((input.page - 1) * input.perPage),
               ctx.db
@@ -502,7 +510,10 @@ export const accessControlQueryProcedures = {
                 .innerJoin(factory, eq(factory.id, department.factoryId))
                 .where(and(scopedInstallationCondition, searchCondition))
                 .groupBy(deviceComponentCatalog.key)
-                .orderBy(asc(deviceComponentCatalog.sortOrder), asc(deviceComponentCatalog.displayName))
+                .orderBy(
+                  asc(deviceComponentCatalog.sortOrder),
+                  asc(deviceComponentCatalog.displayName),
+                )
                 .limit(input.perPage)
                 .offset((input.page - 1) * input.perPage),
               ctx.db
@@ -518,7 +529,9 @@ export const accessControlQueryProcedures = {
                 .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
                 .innerJoin(department, eq(department.id, device.departmentId))
                 .innerJoin(factory, eq(factory.id, department.factoryId))
-                .where(and(scopedInstallationCondition, eq(deviceComponentInstallation.enabled, true))),
+                .where(
+                  and(scopedInstallationCondition, eq(deviceComponentInstallation.enabled, true)),
+                ),
             ]);
 
       const totalCount = totalCountRows[0]?.totalCount ?? 0;
