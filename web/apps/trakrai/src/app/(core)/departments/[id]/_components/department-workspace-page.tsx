@@ -102,26 +102,10 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
       sidebarTitle="Departments"
       stats={
         <>
-          <StatCard
-            description="Devices registered under this department."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
-          <StatCard
-            description="Devices currently active."
-            title="Active Devices"
-            value={data.stats.activeDeviceCount}
-          />
-          <StatCard
-            description="Enabled apps across all devices in this department."
-            title="Enabled Apps"
-            value={data.stats.enabledAppCount}
-          />
-          <StatCard
-            description="Direct department-level admins and viewers."
-            title="Direct Users"
-            value={data.stats.directUserCount}
-          />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
+          <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
+          <StatCard title="Enabled Apps" value={data.stats.enabledAppCount} />
+          <StatCard title="Direct Users" value={data.stats.directUserCount} />
         </>
       }
       title={data.selectedDepartment.name}

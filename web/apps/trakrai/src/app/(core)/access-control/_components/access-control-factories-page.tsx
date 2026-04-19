@@ -1,13 +1,22 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
+import { Button } from '@trakrai/design-system/components/button';
+import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
+
+import {
+  createFactorySchema,
+  updateFactorySchema,
+} from '@/app/(core)/access-control/_components/access-control-page-lib';
 import { AccessControlScopeManagerModal } from '@/app/(core)/access-control/_components/access-control-scope-manager-modal';
 import { AccessControlShell } from '@/app/(core)/access-control/_components/access-control-shell';
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
 import { StatCard } from '@/components/hierarchy/stat-card';
+import { useTRPCMutation } from '@/server/react';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { RouterOutput } from '@trakrai/backend/server/routers';
@@ -25,6 +34,18 @@ export const AccessControlFactoriesPage = ({
 }: Readonly<{
   data: FactoriesPageData;
 }>) => {
+  const router = useRouter();
+  const createFactoryMutation = useTRPCMutation((api) =>
+    api.accessControl.createFactory.mutationOptions(),
+  );
+  const updateFactoryMutation = useTRPCMutation((api) =>
+    api.accessControl.updateFactory.mutationOptions(),
+  );
+
+  const refresh = useCallback(async () => {
+    router.refresh();
+  }, [router]);
+
   const columns = useMemo<ColumnDef<FactoryRow>[]>(
     () => [
       {
@@ -38,11 +59,6 @@ export const AccessControlFactoriesPage = ({
             >
               {row.original.name}
             </Link>
-            <div className="text-muted-foreground text-xs">
-              {row.original.description?.trim() !== ''
-                ? row.original.description
-                : 'No factory description.'}
-            </div>
           </div>
         ),
         enableColumnFilter: true,
@@ -72,17 +88,43 @@ export const AccessControlFactoriesPage = ({
       {
         id: 'actions',
         cell: ({ row }) => (
-          <AccessControlScopeManagerModal
-            roleOptions={roleOptions}
-            scopeId={row.original.id}
-            scopeLabel={row.original.name}
-            scopeType="factory"
-          />
+          <div className="flex flex-wrap gap-2">
+            {data.navigation.isSysadmin ? (
+              <MutationModal
+                defaultValues={{
+                  description: row.original.description ?? '',
+                  id: row.original.id,
+                  name: row.original.name,
+                }}
+                fields={[
+                  { label: 'Name', name: 'name', type: 'input' },
+                  { label: 'Description', name: 'description', type: 'textarea' },
+                ]}
+                mutation={updateFactoryMutation}
+                refresh={refresh}
+                schema={updateFactorySchema}
+                submitButtonText="Save factory"
+                successToast={() => 'Factory updated.'}
+                titleText="Edit factory"
+                trigger={
+                  <Button size="sm" type="button" variant="outline">
+                    Edit
+                  </Button>
+                }
+              />
+            ) : null}
+            <AccessControlScopeManagerModal
+              roleOptions={roleOptions}
+              scopeId={row.original.id}
+              scopeLabel={row.original.name}
+              scopeType="factory"
+            />
+          </div>
         ),
         header: 'Actions',
       },
     ],
-    [],
+    [data.navigation.isSysadmin, refresh, updateFactoryMutation],
   );
 
   return (
@@ -92,36 +134,40 @@ export const AccessControlFactoriesPage = ({
       navigation={data.navigation}
       stats={
         <>
-          <StatCard
-            description="Factories matching the active filter."
-            title="Factories"
-            value={data.stats.factoryCount}
-          />
-          <StatCard
-            description="Departments in visible factory scope."
-            title="Departments"
-            value={data.stats.departmentCount}
-          />
-          <StatCard
-            description="Devices under visible factory scope."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
+          <StatCard title="Factories" value={data.stats.factoryCount} />
+          <StatCard title="Departments" value={data.stats.departmentCount} />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
         </>
       }
-      title="Factory Permissions"
+      title="Factories"
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
-        <div className="border-b px-6 py-4">
-          <h2 className="text-base font-semibold">Factory Scopes</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
             pageCount={data.table.pageCount}
+            toolbarChildren={
+              data.navigation.isSysadmin ? (
+                <MutationModal
+                  defaultValues={{
+                    description: '',
+                    name: '',
+                  }}
+                  fields={[
+                    { label: 'Name', name: 'name', type: 'input' },
+                    { label: 'Description', name: 'description', type: 'textarea' },
+                  ]}
+                  mutation={createFactoryMutation}
+                  refresh={refresh}
+                  schema={createFactorySchema}
+                  submitButtonText="Create factory"
+                  successToast={() => 'Factory created.'}
+                  titleText="Create factory"
+                  trigger={<Button type="button">Create factory</Button>}
+                />
+              ) : undefined
+            }
           />
-        </div>
       </section>
     </AccessControlShell>
   );

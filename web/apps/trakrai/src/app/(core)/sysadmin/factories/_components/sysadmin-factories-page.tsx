@@ -110,21 +110,9 @@ export const SysadminFactoriesPage = ({ data }: Readonly<{ data: FactoriesPageDa
       description="Paginated factory management with server-side search and aggregate hierarchy counts."
       stats={
         <>
-          <StatCard
-            description="Factories currently matching the active filter."
-            title="Factories"
-            value={data.stats.factoryCount}
-          />
-          <StatCard
-            description="Departments across the entire hierarchy."
-            title="Departments"
-            value={data.stats.departmentCount}
-          />
-          <StatCard
-            description="Devices registered under all factories."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
+          <StatCard title="Factories" value={data.stats.factoryCount} />
+          <StatCard title="Departments" value={data.stats.departmentCount} />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
         </>
       }
       title="Factories"

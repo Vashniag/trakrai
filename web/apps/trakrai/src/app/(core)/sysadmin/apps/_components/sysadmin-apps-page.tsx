@@ -141,21 +141,9 @@ export const SysadminAppsPage = ({ data }: Readonly<{ data: AppsPageData }>) => 
       description="Server-rendered device app catalog with installation reach and dynamic registration controls."
       stats={
         <>
-          <StatCard
-            description="Catalog apps matching the active filter."
-            title="Apps"
-            value={data.stats.appCount}
-          />
-          <StatCard
-            description="Total device-app installation records."
-            title="Installations"
-            value={data.stats.installationsCount}
-          />
-          <StatCard
-            description="Installations currently enabled on devices."
-            title="Enabled"
-            value={data.stats.enabledInstallationsCount}
-          />
+          <StatCard title="Apps" value={data.stats.appCount} />
+          <StatCard title="Installations" value={data.stats.installationsCount} />
+          <StatCard title="Enabled" value={data.stats.enabledInstallationsCount} />
         </>
       }
       title="Apps"

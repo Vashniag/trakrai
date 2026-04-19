@@ -91,26 +91,10 @@ export const FactoryWorkspacePage = ({ data }: Readonly<{ data: FactoryWorkspace
       sidebarTitle="Factories"
       stats={
         <>
-          <StatCard
-            description="Departments inside this factory subtree."
-            title="Departments"
-            value={data.stats.departmentCount}
-          />
-          <StatCard
-            description="Total registered devices across all departments."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
-          <StatCard
-            description="Devices currently marked active."
-            title="Active Devices"
-            value={data.stats.activeDeviceCount}
-          />
-          <StatCard
-            description="Direct factory-level admins and viewers."
-            title="Direct Users"
-            value={data.stats.directUserCount}
-          />
+          <StatCard title="Departments" value={data.stats.departmentCount} />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
+          <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
+          <StatCard title="Direct Users" value={data.stats.directUserCount} />
         </>
       }
       title={data.selectedFactory.name}

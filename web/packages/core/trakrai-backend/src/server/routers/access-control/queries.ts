@@ -59,6 +59,11 @@ type PaginationMeta = Readonly<{
   totalCount: number;
 }>;
 
+type HierarchyFilterInput = Readonly<{
+  departmentId: string[];
+  factoryId: string[];
+}>;
+
 type DirectAssignmentEntry<TRelation extends string = string> = Readonly<{
   relation: TRelation;
   userId: string;
@@ -87,35 +92,44 @@ const buildNavigation = (
   const showFactories = isSysadmin || manageableFactoryIds.length > 0;
   const showScopedTabs =
     isSysadmin || manageableFactoryIds.length > 0 || manageableDepartmentIds.length > 0;
+  const navigation = {
+    defaultHref: showUsers
+      ? '/access-control/users'
+      : showScopedTabs
+        ? '/access-control/devices'
+        : showFactories
+          ? '/access-control/factories'
+          : '/access-control/apps',
+    isSysadmin,
+    showApps: showScopedTabs,
+    showDepartments: showScopedTabs,
+    showDevices: showScopedTabs,
+    showFactories,
+    showUsers,
+  } satisfies AccessControlNavigation;
 
-  if (showFactories) {
-    return {
-      defaultHref: '/access-control/factories',
-      isSysadmin,
-      showApps: showScopedTabs,
-      showDepartments: showScopedTabs,
-      showDevices: showScopedTabs,
-      showFactories,
-      showUsers,
-    };
-  }
-
-  if (showScopedTabs) {
-    return {
-      defaultHref: '/access-control/departments',
-      isSysadmin,
-      showApps: true,
-      showDepartments: true,
-      showDevices: true,
-      showFactories: false,
-      showUsers,
-    };
+  if (navigation.showUsers || navigation.showFactories || navigation.showDevices) {
+    return navigation;
   }
 
   throw new TRPCError({
     code: 'FORBIDDEN',
     message: FORBIDDEN_MESSAGE,
   });
+};
+
+const buildFactoryFilterCondition = (input: HierarchyFilterInput) =>
+  input.factoryId.length === 0 ? undefined : inArray(factory.id, input.factoryId);
+
+const buildDepartmentFilterCondition = (input: HierarchyFilterInput) =>
+  input.departmentId.length === 0 ? undefined : inArray(department.id, input.departmentId);
+
+const buildHierarchyFilterCondition = (input: HierarchyFilterInput) => {
+  const conditions = [buildFactoryFilterCondition(input), buildDepartmentFilterCondition(input)].filter(
+    (condition) => condition !== undefined,
+  );
+
+  return conditions.length === 0 ? undefined : and(...conditions);
 };
 
 const readManagementAccessContext = async (
@@ -388,6 +402,7 @@ export const accessControlQueryProcedures = {
       }
 
       const accessCondition = buildDeviceScopeAccessCondition(access);
+      const hierarchyFilterCondition = buildHierarchyFilterCondition(input);
       const searchPattern = buildSearchPattern(input.name);
       const searchCondition =
         searchPattern === null
@@ -396,108 +411,128 @@ export const accessControlQueryProcedures = {
               ilike(deviceComponentCatalog.displayName, searchPattern),
               ilike(deviceComponentCatalog.key, searchPattern),
               ilike(deviceComponentCatalog.serviceName, searchPattern),
-              ilike(device.name, searchPattern),
-              ilike(department.name, searchPattern),
-              ilike(factory.name, searchPattern),
+              ilike(deviceComponentCatalog.description, searchPattern),
             );
 
-      const whereClause =
-        accessCondition === undefined && searchCondition === undefined
+      const scopedInstallationCondition =
+        accessCondition === undefined && hierarchyFilterCondition === undefined
           ? undefined
-          : and(accessCondition, searchCondition);
+          : and(accessCondition, hierarchyFilterCondition);
 
-      const totalCountRows = await ctx.db
-        .select({ totalCount: sql<number>`cast(count(*) as int)` })
-        .from(deviceComponentInstallation)
-        .innerJoin(
-          deviceComponentCatalog,
-          eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
-        )
-        .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-        .innerJoin(department, eq(department.id, device.departmentId))
-        .innerJoin(factory, eq(factory.id, department.factoryId))
-        .where(whereClause);
+      const [totalCountRows, rows, installationsCountRows, enabledRows] =
+        scopedInstallationCondition === undefined
+          ? await Promise.all([
+              ctx.db
+                .select({ totalCount: sql<number>`cast(count(*) as int)` })
+                .from(deviceComponentCatalog)
+                .where(searchCondition),
+              ctx.db
+                .select({
+                  defaultEnabled: deviceComponentCatalog.defaultEnabled,
+                  description: deviceComponentCatalog.description,
+                  displayName: deviceComponentCatalog.displayName,
+                  enabledInstallCount: sql<number>`cast(count(case when ${deviceComponentInstallation.enabled} then 1 end) as int)`,
+                  id: deviceComponentCatalog.key,
+                  installCount: sql<number>`cast(count(${deviceComponentInstallation.id}) as int)`,
+                  key: deviceComponentCatalog.key,
+                  navigationLabel: deviceComponentCatalog.navigationLabel,
+                  readActions: deviceComponentCatalog.readActions,
+                  rendererKey: deviceComponentCatalog.rendererKey,
+                  routePath: deviceComponentCatalog.routePath,
+                  serviceName: deviceComponentCatalog.serviceName,
+                  sortOrder: deviceComponentCatalog.sortOrder,
+                  writeActions: deviceComponentCatalog.writeActions,
+                })
+                .from(deviceComponentCatalog)
+                .leftJoin(
+                  deviceComponentInstallation,
+                  eq(deviceComponentInstallation.componentKey, deviceComponentCatalog.key),
+                )
+                .where(searchCondition)
+                .groupBy(deviceComponentCatalog.key)
+                .orderBy(asc(deviceComponentCatalog.sortOrder), asc(deviceComponentCatalog.displayName))
+                .limit(input.perPage)
+                .offset((input.page - 1) * input.perPage),
+              ctx.db
+                .select({ count: sql<number>`cast(count(*) as int)` })
+                .from(deviceComponentInstallation),
+              ctx.db
+                .select({ count: sql<number>`cast(count(*) as int)` })
+                .from(deviceComponentInstallation)
+                .where(eq(deviceComponentInstallation.enabled, true)),
+            ])
+          : await Promise.all([
+              ctx.db
+                .select({
+                  totalCount: sql<number>`cast(count(distinct ${deviceComponentCatalog.key}) as int)`,
+                })
+                .from(deviceComponentInstallation)
+                .innerJoin(
+                  deviceComponentCatalog,
+                  eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
+                )
+                .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
+                .innerJoin(department, eq(department.id, device.departmentId))
+                .innerJoin(factory, eq(factory.id, department.factoryId))
+                .where(and(scopedInstallationCondition, searchCondition)),
+              ctx.db
+                .select({
+                  defaultEnabled: deviceComponentCatalog.defaultEnabled,
+                  description: deviceComponentCatalog.description,
+                  displayName: deviceComponentCatalog.displayName,
+                  enabledInstallCount: sql<number>`cast(count(case when ${deviceComponentInstallation.enabled} then 1 end) as int)`,
+                  id: deviceComponentCatalog.key,
+                  installCount: sql<number>`cast(count(${deviceComponentInstallation.id}) as int)`,
+                  key: deviceComponentCatalog.key,
+                  navigationLabel: deviceComponentCatalog.navigationLabel,
+                  readActions: deviceComponentCatalog.readActions,
+                  rendererKey: deviceComponentCatalog.rendererKey,
+                  routePath: deviceComponentCatalog.routePath,
+                  serviceName: deviceComponentCatalog.serviceName,
+                  sortOrder: deviceComponentCatalog.sortOrder,
+                  writeActions: deviceComponentCatalog.writeActions,
+                })
+                .from(deviceComponentInstallation)
+                .innerJoin(
+                  deviceComponentCatalog,
+                  eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
+                )
+                .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
+                .innerJoin(department, eq(department.id, device.departmentId))
+                .innerJoin(factory, eq(factory.id, department.factoryId))
+                .where(and(scopedInstallationCondition, searchCondition))
+                .groupBy(deviceComponentCatalog.key)
+                .orderBy(asc(deviceComponentCatalog.sortOrder), asc(deviceComponentCatalog.displayName))
+                .limit(input.perPage)
+                .offset((input.page - 1) * input.perPage),
+              ctx.db
+                .select({ count: sql<number>`cast(count(*) as int)` })
+                .from(deviceComponentInstallation)
+                .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
+                .innerJoin(department, eq(department.id, device.departmentId))
+                .innerJoin(factory, eq(factory.id, department.factoryId))
+                .where(scopedInstallationCondition),
+              ctx.db
+                .select({ count: sql<number>`cast(count(*) as int)` })
+                .from(deviceComponentInstallation)
+                .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
+                .innerJoin(department, eq(department.id, device.departmentId))
+                .innerJoin(factory, eq(factory.id, department.factoryId))
+                .where(and(scopedInstallationCondition, eq(deviceComponentInstallation.enabled, true))),
+            ]);
+
       const totalCount = totalCountRows[0]?.totalCount ?? 0;
-
-      const rows = await ctx.db
-        .select({
-          componentDisplayName: deviceComponentCatalog.displayName,
-          componentKey: deviceComponentInstallation.componentKey,
-          departmentName: department.name,
-          deviceId: device.id,
-          deviceName: device.name,
-          enabled: deviceComponentInstallation.enabled,
-          factoryName: factory.name,
-          id: deviceComponentInstallation.id,
-          navigationLabel: deviceComponentCatalog.navigationLabel,
-          serviceName: deviceComponentCatalog.serviceName,
-        })
-        .from(deviceComponentInstallation)
-        .innerJoin(
-          deviceComponentCatalog,
-          eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
-        )
-        .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-        .innerJoin(department, eq(department.id, device.departmentId))
-        .innerJoin(factory, eq(factory.id, department.factoryId))
-        .where(whereClause)
-        .orderBy(
-          asc(factory.name),
-          asc(department.name),
-          asc(device.name),
-          asc(deviceComponentCatalog.displayName),
-        )
-        .limit(input.perPage)
-        .offset((input.page - 1) * input.perPage);
-
-      const [enabledRows, deviceCountRows] = await Promise.all([
-        ctx.db
-          .select({ count: sql<number>`cast(count(*) as int)` })
-          .from(deviceComponentInstallation)
-          .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-          .innerJoin(department, eq(department.id, device.departmentId))
-          .innerJoin(factory, eq(factory.id, department.factoryId))
-          .where(and(accessCondition, eq(deviceComponentInstallation.enabled, true))),
-        ctx.db
-          .select({ count: sql<number>`cast(count(distinct ${device.id}) as int)` })
-          .from(deviceComponentInstallation)
-          .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-          .innerJoin(department, eq(department.id, device.departmentId))
-          .innerJoin(factory, eq(factory.id, department.factoryId))
-          .where(accessCondition),
-      ]);
-
-      const accessCounts = await Promise.all(
-        rows.map(async (row) => {
-          const assignments = await readDirectUserAssignments(
-            createAuthzObject(AUTHZ_TYPE_DEVICE_COMPONENT, row.id),
-            [AUTHZ_RELATION_READER, AUTHZ_RELATION_WRITER],
-          );
-          const counts = countAssignmentsByRelation(assignments);
-          return {
-            id: row.id,
-            readCount: counts.get(AUTHZ_RELATION_READER) ?? 0,
-            writeCount: counts.get(AUTHZ_RELATION_WRITER) ?? 0,
-          };
-        }),
-      );
-
-      const countsById = new Map(accessCounts.map((entry) => [entry.id, entry]));
 
       return {
         navigation: access.navigation,
         stats: {
-          deviceCount: deviceCountRows[0]?.count ?? 0,
           enabledInstallationCount: enabledRows[0]?.count ?? 0,
-          installationCount: totalCount,
+          installationCount: installationsCountRows[0]?.count ?? 0,
+          appCount: totalCount,
         },
         table: {
           ...toPaginationMeta(input.page, input.perPage, totalCount),
-          rows: rows.map((row) => ({
-            ...row,
-            readCount: countsById.get(row.id)?.readCount ?? 0,
-            writeCount: countsById.get(row.id)?.writeCount ?? 0,
-          })),
+          rows,
         },
       };
     }),
@@ -513,15 +548,20 @@ export const accessControlQueryProcedures = {
       }
 
       const accessCondition = buildDepartmentAccessCondition(access);
+      const hierarchyFilterCondition = buildFactoryFilterCondition(input);
       const searchPattern = buildSearchPattern(input.name);
       const searchCondition =
         searchPattern === null
           ? undefined
           : or(ilike(department.name, searchPattern), ilike(department.description, searchPattern));
-      const whereClause =
-        accessCondition === undefined && searchCondition === undefined
+      const scopedCondition =
+        accessCondition === undefined && hierarchyFilterCondition === undefined
           ? undefined
-          : and(accessCondition, searchCondition);
+          : and(accessCondition, hierarchyFilterCondition);
+      const whereClause =
+        scopedCondition === undefined && searchCondition === undefined
+          ? undefined
+          : and(scopedCondition, searchCondition);
 
       const totalCountRows = await ctx.db
         .select({ totalCount: sql<number>`cast(count(*) as int)` })
@@ -533,6 +573,7 @@ export const accessControlQueryProcedures = {
         .select({
           description: department.description,
           deviceCount: sql<number>`cast(count(distinct ${device.id}) as int)`,
+          factoryId: factory.id,
           factoryName: factory.name,
           id: department.id,
           name: department.name,
@@ -546,19 +587,28 @@ export const accessControlQueryProcedures = {
         .limit(input.perPage)
         .offset((input.page - 1) * input.perPage);
 
-      const [deviceCountRows, activeDeviceCountRows] = await Promise.all([
+      const [deviceCountRows, activeDeviceCountRows, factoryFilterRows] = await Promise.all([
         ctx.db
           .select({ count: sql<number>`cast(count(*) as int)` })
           .from(device)
           .innerJoin(department, eq(department.id, device.departmentId))
           .innerJoin(factory, eq(factory.id, department.factoryId))
-          .where(accessCondition),
+          .where(scopedCondition),
         ctx.db
           .select({ count: sql<number>`cast(count(*) as int)` })
           .from(device)
           .innerJoin(department, eq(department.id, device.departmentId))
           .innerJoin(factory, eq(factory.id, department.factoryId))
-          .where(and(accessCondition, eq(device.isActive, true))),
+          .where(and(scopedCondition, eq(device.isActive, true))),
+        ctx.db
+          .selectDistinct({
+            label: factory.name,
+            value: factory.id,
+          })
+          .from(department)
+          .innerJoin(factory, eq(factory.id, department.factoryId))
+          .where(accessCondition)
+          .orderBy(asc(factory.name)),
       ]);
 
       const accessCounts = await Promise.all(
@@ -579,6 +629,9 @@ export const accessControlQueryProcedures = {
       const countsById = new Map(accessCounts.map((entry) => [entry.id, entry]));
 
       return {
+        filterOptions: {
+          factories: factoryFilterRows,
+        },
         navigation: access.navigation,
         stats: {
           activeDeviceCount: activeDeviceCountRows[0]?.count ?? 0,
@@ -607,15 +660,25 @@ export const accessControlQueryProcedures = {
       }
 
       const accessCondition = buildDeviceScopeAccessCondition(access);
+      const hierarchyFilterCondition = buildHierarchyFilterCondition(input);
       const searchPattern = buildSearchPattern(input.name);
       const searchCondition =
         searchPattern === null
           ? undefined
-          : or(ilike(device.name, searchPattern), ilike(device.description, searchPattern));
-      const whereClause =
-        accessCondition === undefined && searchCondition === undefined
+          : or(
+              ilike(device.name, searchPattern),
+              ilike(device.description, searchPattern),
+              ilike(department.name, searchPattern),
+              ilike(factory.name, searchPattern),
+            );
+      const scopedCondition =
+        accessCondition === undefined && hierarchyFilterCondition === undefined
           ? undefined
-          : and(accessCondition, searchCondition);
+          : and(accessCondition, hierarchyFilterCondition);
+      const whereClause =
+        scopedCondition === undefined && searchCondition === undefined
+          ? undefined
+          : and(scopedCondition, searchCondition);
 
       const totalCountRows = await ctx.db
         .select({ totalCount: sql<number>`cast(count(*) as int)` })
@@ -627,9 +690,11 @@ export const accessControlQueryProcedures = {
 
       const rows = await ctx.db
         .select({
+          departmentId: department.id,
           departmentName: department.name,
           description: device.description,
           enabledAppCount: sql<number>`cast(count(case when ${deviceComponentInstallation.enabled} then 1 end) as int)`,
+          factoryId: factory.id,
           factoryName: factory.name,
           id: device.id,
           isActive: device.isActive,
@@ -646,21 +711,48 @@ export const accessControlQueryProcedures = {
         .limit(input.perPage)
         .offset((input.page - 1) * input.perPage);
 
-      const [activeDeviceCountRows, enabledAppCountRows] = await Promise.all([
-        ctx.db
-          .select({ count: sql<number>`cast(count(*) as int)` })
-          .from(device)
-          .innerJoin(department, eq(department.id, device.departmentId))
-          .innerJoin(factory, eq(factory.id, department.factoryId))
-          .where(and(accessCondition, eq(device.isActive, true))),
-        ctx.db
-          .select({ count: sql<number>`cast(count(*) as int)` })
-          .from(deviceComponentInstallation)
-          .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
-          .innerJoin(department, eq(department.id, device.departmentId))
-          .innerJoin(factory, eq(factory.id, department.factoryId))
-          .where(and(accessCondition, eq(deviceComponentInstallation.enabled, true))),
-      ]);
+      const [activeDeviceCountRows, enabledAppCountRows, factoryFilterRows, departmentFilterRows] =
+        await Promise.all([
+          ctx.db
+            .select({ count: sql<number>`cast(count(*) as int)` })
+            .from(device)
+            .innerJoin(department, eq(department.id, device.departmentId))
+            .innerJoin(factory, eq(factory.id, department.factoryId))
+            .where(and(scopedCondition, eq(device.isActive, true))),
+          ctx.db
+            .select({ count: sql<number>`cast(count(*) as int)` })
+            .from(deviceComponentInstallation)
+            .innerJoin(device, eq(device.id, deviceComponentInstallation.deviceId))
+            .innerJoin(department, eq(department.id, device.departmentId))
+            .innerJoin(factory, eq(factory.id, department.factoryId))
+            .where(and(scopedCondition, eq(deviceComponentInstallation.enabled, true))),
+          ctx.db
+            .selectDistinct({
+              label: factory.name,
+              value: factory.id,
+            })
+            .from(device)
+            .innerJoin(department, eq(department.id, device.departmentId))
+            .innerJoin(factory, eq(factory.id, department.factoryId))
+            .where(accessCondition)
+            .orderBy(asc(factory.name)),
+          ctx.db
+            .select({
+              label: sql<string>`${factory.name} || ' / ' || ${department.name}`,
+              value: department.id,
+            })
+            .from(device)
+            .innerJoin(department, eq(department.id, device.departmentId))
+            .innerJoin(factory, eq(factory.id, department.factoryId))
+            .where(
+              and(
+                accessCondition,
+                input.factoryId.length === 0 ? undefined : inArray(factory.id, input.factoryId),
+              ),
+            )
+            .groupBy(department.id, factory.name, department.name)
+            .orderBy(asc(factory.name), asc(department.name)),
+        ]);
 
       const accessCounts = await Promise.all(
         rows.map(async (row) => {
@@ -676,8 +768,78 @@ export const accessControlQueryProcedures = {
       );
 
       const countsById = new Map(accessCounts.map((entry) => [entry.id, entry.viewerCount]));
+      const pageDeviceIds = rows.map((row) => row.id);
+      const installationRows =
+        pageDeviceIds.length === 0
+          ? []
+          : await ctx.db
+              .select({
+                componentDisplayName: deviceComponentCatalog.displayName,
+                componentKey: deviceComponentInstallation.componentKey,
+                deviceId: deviceComponentInstallation.deviceId,
+                enabled: deviceComponentInstallation.enabled,
+                id: deviceComponentInstallation.id,
+                serviceName: deviceComponentCatalog.serviceName,
+              })
+              .from(deviceComponentInstallation)
+              .innerJoin(
+                deviceComponentCatalog,
+                eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
+              )
+              .where(inArray(deviceComponentInstallation.deviceId, pageDeviceIds))
+              .orderBy(
+                asc(deviceComponentInstallation.deviceId),
+                asc(deviceComponentCatalog.sortOrder),
+                asc(deviceComponentCatalog.displayName),
+              );
+
+      const installationAccessCounts = await Promise.all(
+        installationRows.map(async (row) => {
+          const assignments = await readDirectUserAssignments(
+            createAuthzObject(AUTHZ_TYPE_DEVICE_COMPONENT, row.id),
+            [AUTHZ_RELATION_READER, AUTHZ_RELATION_WRITER],
+          );
+          const counts = countAssignmentsByRelation(assignments);
+          return {
+            id: row.id,
+            readCount: counts.get(AUTHZ_RELATION_READER) ?? 0,
+            writeCount: counts.get(AUTHZ_RELATION_WRITER) ?? 0,
+          };
+        }),
+      );
+
+      const installationAccessById = new Map(
+        installationAccessCounts.map((entry) => [entry.id, entry]),
+      );
+      const installationsByDeviceId = new Map<
+        string,
+        Array<{
+          componentDisplayName: string;
+          componentKey: string;
+          deviceId: string;
+          enabled: boolean;
+          id: string;
+          readCount: number;
+          serviceName: string;
+          writeCount: number;
+        }>
+      >();
+
+      for (const installationRow of installationRows) {
+        const currentInstallations = installationsByDeviceId.get(installationRow.deviceId) ?? [];
+        currentInstallations.push({
+          ...installationRow,
+          readCount: installationAccessById.get(installationRow.id)?.readCount ?? 0,
+          writeCount: installationAccessById.get(installationRow.id)?.writeCount ?? 0,
+        });
+        installationsByDeviceId.set(installationRow.deviceId, currentInstallations);
+      }
 
       return {
+        filterOptions: {
+          departments: departmentFilterRows,
+          factories: factoryFilterRows,
+        },
         navigation: access.navigation,
         stats: {
           activeDeviceCount: activeDeviceCountRows[0]?.count ?? 0,
@@ -689,6 +851,7 @@ export const accessControlQueryProcedures = {
           rows: rows.map((row) => ({
             ...row,
             directViewerCount: countsById.get(row.id) ?? 0,
+            installations: installationsByDeviceId.get(row.id) ?? [],
           })),
         },
       };

@@ -1,7 +1,3 @@
-import Link from 'next/link';
-
-import { Button } from '@trakrai/design-system/components/button';
-
 import { WorkspaceShell } from '@/components/hierarchy/workspace-shell';
 
 import type { RouterOutput } from '@trakrai/backend/server/routers';
@@ -23,10 +19,10 @@ const tabs: ReadonlyArray<{
     label: 'Users',
   },
   {
-    description: 'Factory-level inherited admin and viewer assignments.',
-    href: '/access-control/factories',
-    id: 'factories',
-    label: 'Factories',
+    description: 'Device viewer assignments and installation counts.',
+    href: '/access-control/devices',
+    id: 'devices',
+    label: 'Devices',
   },
   {
     description: 'Department subtree access and delegated admins.',
@@ -35,13 +31,13 @@ const tabs: ReadonlyArray<{
     label: 'Departments',
   },
   {
-    description: 'Device viewer assignments and installation counts.',
-    href: '/access-control/devices',
-    id: 'devices',
-    label: 'Devices',
+    description: 'Factory-level inherited admin and viewer assignments.',
+    href: '/access-control/factories',
+    id: 'factories',
+    label: 'Factories',
   },
   {
-    description: 'Per-device app read or write assignments.',
+    description: 'Device app catalog and rollout status.',
     href: '/access-control/apps',
     id: 'apps',
     label: 'Apps',
@@ -60,27 +56,19 @@ type AccessControlShellProps = Readonly<{
 export const AccessControlShell = ({
   children,
   currentTab,
-  description,
   navigation,
   stats,
   title,
 }: AccessControlShellProps) => (
   <WorkspaceShell
-    actions={
-      navigation.isSysadmin ? (
-        <Button asChild size="sm" variant="outline">
-          <Link href="/sysadmin/factories">Sysadmin Panel</Link>
-        </Button>
-      ) : undefined
-    }
     breadcrumbs={[
-      { href: '/access-control/users', label: 'Access Control' },
+      { href: '/access-control/users', label: 'Admin' },
       { label: tabs.find((tab) => tab.id === currentTab)?.label ?? title },
     ]}
     currentSidebarItemId={currentTab}
-    description={description}
-    eyebrow="Advanced Permissions"
-    sidebarDescription="Scoped permission assignment surfaces. Search, pagination, and counts stay server-side."
+    description=""
+    eyebrow={undefined}
+    sidebarDescription=""
     sidebarItems={tabs
       .filter((tab) => {
         switch (tab.id) {
@@ -102,7 +90,7 @@ export const AccessControlShell = ({
         id: tab.id,
         label: tab.label,
       }))}
-    sidebarTitle="Permission Tabs"
+    sidebarTitle="Admin"
     stats={stats}
     title={title}
   >

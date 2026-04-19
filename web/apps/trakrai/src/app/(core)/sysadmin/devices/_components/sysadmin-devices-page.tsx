@@ -143,21 +143,9 @@ export const SysadminDevicesPage = ({ data }: Readonly<{ data: DevicesPageData }
       description="Server-side device inventory for high-volume browsing, with app counts and scoped edit flows."
       stats={
         <>
-          <StatCard
-            description="Devices currently matching the active filter."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
-          <StatCard
-            description="Devices flagged active in the registry."
-            title="Active Devices"
-            value={data.stats.activeDeviceCount}
-          />
-          <StatCard
-            description="Enabled app installations across all devices."
-            title="Enabled Apps"
-            value={data.stats.enabledAppCount}
-          />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
+          <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
+          <StatCard title="Enabled Apps" value={data.stats.enabledAppCount} />
         </>
       }
       title="Devices"

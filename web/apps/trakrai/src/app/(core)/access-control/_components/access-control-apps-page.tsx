@@ -5,9 +5,11 @@ import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@trakrai/design-system/components/button';
-import { toast } from 'sonner';
+import { type FormField } from '@trakrai/design-system/components/dynamic-form-fields';
+import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
+import { type z } from 'zod';
 
-import { AccessControlScopeManagerModal } from '@/app/(core)/access-control/_components/access-control-scope-manager-modal';
+import { catalogSchema } from '@/app/(core)/access-control/_components/access-control-page-lib';
 import { AccessControlShell } from '@/app/(core)/access-control/_components/access-control-shell';
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
 import { StatCard } from '@/components/hierarchy/stat-card';
@@ -18,59 +20,51 @@ import type { RouterOutput } from '@trakrai/backend/server/routers';
 
 type AppsPageData = RouterOutput['accessControl']['listScopeApps'];
 type AppRow = AppsPageData['table']['rows'][number];
+type CatalogFormValues = z.input<typeof catalogSchema>;
 
-const roleOptions = [
-  { label: 'Read', value: 'read' as const },
-  { label: 'Write', value: 'write' as const },
+const catalogFields: Array<FormField<CatalogFormValues>> = [
+  { label: 'Catalog key', name: 'key', type: 'input' as const },
+  { label: 'Display name', name: 'displayName', type: 'input' as const },
+  { label: 'Navigation label', name: 'navigationLabel', type: 'input' as const },
+  { label: 'Service name', name: 'serviceName', type: 'input' as const },
+  { label: 'Renderer key', name: 'rendererKey', type: 'input' as const },
+  { label: 'Route path', name: 'routePath', type: 'input' as const },
+  { label: 'Read actions', name: 'readActions', type: 'stringArray' as const },
+  { label: 'Write actions', name: 'writeActions', type: 'stringArray' as const },
+  { label: 'Sort order', name: 'sortOrder', type: 'number' as const },
+  { label: 'Default enabled', name: 'defaultEnabled', type: 'checkbox' as const },
+  { label: 'Description', name: 'description', type: 'textarea' as const },
 ];
 
 export const AccessControlAppsPage = ({ data }: Readonly<{ data: AppsPageData }>) => {
   const router = useRouter();
-  const installationStateMutation = useTRPCMutation((api) =>
-    api.accessControl.setInstallationState.mutationOptions(),
+  const createCatalogMutation = useTRPCMutation((api) =>
+    api.accessControl.createCatalogEntry.mutationOptions(),
+  );
+  const updateCatalogMutation = useTRPCMutation((api) =>
+    api.accessControl.updateCatalogEntry.mutationOptions(),
   );
 
   const refresh = useCallback(async () => {
     router.refresh();
   }, [router]);
 
-  const handleToggleInstallation = useCallback(
-    async (row: AppRow) => {
-      try {
-        await installationStateMutation.mutateAsync({
-          componentKey: row.componentKey,
-          deviceId: row.deviceId,
-          enabled: !row.enabled,
-        });
-        toast.success(`${row.componentDisplayName} ${row.enabled ? 'disabled' : 'enabled'}.`);
-        await refresh();
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Failed to update app installation state.',
-        );
-      }
-    },
-    [installationStateMutation, refresh],
-  );
-
   const columns = useMemo<ColumnDef<AppRow>[]>(
     () => [
       {
-        accessorKey: 'componentDisplayName',
+        accessorKey: 'displayName',
         id: 'name',
         cell: ({ row }) => (
           <div className="space-y-1">
-            <div className="font-medium">{row.original.componentDisplayName}</div>
-            <div className="text-muted-foreground text-xs">
-              {row.original.factoryName} / {row.original.departmentName} / {row.original.deviceName}
-            </div>
+            <div className="font-medium">{row.original.displayName}</div>
+            <div className="text-muted-foreground text-xs">{row.original.key}</div>
           </div>
         ),
         enableColumnFilter: true,
-        header: 'Installation',
+        header: 'App',
         meta: {
           label: 'App',
-          placeholder: 'Search apps or devices',
+          placeholder: 'Search apps',
           variant: 'text',
         },
       },
@@ -79,89 +73,113 @@ export const AccessControlAppsPage = ({ data }: Readonly<{ data: AppsPageData }>
         header: 'Service',
       },
       {
-        accessorKey: 'readCount',
-        header: 'Readers',
+        accessorKey: 'routePath',
+        cell: ({ row }) => row.original.routePath ?? 'No route',
+        header: 'Route',
       },
       {
-        accessorKey: 'writeCount',
-        header: 'Writers',
+        accessorKey: 'enabledInstallCount',
+        header: 'Enabled On',
       },
       {
-        accessorKey: 'enabled',
+        accessorKey: 'installCount',
+        header: 'Installed On',
+      },
+      {
+        accessorKey: 'defaultEnabled',
         cell: ({ row }) => (
           <span className="text-xs font-medium tracking-[0.18em] uppercase">
-            {row.original.enabled ? 'Enabled' : 'Disabled'}
+            {row.original.defaultEnabled ? 'Enabled' : 'Opt-in'}
           </span>
         ),
-        header: 'State',
+        header: 'Default',
       },
       {
         id: 'actions',
         cell: ({ row }) => (
-          <div className="flex flex-wrap gap-2">
-            <AccessControlScopeManagerModal
-              roleOptions={roleOptions}
-              scopeId={row.original.id}
-              scopeLabel={`${row.original.deviceName} / ${row.original.componentDisplayName}`}
-              scopeType="component"
+          data.navigation.isSysadmin ? (
+            <MutationModal
+              defaultValues={{
+                defaultEnabled: row.original.defaultEnabled,
+                description: row.original.description ?? '',
+                displayName: row.original.displayName,
+                key: row.original.key,
+                navigationLabel: row.original.navigationLabel,
+                readActions: row.original.readActions,
+                rendererKey: row.original.rendererKey ?? '',
+                routePath: row.original.routePath ?? '',
+                serviceName: row.original.serviceName,
+                sortOrder: row.original.sortOrder,
+                writeActions: row.original.writeActions,
+              }}
+              fields={catalogFields}
+              mutation={updateCatalogMutation}
+              refresh={refresh}
+              schema={catalogSchema}
+              submitButtonText="Save app"
+              successToast={() => 'App updated.'}
+              titleText="Edit app"
+              trigger={
+                <Button size="sm" type="button" variant="outline">
+                  Edit
+                </Button>
+              }
             />
-            {data.navigation.isSysadmin ? (
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  void handleToggleInstallation(row.original);
-                }}
-              >
-                {row.original.enabled ? 'Disable' : 'Enable'}
-              </Button>
-            ) : null}
-          </div>
+          ) : null
         ),
         header: 'Actions',
       },
     ],
-    [data.navigation.isSysadmin, handleToggleInstallation],
+    [data.navigation.isSysadmin, refresh, updateCatalogMutation],
   );
 
   return (
     <AccessControlShell
       currentTab="apps"
-      description="Per-device app assignment surface. Disabled apps remain inaccessible even if users still hold read or write tuples."
+      description="Device app catalog."
       navigation={data.navigation}
       stats={
         <>
-          <StatCard
-            description="Device-app installations matching the active filter."
-            title="Installations"
-            value={data.stats.installationCount}
-          />
-          <StatCard
-            description="Enabled installations in visible scope."
-            title="Enabled"
-            value={data.stats.enabledInstallationCount}
-          />
-          <StatCard
-            description="Devices represented by visible installation scope."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
+          <StatCard title="Apps" value={data.stats.appCount} />
+          <StatCard title="Installations" value={data.stats.installationCount} />
+          <StatCard title="Enabled" value={data.stats.enabledInstallationCount} />
         </>
       }
-      title="App Permissions"
+      title="Apps"
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
-        <div className="border-b px-6 py-4">
-          <h2 className="text-base font-semibold">Device App Scopes</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
             pageCount={data.table.pageCount}
+            toolbarChildren={
+              data.navigation.isSysadmin ? (
+                <MutationModal
+                  defaultValues={{
+                    defaultEnabled: true,
+                    description: '',
+                    displayName: '',
+                    key: '',
+                    navigationLabel: '',
+                    readActions: [],
+                    rendererKey: '',
+                    routePath: '',
+                    serviceName: '',
+                    sortOrder: data.stats.appCount,
+                    writeActions: [],
+                  }}
+                  fields={catalogFields}
+                  mutation={createCatalogMutation}
+                  refresh={refresh}
+                  schema={catalogSchema}
+                  submitButtonText="Register app"
+                  successToast={() => 'App registered.'}
+                  titleText="Register app"
+                  trigger={<Button type="button">Register app</Button>}
+                />
+              ) : undefined
+            }
           />
-        </div>
       </section>
     </AccessControlShell>
   );

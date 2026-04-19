@@ -277,35 +277,15 @@ export const AccessControlUsersPage = ({ data }: Readonly<{ data: UsersPageData 
       navigation={data.navigation}
       stats={
         <>
-          <StatCard
-            description="Users matching the active server-side filter."
-            title="Users"
-            value={data.stats.userCount}
-          />
-          <StatCard
-            description="Accounts with sysadmin system role."
-            title="Sysadmins"
-            value={data.stats.adminCount}
-          />
-          <StatCard
-            description="Accounts currently banned."
-            title="Banned"
-            value={data.stats.bannedCount}
-          />
-          <StatCard
-            description="Accounts with verified email state."
-            title="Verified"
-            value={data.stats.verifiedCount}
-          />
+          <StatCard title="Users" value={data.stats.userCount} />
+          <StatCard title="Sysadmins" value={data.stats.adminCount} />
+          <StatCard title="Banned" value={data.stats.bannedCount} />
+          <StatCard title="Verified" value={data.stats.verifiedCount} />
         </>
       }
       title="Users"
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
-        <div className="border-b px-6 py-4">
-          <h2 className="text-base font-semibold">User Directory</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
@@ -345,7 +325,6 @@ export const AccessControlUsersPage = ({ data }: Readonly<{ data: UsersPageData 
               />
             }
           />
-        </div>
       </section>
     </AccessControlShell>
   );

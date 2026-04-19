@@ -109,6 +109,8 @@ export const removeAssignmentInputSchema = z.object({
 });
 
 export const accessControlPageInputSchema = z.object({
+  departmentId: z.array(z.string().trim().min(1)).default([]),
+  factoryId: z.array(z.string().trim().min(1)).default([]),
   name: z.string().trim().max(MAX_SEARCH_LENGTH).default(''),
   page: z.coerce.number().int().min(1).default(DEFAULT_PAGE),
   perPage: z.coerce.number().int().min(1).max(MAX_PER_PAGE).default(DEFAULT_PER_PAGE),

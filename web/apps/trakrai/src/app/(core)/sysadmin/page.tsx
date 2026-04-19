@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 const SysadminLandingPage = () => {
-  redirect('/sysadmin/factories');
+  redirect('/access-control/users');
 };
 
 export default SysadminLandingPage;

@@ -106,26 +106,10 @@ export const DeviceRouteShell = ({ children, routeContext }: DeviceRouteShellPro
           sidebarTitle="Devices"
           stats={
             <>
-              <StatCard
-                description="Installed device applications."
-                title="Installed Apps"
-                value={routeContext.stats.totalAppCount}
-              />
-              <StatCard
-                description="Applications currently enabled on this device."
-                title="Enabled Apps"
-                value={routeContext.stats.enabledAppCount}
-              />
-              <StatCard
-                description="Apps visible to the current signed-in user."
-                title="Visible Apps"
-                value={routeContext.stats.visibleAppCount}
-              />
-              <StatCard
-                description="Direct device-level viewers."
-                title="Direct Users"
-                value={routeContext.stats.directUserCount}
-              />
+              <StatCard title="Installed Apps" value={routeContext.stats.totalAppCount} />
+              <StatCard title="Enabled Apps" value={routeContext.stats.enabledAppCount} />
+              <StatCard title="Visible Apps" value={routeContext.stats.visibleAppCount} />
+              <StatCard title="Direct Users" value={routeContext.stats.directUserCount} />
             </>
           }
           title={device.name}

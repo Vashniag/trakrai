@@ -1,13 +1,22 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
+import { Button } from '@trakrai/design-system/components/button';
+import { MutationModal } from '@trakrai/design-system/components/mutation-modal';
+
+import {
+  createDepartmentSchema,
+  updateDepartmentSchema,
+} from '@/app/(core)/access-control/_components/access-control-page-lib';
 import { AccessControlScopeManagerModal } from '@/app/(core)/access-control/_components/access-control-scope-manager-modal';
 import { AccessControlShell } from '@/app/(core)/access-control/_components/access-control-shell';
 import { ServerDataTable } from '@/components/hierarchy/server-data-table';
 import { StatCard } from '@/components/hierarchy/stat-card';
+import { useTRPCMutation, useTRPCQuery } from '@/server/react';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { RouterOutput } from '@trakrai/backend/server/routers';
@@ -25,6 +34,32 @@ export const AccessControlDepartmentsPage = ({
 }: Readonly<{
   data: DepartmentsPageData;
 }>) => {
+  const router = useRouter();
+  const factoryOptionsQuery = useTRPCQuery((api) => ({
+    ...api.workspace.listFactoriesNav.queryOptions(),
+    enabled: data.navigation.isSysadmin,
+    retry: false,
+  }));
+  const createDepartmentMutation = useTRPCMutation((api) =>
+    api.accessControl.createDepartment.mutationOptions(),
+  );
+  const updateDepartmentMutation = useTRPCMutation((api) =>
+    api.accessControl.updateDepartment.mutationOptions(),
+  );
+
+  const refresh = useCallback(async () => {
+    router.refresh();
+  }, [router]);
+
+  const factoryOptions = useMemo(
+    () =>
+      (factoryOptionsQuery.data ?? []).map((factoryRow) => ({
+        label: factoryRow.name,
+        value: factoryRow.id,
+      })),
+    [factoryOptionsQuery.data],
+  );
+
   const columns = useMemo<ColumnDef<DepartmentRow>[]>(
     () => [
       {
@@ -50,6 +85,17 @@ export const AccessControlDepartmentsPage = ({
         },
       },
       {
+        accessorKey: 'factoryId',
+        cell: ({ row }) => row.original.factoryName,
+        enableColumnFilter: true,
+        header: 'Factory',
+        meta: {
+          label: 'Factory',
+          options: data.filterOptions.factories,
+          variant: 'select',
+        },
+      },
+      {
         accessorKey: 'deviceCount',
         header: 'Devices',
       },
@@ -64,17 +110,56 @@ export const AccessControlDepartmentsPage = ({
       {
         id: 'actions',
         cell: ({ row }) => (
-          <AccessControlScopeManagerModal
-            roleOptions={roleOptions}
-            scopeId={row.original.id}
-            scopeLabel={`${row.original.factoryName} / ${row.original.name}`}
-            scopeType="department"
-          />
+          <div className="flex flex-wrap gap-2">
+            {data.navigation.isSysadmin ? (
+              <MutationModal
+                defaultValues={{
+                  description: row.original.description ?? '',
+                  factoryId: row.original.factoryId,
+                  id: row.original.id,
+                  name: row.original.name,
+                }}
+                fields={[
+                  { label: 'Name', name: 'name', type: 'input' },
+                  {
+                    label: 'Factory',
+                    name: 'factoryId',
+                    options: factoryOptions,
+                    type: 'select',
+                  },
+                  { label: 'Description', name: 'description', type: 'textarea' },
+                ]}
+                mutation={updateDepartmentMutation}
+                refresh={refresh}
+                schema={updateDepartmentSchema}
+                submitButtonText="Save department"
+                successToast={() => 'Department updated.'}
+                titleText="Edit department"
+                trigger={
+                  <Button size="sm" type="button" variant="outline">
+                    Edit
+                  </Button>
+                }
+              />
+            ) : null}
+            <AccessControlScopeManagerModal
+              roleOptions={roleOptions}
+              scopeId={row.original.id}
+              scopeLabel={`${row.original.factoryName} / ${row.original.name}`}
+              scopeType="department"
+            />
+          </div>
         ),
         header: 'Actions',
       },
     ],
-    [],
+    [
+      data.filterOptions.factories,
+      data.navigation.isSysadmin,
+      factoryOptions,
+      refresh,
+      updateDepartmentMutation,
+    ],
   );
 
   return (
@@ -84,36 +169,47 @@ export const AccessControlDepartmentsPage = ({
       navigation={data.navigation}
       stats={
         <>
-          <StatCard
-            description="Departments matching the active filter."
-            title="Departments"
-            value={data.stats.departmentCount}
-          />
-          <StatCard
-            description="Devices inside visible department scope."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
-          <StatCard
-            description="Devices flagged active in visible scope."
-            title="Active Devices"
-            value={data.stats.activeDeviceCount}
-          />
+          <StatCard title="Departments" value={data.stats.departmentCount} />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
+          <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
         </>
       }
-      title="Department Permissions"
+      title="Departments"
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border">
-        <div className="border-b px-6 py-4">
-          <h2 className="text-base font-semibold">Department Scopes</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-6">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
           <ServerDataTable
             columns={columns}
             data={data.table.rows}
             pageCount={data.table.pageCount}
+            toolbarChildren={
+              data.navigation.isSysadmin ? (
+                <MutationModal
+                  defaultValues={{
+                    description: '',
+                    factoryId: factoryOptions[0]?.value ?? '',
+                    name: '',
+                  }}
+                  fields={[
+                    { label: 'Name', name: 'name', type: 'input' },
+                    {
+                      label: 'Factory',
+                      name: 'factoryId',
+                      options: factoryOptions,
+                      type: 'select',
+                    },
+                    { label: 'Description', name: 'description', type: 'textarea' },
+                  ]}
+                  mutation={createDepartmentMutation}
+                  refresh={refresh}
+                  schema={createDepartmentSchema}
+                  submitButtonText="Create department"
+                  successToast={() => 'Department created.'}
+                  titleText="Create department"
+                  trigger={<Button type="button">Create department</Button>}
+                />
+              ) : undefined
+            }
           />
-        </div>
       </section>
     </AccessControlShell>
   );

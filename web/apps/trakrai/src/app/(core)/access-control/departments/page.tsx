@@ -1,10 +1,10 @@
 import { createLoader, type SearchParams } from 'nuqs/server';
 
 import { AccessControlDepartmentsPage } from '@/app/(core)/access-control/_components/access-control-departments-page';
-import { paginatedNameSearchParsers } from '@/components/hierarchy/page-params';
+import { paginatedHierarchySearchParsers } from '@/components/hierarchy/page-params';
 import { fetchQuery } from '@/server/server';
 
-const loader = createLoader(paginatedNameSearchParsers);
+const loader = createLoader(paginatedHierarchySearchParsers);
 
 const AccessControlDepartmentsRoutePage = async ({
   searchParams,

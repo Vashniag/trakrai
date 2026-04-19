@@ -126,21 +126,9 @@ export const SysadminDepartmentsPage = ({ data }: Readonly<{ data: DepartmentsPa
       description="Server-rendered department management with filterable tables and factory-aware edit flows."
       stats={
         <>
-          <StatCard
-            description="Departments matching the active server filter."
-            title="Departments"
-            value={data.stats.departmentCount}
-          />
-          <StatCard
-            description="Devices registered under all departments."
-            title="Devices"
-            value={data.stats.deviceCount}
-          />
-          <StatCard
-            description="Devices currently marked active."
-            title="Active Devices"
-            value={data.stats.activeDeviceCount}
-          />
+          <StatCard title="Departments" value={data.stats.departmentCount} />
+          <StatCard title="Devices" value={data.stats.deviceCount} />
+          <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
         </>
       }
       title="Departments"
