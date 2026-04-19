@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
@@ -24,23 +24,15 @@ import {
 import { toast } from 'sonner';
 
 import { AccessControlScopeManagerModal } from '@/app/(core)/access-control/_components/access-control-scope-manager-modal';
-import { useTRPCMutation } from '@/server/react';
+import { useTRPCMutation, useTRPCQuery } from '@/server/react';
 
-type InstallationRow = Readonly<{
-  componentDisplayName: string;
-  componentKey: string;
-  deviceId: string;
-  enabled: boolean;
-  id: string;
-  readCount: number;
-  serviceName: string;
-  writeCount: number;
-}>;
+import type { RouterOutput } from '@trakrai/backend/server/routers';
+
+type InstallationRow = RouterOutput['accessControl']['listDeviceInstallations']['rows'][number];
 
 type Props = Readonly<{
   deviceId: string;
   deviceName: string;
-  installations: InstallationRow[];
   isSysadmin: boolean;
 }>;
 
@@ -49,20 +41,25 @@ const roleOptions = [
   { label: 'Write', value: 'write' as const },
 ];
 
-export const DeviceInstallationsModal = ({
-  deviceId,
-  deviceName,
-  installations,
-  isSysadmin,
-}: Props) => {
+export const DeviceInstallationsModal = ({ deviceId, deviceName, isSysadmin }: Props) => {
+  const [open, setOpen] = useState(false);
   const router = useRouter();
   const setInstallationStateMutation = useTRPCMutation((api) =>
     api.accessControl.setInstallationState.mutationOptions(),
   );
+  const installationsQuery = useTRPCQuery((api) => ({
+    ...api.accessControl.listDeviceInstallations.queryOptions({ deviceId }),
+    enabled: open,
+    retry: false,
+  }));
+  const { refetch } = installationsQuery;
 
   const refresh = useCallback(async () => {
     router.refresh();
-  }, [router]);
+    await refetch();
+  }, [refetch, router]);
+
+  const installations = installationsQuery.data?.rows ?? [];
 
   const handleToggle = useCallback(
     async (installation: InstallationRow) => {
@@ -86,7 +83,7 @@ export const DeviceInstallationsModal = ({
   );
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" type="button" variant="outline">
           Apps
@@ -105,19 +102,29 @@ export const DeviceInstallationsModal = ({
                 <TableHead>App</TableHead>
                 <TableHead>Service</TableHead>
                 <TableHead>State</TableHead>
-                <TableHead>Readers</TableHead>
-                <TableHead>Writers</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
+              {installationsQuery.isLoading ? (
+                <TableRow>
+                  <TableCell className="h-24 text-center" colSpan={4}>
+                    Loading app installations...
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {installationsQuery.isError ? (
+                <TableRow>
+                  <TableCell className="h-24 text-center" colSpan={4}>
+                    Failed to load app installations.
+                  </TableCell>
+                </TableRow>
+              ) : null}
               {installations.map((installation) => (
                 <TableRow key={installation.id}>
                   <TableCell className="font-medium">{installation.componentDisplayName}</TableCell>
                   <TableCell>{installation.serviceName}</TableCell>
                   <TableCell>{installation.enabled ? 'Enabled' : 'Disabled'}</TableCell>
-                  <TableCell>{installation.readCount}</TableCell>
-                  <TableCell>{installation.writeCount}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       <AccessControlScopeManagerModal
@@ -147,9 +154,11 @@ export const DeviceInstallationsModal = ({
                   </TableCell>
                 </TableRow>
               ))}
-              {installations.length === 0 ? (
+              {!installationsQuery.isLoading &&
+              !installationsQuery.isError &&
+              installations.length === 0 ? (
                 <TableRow>
-                  <TableCell className="h-24 text-center" colSpan={6}>
+                  <TableCell className="h-24 text-center" colSpan={4}>
                     No app installations found.
                   </TableCell>
                 </TableRow>

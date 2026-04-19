@@ -130,3 +130,7 @@ export const accessControlScopeQueryInputSchema = z.object({
   scopeId: idSchema('Scope ID is required'),
   scopeType: z.enum(['factory', 'department', 'device', 'component']),
 });
+
+export const accessControlDeviceInstallationsInputSchema = z.object({
+  deviceId: idSchema(DEVICE_ID_MESSAGE),
+});

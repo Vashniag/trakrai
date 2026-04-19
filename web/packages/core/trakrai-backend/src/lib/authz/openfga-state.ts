@@ -14,6 +14,8 @@ import {
   createAuthorizationModelHash,
 } from './model';
 
+import { instrumentObjectMethods } from '../otel';
+
 export type AuthzState = Readonly<{
   authorizationModelId: string;
   client: OpenFgaClient;
@@ -34,17 +36,68 @@ const readRequiredOpenFgaApiUrl = (): string => {
 const readOpenFgaStoreName = (): string =>
   normalizeOptionalString(process.env.OPENFGA_STORE_NAME) ?? DEFAULT_OPENFGA_STORE_NAME;
 
-const createBaseOpenFgaClient = (): OpenFgaClient =>
-  new OpenFgaClient({
-    apiUrl: readRequiredOpenFgaApiUrl(),
+const readStringField = (value: unknown, fieldName: string): string | undefined => {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+
+  const candidate = (value as Record<string, unknown>)[fieldName];
+  return typeof candidate === 'string' && candidate.trim() !== '' ? candidate.trim() : undefined;
+};
+
+const readArrayCount = (value: unknown, fieldName: string): number | undefined => {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+
+  const candidate = (value as Record<string, unknown>)[fieldName];
+  return Array.isArray(candidate) ? candidate.length : undefined;
+};
+
+const instrumentOpenFgaClient = (client: OpenFgaClient): OpenFgaClient =>
+  instrumentObjectMethods(client, {
+    includeMethods: [
+      'check',
+      'createStore',
+      'listObjects',
+      'listStores',
+      'read',
+      'readLatestAuthorizationModel',
+      'write',
+      'writeAuthorizationModel',
+    ],
+    getAttributes: (methodName, args) => {
+      const request = args[0];
+
+      return {
+        'openfga.method': methodName,
+        'openfga.name': readStringField(request, 'name'),
+        'openfga.object': readStringField(request, 'object'),
+        'openfga.relation': readStringField(request, 'relation'),
+        'openfga.type': readStringField(request, 'type'),
+        'openfga.user': readStringField(request, 'user'),
+        'openfga.writes.count': readArrayCount(request, 'writes'),
+        'openfga.deletes.count': readArrayCount(request, 'deletes'),
+      };
+    },
+    targetName: 'openfga',
   });
 
+const createBaseOpenFgaClient = (): OpenFgaClient =>
+  instrumentOpenFgaClient(
+    new OpenFgaClient({
+      apiUrl: readRequiredOpenFgaApiUrl(),
+    }),
+  );
+
 const createScopedOpenFgaClient = (storeId: string, authorizationModelId?: string): OpenFgaClient =>
-  new OpenFgaClient({
-    apiUrl: readRequiredOpenFgaApiUrl(),
-    authorizationModelId,
-    storeId,
-  });
+  instrumentOpenFgaClient(
+    new OpenFgaClient({
+      apiUrl: readRequiredOpenFgaApiUrl(),
+      authorizationModelId,
+      storeId,
+    }),
+  );
 
 const findStoreIdByName = async (
   client: OpenFgaClient,

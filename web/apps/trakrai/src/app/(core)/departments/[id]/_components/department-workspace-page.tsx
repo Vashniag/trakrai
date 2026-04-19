@@ -53,10 +53,6 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
         header: 'Total Apps',
       },
       {
-        accessorKey: 'directUserCount',
-        header: 'Direct Users',
-      },
-      {
         accessorKey: 'isActive',
         cell: ({ row }) => (
           <span className="text-xs font-medium tracking-[0.18em] uppercase">
@@ -105,7 +101,6 @@ export const DepartmentWorkspacePage = ({ data }: Readonly<{ data: DepartmentWor
           <StatCard title="Devices" value={data.stats.deviceCount} />
           <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
           <StatCard title="Enabled Apps" value={data.stats.enabledAppCount} />
-          <StatCard title="Direct Users" value={data.stats.directUserCount} />
         </>
       }
       title={data.selectedDepartment.name}

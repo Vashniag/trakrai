@@ -78,14 +78,6 @@ export const AccessControlFactoriesPage = ({
         header: 'Devices',
       },
       {
-        accessorKey: 'directAdminCount',
-        header: 'Admins',
-      },
-      {
-        accessorKey: 'directViewerCount',
-        header: 'Viewers',
-      },
-      {
         id: 'actions',
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-2">
@@ -142,32 +134,32 @@ export const AccessControlFactoriesPage = ({
       title="Factories"
     >
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
-          <ServerDataTable
-            columns={columns}
-            data={data.table.rows}
-            pageCount={data.table.pageCount}
-            toolbarChildren={
-              data.navigation.isSysadmin ? (
-                <MutationModal
-                  defaultValues={{
-                    description: '',
-                    name: '',
-                  }}
-                  fields={[
-                    { label: 'Name', name: 'name', type: 'input' },
-                    { label: 'Description', name: 'description', type: 'textarea' },
-                  ]}
-                  mutation={createFactoryMutation}
-                  refresh={refresh}
-                  schema={createFactorySchema}
-                  submitButtonText="Create factory"
-                  successToast={() => 'Factory created.'}
-                  titleText="Create factory"
-                  trigger={<Button type="button">Create factory</Button>}
-                />
-              ) : undefined
-            }
-          />
+        <ServerDataTable
+          columns={columns}
+          data={data.table.rows}
+          pageCount={data.table.pageCount}
+          toolbarChildren={
+            data.navigation.isSysadmin ? (
+              <MutationModal
+                defaultValues={{
+                  description: '',
+                  name: '',
+                }}
+                fields={[
+                  { label: 'Name', name: 'name', type: 'input' },
+                  { label: 'Description', name: 'description', type: 'textarea' },
+                ]}
+                mutation={createFactoryMutation}
+                refresh={refresh}
+                schema={createFactorySchema}
+                submitButtonText="Create factory"
+                successToast={() => 'Factory created.'}
+                titleText="Create factory"
+                trigger={<Button type="button">Create factory</Button>}
+              />
+            ) : undefined
+          }
+        />
       </section>
     </AccessControlShell>
   );

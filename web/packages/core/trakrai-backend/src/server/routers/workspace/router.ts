@@ -16,29 +16,18 @@ import {
   factory,
 } from '../../../db/schema';
 import {
-  AUTHZ_RELATION_ADMIN,
   AUTHZ_RELATION_CAN_NAVIGATE,
   AUTHZ_RELATION_CAN_READ,
-  AUTHZ_RELATION_VIEWER,
   AUTHZ_TYPE_DEPARTMENT,
   AUTHZ_TYPE_DEVICE,
   AUTHZ_TYPE_DEVICE_COMPONENT,
   AUTHZ_TYPE_FACTORY,
   checkUserObjectRelation,
-  createAuthzObject,
-  ensureAuthzState,
   getDeviceComponentAccessForUser,
   isSysAdminRole,
   listUserAuthorizedObjectIds,
-  readTuplesForObject,
 } from '../../../lib/authz';
 import { createTRPCRouter, type Database, protectedProcedure } from '../../trpc';
-
-type DirectAccessCounts = Readonly<{
-  adminCount: number;
-  userCount: number;
-  viewerCount: number;
-}>;
 
 type PaginationMeta = Readonly<{
   page: number;
@@ -47,7 +36,6 @@ type PaginationMeta = Readonly<{
   totalCount: number;
 }>;
 
-const USER_PREFIX = 'user:';
 const FACTORY_NOT_FOUND_MESSAGE = 'Factory not found.';
 const DEPARTMENT_NOT_FOUND_MESSAGE = 'Department not found.';
 const DEVICE_NOT_FOUND_MESSAGE = 'Device not found.';
@@ -62,45 +50,6 @@ const toPaginationMeta = (page: number, perPage: number, totalCount: number): Pa
 const buildSearchPattern = (value: string): string | null => {
   const normalized = value.trim();
   return normalized === '' ? null : `%${normalized}%`;
-};
-
-const readDirectAccessCounts = async (objectName: string): Promise<DirectAccessCounts> => {
-  const { client } = await ensureAuthzState();
-  const tuples = await readTuplesForObject(client, objectName);
-
-  let adminCount = 0;
-  let viewerCount = 0;
-
-  for (const tupleKey of tuples) {
-    if (!tupleKey.user.startsWith(USER_PREFIX)) {
-      continue;
-    }
-
-    if (tupleKey.relation === AUTHZ_RELATION_ADMIN) {
-      adminCount += 1;
-      continue;
-    }
-
-    if (tupleKey.relation === AUTHZ_RELATION_VIEWER) {
-      viewerCount += 1;
-    }
-  }
-
-  return {
-    adminCount,
-    userCount: adminCount + viewerCount,
-    viewerCount,
-  };
-};
-
-const readDirectViewerCount = async (objectName: string): Promise<number> => {
-  const { client } = await ensureAuthzState();
-  const tuples = await readTuplesForObject(client, objectName);
-
-  return tuples.filter(
-    (tupleKey) =>
-      tupleKey.relation === AUTHZ_RELATION_VIEWER && tupleKey.user.startsWith(USER_PREFIX),
-  ).length;
 };
 
 const readFactorySidebarRows = async (
@@ -302,17 +251,12 @@ const getFactoryWorkspace = protectedProcedure
     const searchPattern = buildSearchPattern(input.name);
     const navigableFactoryIds = await resolveNavigableFactoryIds(ctx.user.id, ctx.user.role);
 
-    const [navigableDepartmentIds, readableDepartmentIds, navigableDeviceIds] = sysadmin
-      ? [undefined, undefined, undefined]
+    const [navigableDepartmentIds, navigableDeviceIds] = sysadmin
+      ? [undefined, undefined]
       : await Promise.all([
           listUserAuthorizedObjectIds(
             ctx.user.id,
             AUTHZ_RELATION_CAN_NAVIGATE,
-            AUTHZ_TYPE_DEPARTMENT,
-          ).then((ids) => Array.from(ids)),
-          listUserAuthorizedObjectIds(
-            ctx.user.id,
-            AUTHZ_RELATION_CAN_READ,
             AUTHZ_TYPE_DEPARTMENT,
           ).then((ids) => Array.from(ids)),
           listUserAuthorizedObjectIds(
@@ -406,58 +350,43 @@ const getFactoryWorkspace = protectedProcedure
       .limit(input.perPage)
       .offset((input.page - 1) * input.perPage);
 
-    const [scopeCounts, departmentAccessCounts, summaryCounts] = await Promise.all([
-      readDirectAccessCounts(createAuthzObject(AUTHZ_TYPE_FACTORY, input.factoryId)),
-      Promise.all(
-        departmentRows.map(async (departmentRow) => ({
-          counts: await readDirectAccessCounts(
-            createAuthzObject(AUTHZ_TYPE_DEPARTMENT, departmentRow.id),
+    const summaryCounts = await Promise.all([
+      ctx.db
+        .select({
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(department)
+        .where(and(...scopedDepartmentConditions)),
+      ctx.db
+        .select({
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(device)
+        .innerJoin(department, eq(department.id, device.departmentId))
+        .where(
+          and(
+            ...scopedDepartmentConditions,
+            canReadSelectedFactory || sysadmin || navigableDeviceIds === undefined
+              ? undefined
+              : inArray(device.id, navigableDeviceIds),
           ),
-          departmentId: departmentRow.id,
-        })),
-      ),
-      Promise.all([
-        ctx.db
-          .select({
-            count: sql<number>`cast(count(*) as int)`,
-          })
-          .from(department)
-          .where(and(...scopedDepartmentConditions)),
-        ctx.db
-          .select({
-            count: sql<number>`cast(count(*) as int)`,
-          })
-          .from(device)
-          .innerJoin(department, eq(department.id, device.departmentId))
-          .where(
-            and(
-              ...scopedDepartmentConditions,
-              canReadSelectedFactory || sysadmin || navigableDeviceIds === undefined
-                ? undefined
-                : inArray(device.id, navigableDeviceIds),
-            ),
+        ),
+      ctx.db
+        .select({
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(device)
+        .innerJoin(department, eq(department.id, device.departmentId))
+        .where(
+          and(
+            ...scopedDepartmentConditions,
+            eq(device.isActive, true),
+            canReadSelectedFactory || sysadmin || navigableDeviceIds === undefined
+              ? undefined
+              : inArray(device.id, navigableDeviceIds),
           ),
-        ctx.db
-          .select({
-            count: sql<number>`cast(count(*) as int)`,
-          })
-          .from(device)
-          .innerJoin(department, eq(department.id, device.departmentId))
-          .where(
-            and(
-              ...scopedDepartmentConditions,
-              eq(device.isActive, true),
-              canReadSelectedFactory || sysadmin || navigableDeviceIds === undefined
-                ? undefined
-                : inArray(device.id, navigableDeviceIds),
-            ),
-          ),
-      ]),
+        ),
     ]);
-
-    const accessCountByDepartmentId = new Map(
-      departmentAccessCounts.map((entry) => [entry.departmentId, entry.counts]),
-    );
 
     return {
       factories,
@@ -467,33 +396,10 @@ const getFactoryWorkspace = protectedProcedure
         activeDeviceCount: summaryCounts[2][0]?.count ?? 0,
         departmentCount: summaryCounts[0][0]?.count ?? 0,
         deviceCount: summaryCounts[1][0]?.count ?? 0,
-        directAdminCount: canReadSelectedFactory ? scopeCounts.adminCount : 0,
-        directUserCount: canReadSelectedFactory ? scopeCounts.userCount : 0,
       },
       table: {
         ...toPaginationMeta(input.page, input.perPage, totalCount),
-        rows: departmentRows.map((departmentRow) => {
-          const accessCounts = accessCountByDepartmentId.get(departmentRow.id) ?? {
-            adminCount: 0,
-            userCount: 0,
-            viewerCount: 0,
-          };
-          const canReadDepartment =
-            canReadSelectedFactory ||
-            sysadmin ||
-            readableDepartmentIds?.includes(departmentRow.id) === true;
-
-          return {
-            activeDeviceCount: departmentRow.activeDeviceCount,
-            description: departmentRow.description,
-            deviceCount: departmentRow.deviceCount,
-            directAdminCount: canReadDepartment ? accessCounts.adminCount : 0,
-            directUserCount: canReadDepartment ? accessCounts.userCount : 0,
-            id: departmentRow.id,
-            name: departmentRow.name,
-            updatedAt: departmentRow.updatedAt,
-          };
-        }),
+        rows: departmentRows,
       },
     };
   });
@@ -535,31 +441,25 @@ const getDepartmentWorkspace = protectedProcedure
           input.departmentId,
         );
 
-    const [navigableDepartmentIds, navigableDeviceIds, readableDeviceIds, readableComponentIds] =
-      sysadmin
-        ? [undefined, undefined, undefined, undefined]
-        : await Promise.all([
-            listUserAuthorizedObjectIds(
-              ctx.user.id,
-              AUTHZ_RELATION_CAN_NAVIGATE,
-              AUTHZ_TYPE_DEPARTMENT,
-            ).then((ids) => Array.from(ids)),
-            listUserAuthorizedObjectIds(
-              ctx.user.id,
-              AUTHZ_RELATION_CAN_NAVIGATE,
-              AUTHZ_TYPE_DEVICE,
-            ).then((ids) => Array.from(ids)),
-            listUserAuthorizedObjectIds(
-              ctx.user.id,
-              AUTHZ_RELATION_CAN_READ,
-              AUTHZ_TYPE_DEVICE,
-            ).then((ids) => Array.from(ids)),
-            listUserAuthorizedObjectIds(
-              ctx.user.id,
-              AUTHZ_RELATION_CAN_READ,
-              AUTHZ_TYPE_DEVICE_COMPONENT,
-            ).then((ids) => Array.from(ids)),
-          ]);
+    const [navigableDepartmentIds, navigableDeviceIds, readableComponentIds] = sysadmin
+      ? [undefined, undefined, undefined]
+      : await Promise.all([
+          listUserAuthorizedObjectIds(
+            ctx.user.id,
+            AUTHZ_RELATION_CAN_NAVIGATE,
+            AUTHZ_TYPE_DEPARTMENT,
+          ).then((ids) => Array.from(ids)),
+          listUserAuthorizedObjectIds(
+            ctx.user.id,
+            AUTHZ_RELATION_CAN_NAVIGATE,
+            AUTHZ_TYPE_DEVICE,
+          ).then((ids) => Array.from(ids)),
+          listUserAuthorizedObjectIds(
+            ctx.user.id,
+            AUTHZ_RELATION_CAN_READ,
+            AUTHZ_TYPE_DEVICE_COMPONENT,
+          ).then((ids) => Array.from(ids)),
+        ]);
 
     const scopedDeviceConditions = [eq(device.departmentId, input.departmentId)];
     if (!canReadSelectedDepartment && !sysadmin) {
@@ -671,22 +571,6 @@ const getDepartmentWorkspace = protectedProcedure
         .offset((input.page - 1) * input.perPage),
     ]);
 
-    const [scopeCounts, deviceViewerCounts] = await Promise.all([
-      readDirectAccessCounts(createAuthzObject(AUTHZ_TYPE_DEPARTMENT, input.departmentId)),
-      Promise.all(
-        deviceRows.map(async (deviceRow) => ({
-          deviceId: deviceRow.id,
-          viewerCount: await readDirectViewerCount(
-            createAuthzObject(AUTHZ_TYPE_DEVICE, deviceRow.id),
-          ),
-        })),
-      ),
-    ]);
-
-    const viewerCountByDeviceId = new Map(
-      deviceViewerCounts.map((entry) => [entry.deviceId, entry.viewerCount]),
-    );
-
     return {
       departments,
       isSysadmin: sysadmin,
@@ -700,27 +584,11 @@ const getDepartmentWorkspace = protectedProcedure
       stats: {
         activeDeviceCount: activeDevicesRow[0]?.count ?? 0,
         deviceCount: totalDevicesRow[0]?.count ?? 0,
-        directAdminCount: canReadSelectedDepartment ? scopeCounts.adminCount : 0,
-        directUserCount: canReadSelectedDepartment ? scopeCounts.userCount : 0,
         enabledAppCount: enabledAppsRow[0]?.count ?? 0,
       },
       table: {
         ...toPaginationMeta(input.page, input.perPage, totalCountRow[0]?.count ?? 0),
-        rows: deviceRows.map((deviceRow) => ({
-          description: deviceRow.description,
-          directUserCount:
-            canReadSelectedDepartment ||
-            sysadmin ||
-            readableDeviceIds?.includes(deviceRow.id) === true
-              ? (viewerCountByDeviceId.get(deviceRow.id) ?? 0)
-              : 0,
-          enabledAppCount: deviceRow.enabledAppCount,
-          id: deviceRow.id,
-          isActive: deviceRow.isActive,
-          name: deviceRow.name,
-          totalAppCount: deviceRow.totalAppCount,
-          updatedAt: deviceRow.updatedAt,
-        })),
+        rows: deviceRows,
       },
     };
   });
@@ -802,7 +670,7 @@ const getDeviceWorkspace = protectedProcedure
             ),
           );
 
-    const [devices, totalAppsRow, enabledAppsRow, directViewerCount] = await Promise.all([
+    const [devices, totalAppsRow, enabledAppsRow] = await Promise.all([
       readDeviceSidebarRows(
         ctx.db,
         selectedDeviceRow.departmentId,
@@ -836,7 +704,6 @@ const getDeviceWorkspace = protectedProcedure
             eq(deviceComponentInstallation.enabled, true),
           ),
         ),
-      readDirectViewerCount(createAuthzObject(AUTHZ_TYPE_DEVICE, input.deviceId)),
     ]);
 
     return {
@@ -851,7 +718,6 @@ const getDeviceWorkspace = protectedProcedure
       gatewayAccessToken: access.gatewayAccessToken,
       isSysadmin: sysadmin,
       stats: {
-        directUserCount: canReadSelectedDevice ? directViewerCount : 0,
         enabledAppCount: enabledAppsRow[0]?.count ?? 0,
         totalAppCount: totalAppsRow[0]?.count ?? 0,
         visibleAppCount: access.components.length,

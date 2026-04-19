@@ -16,6 +16,8 @@ import {
 } from './constants';
 import { ensureAuthzState, readTuplesForObject } from './openfga-state';
 
+import { instrumentedFunction } from '../otel';
+
 const DEFAULT_WRITE_OPTIONS = {
   conflict: {
     onDuplicateWrites: ClientWriteRequestOnDuplicateWrites.Ignore,
@@ -90,157 +92,207 @@ export const createObjectParentTupleKeys = (
   ] as const;
 };
 
-export const writeAuthzTuples = async (tupleKeys: readonly TupleKey[]): Promise<void> => {
-  if (tupleKeys.length === 0) {
-    return;
-  }
+export const writeAuthzTuples = instrumentedFunction(
+  'authz.writeAuthzTuples',
+  async (tupleKeys: readonly TupleKey[]): Promise<void> => {
+    if (tupleKeys.length === 0) {
+      return;
+    }
 
-  const { client } = await ensureAuthzState();
-  await writeTupleChunks(
-    client,
-    chunkArray(tupleKeys, MAX_TUPLES_PER_WRITE).map((writes) => ({
-      writes,
-    })),
-  );
-};
-
-export const deleteAuthzTuples = async (
-  tupleKeys: readonly TupleKeyWithoutCondition[],
-): Promise<void> => {
-  if (tupleKeys.length === 0) {
-    return;
-  }
-
-  const { client } = await ensureAuthzState();
-  await writeTupleChunks(
-    client,
-    chunkArray(normalizeTupleKeysForDelete(tupleKeys), MAX_TUPLES_PER_WRITE).map((deletes) => ({
-      deletes,
-    })),
-  );
-};
-
-export const setObjectParentRelation = async (
-  objectType: AuthzObjectType,
-  objectId: string,
-  parentType: AuthzObjectType,
-  parentId: string,
-): Promise<void> => {
-  const { client } = await ensureAuthzState();
-  const object = createAuthzObject(objectType, objectId);
-  const [expectedParentTuple, expectedChildTuple] = createObjectParentTupleKeys(
-    objectType,
-    objectId,
-    parentType,
-    parentId,
-  );
-
-  const existingParentTuples = (await readTuplesForObject(client, object)).filter(
-    (tupleKey) => tupleKey.relation === AUTHZ_RELATION_PARENT,
-  );
-  const existingChildTuples = existingParentTuples.map((tupleKey) => ({
-    object: tupleKey.user,
-    relation: AUTHZ_RELATION_CHILD,
-    user: object,
-  }));
-  const deletes = existingParentTuples.filter(
-    (tupleKey) =>
-      tupleKey.user !== expectedParentTuple.user || tupleKey.object !== expectedParentTuple.object,
-  );
-  const childDeletes = existingChildTuples.filter(
-    (tupleKey) =>
-      tupleKey.object !== expectedChildTuple.object || tupleKey.user !== expectedChildTuple.user,
-  );
-  const hasExpectedParent = existingParentTuples.some(
-    (tupleKey) => tupleKey.user === expectedParentTuple.user,
-  );
-  const hasExpectedChild = existingChildTuples.some(
-    (tupleKey) =>
-      tupleKey.object === expectedChildTuple.object && tupleKey.user === expectedChildTuple.user,
-  );
-
-  if (deletes.length === 0 && childDeletes.length === 0 && hasExpectedParent && hasExpectedChild) {
-    return;
-  }
-
-  await client.write(
-    {
-      deletes: normalizeTupleKeysForDelete([...deletes, ...childDeletes]),
-      writes: [
-        ...(hasExpectedParent ? [] : [expectedParentTuple]),
-        ...(hasExpectedChild ? [] : [expectedChildTuple]),
-      ],
+    const { client } = await ensureAuthzState();
+    await writeTupleChunks(
+      client,
+      chunkArray(tupleKeys, MAX_TUPLES_PER_WRITE).map((writes) => ({
+        writes,
+      })),
+    );
+  },
+  ([tupleKeys]) => ({
+    attributes: {
+      'authz.tuples.count': tupleKeys.length,
     },
-    DEFAULT_WRITE_OPTIONS,
-  );
-};
+  }),
+);
 
-export const replaceDirectUserRelation = async (
-  objectType: AuthzObjectType,
-  objectId: string,
-  userId: string,
-  nextRelation: AuthzDirectUserRelation | null,
-  candidateRelations: readonly AuthzDirectUserRelation[],
-): Promise<void> => {
-  const { client } = await ensureAuthzState();
-  const object = createAuthzObject(objectType, objectId);
-  const authzUser = createAuthzUser(userId);
-  const existingTuples = (await readTuplesForObject(client, object)).filter(
-    (tupleKey) =>
-      tupleKey.user === authzUser &&
-      candidateRelations.some((candidateRelation) => candidateRelation === tupleKey.relation),
-  );
+export const deleteAuthzTuples = instrumentedFunction(
+  'authz.deleteAuthzTuples',
+  async (tupleKeys: readonly TupleKeyWithoutCondition[]): Promise<void> => {
+    if (tupleKeys.length === 0) {
+      return;
+    }
 
-  const deletes = existingTuples.filter((tupleKey) => tupleKey.relation !== nextRelation);
-  const hasExpectedTuple =
-    nextRelation !== null && existingTuples.some((tupleKey) => tupleKey.relation === nextRelation);
-
-  if (deletes.length === 0 && (nextRelation === null || hasExpectedTuple)) {
-    return;
-  }
-
-  await client.write(
-    {
-      deletes: normalizeTupleKeysForDelete(deletes),
-      writes:
-        nextRelation === null || hasExpectedTuple
-          ? []
-          : [
-              {
-                object,
-                relation: nextRelation,
-                user: authzUser,
-              },
-            ],
+    const { client } = await ensureAuthzState();
+    await writeTupleChunks(
+      client,
+      chunkArray(normalizeTupleKeysForDelete(tupleKeys), MAX_TUPLES_PER_WRITE).map((deletes) => ({
+        deletes,
+      })),
+    );
+  },
+  ([tupleKeys]) => ({
+    attributes: {
+      'authz.tuples.count': tupleKeys.length,
     },
-    DEFAULT_WRITE_OPTIONS,
-  );
-};
+  }),
+);
 
-export const deleteObjectAuthzRelations = async (
-  objectType: AuthzObjectType,
-  objectId: string,
-): Promise<void> => {
-  const { client } = await ensureAuthzState();
-  const object = createAuthzObject(objectType, objectId);
-  const existingTuples = await readTuplesForObject(client, object);
+export const setObjectParentRelation = instrumentedFunction(
+  'authz.setObjectParentRelation',
+  async (
+    objectType: AuthzObjectType,
+    objectId: string,
+    parentType: AuthzObjectType,
+    parentId: string,
+  ): Promise<void> => {
+    const { client } = await ensureAuthzState();
+    const object = createAuthzObject(objectType, objectId);
+    const [expectedParentTuple, expectedChildTuple] = createObjectParentTupleKeys(
+      objectType,
+      objectId,
+      parentType,
+      parentId,
+    );
 
-  if (existingTuples.length === 0) {
-    return;
-  }
-
-  const parentChildDeletes = existingTuples
-    .filter((tupleKey) => tupleKey.relation === AUTHZ_RELATION_PARENT)
-    .map((tupleKey) => ({
+    const existingParentTuples = (await readTuplesForObject(client, object)).filter(
+      (tupleKey) => tupleKey.relation === AUTHZ_RELATION_PARENT,
+    );
+    const existingChildTuples = existingParentTuples.map((tupleKey) => ({
       object: tupleKey.user,
       relation: AUTHZ_RELATION_CHILD,
       user: object,
     }));
+    const deletes = existingParentTuples.filter(
+      (tupleKey) =>
+        tupleKey.user !== expectedParentTuple.user ||
+        tupleKey.object !== expectedParentTuple.object,
+    );
+    const childDeletes = existingChildTuples.filter(
+      (tupleKey) =>
+        tupleKey.object !== expectedChildTuple.object || tupleKey.user !== expectedChildTuple.user,
+    );
+    const hasExpectedParent = existingParentTuples.some(
+      (tupleKey) => tupleKey.user === expectedParentTuple.user,
+    );
+    const hasExpectedChild = existingChildTuples.some(
+      (tupleKey) =>
+        tupleKey.object === expectedChildTuple.object && tupleKey.user === expectedChildTuple.user,
+    );
 
-  await client.write(
-    {
-      deletes: normalizeTupleKeysForDelete([...existingTuples, ...parentChildDeletes]),
+    if (
+      deletes.length === 0 &&
+      childDeletes.length === 0 &&
+      hasExpectedParent &&
+      hasExpectedChild
+    ) {
+      return;
+    }
+
+    await client.write(
+      {
+        deletes: normalizeTupleKeysForDelete([...deletes, ...childDeletes]),
+        writes: [
+          ...(hasExpectedParent ? [] : [expectedParentTuple]),
+          ...(hasExpectedChild ? [] : [expectedChildTuple]),
+        ],
+      },
+      DEFAULT_WRITE_OPTIONS,
+    );
+  },
+  ([objectType, objectId, parentType, parentId]) => ({
+    attributes: {
+      'authz.object.id': objectId,
+      'authz.object.type': objectType,
+      'authz.parent.id': parentId,
+      'authz.parent.type': parentType,
     },
-    DEFAULT_WRITE_OPTIONS,
-  );
-};
+  }),
+);
+
+export const replaceDirectUserRelation = instrumentedFunction(
+  'authz.replaceDirectUserRelation',
+  async (
+    objectType: AuthzObjectType,
+    objectId: string,
+    userId: string,
+    nextRelation: AuthzDirectUserRelation | null,
+    candidateRelations: readonly AuthzDirectUserRelation[],
+  ): Promise<void> => {
+    const { client } = await ensureAuthzState();
+    const object = createAuthzObject(objectType, objectId);
+    const authzUser = createAuthzUser(userId);
+    const existingTuples = (await readTuplesForObject(client, object)).filter(
+      (tupleKey) =>
+        tupleKey.user === authzUser &&
+        candidateRelations.some((candidateRelation) => candidateRelation === tupleKey.relation),
+    );
+
+    const deletes = existingTuples.filter((tupleKey) => tupleKey.relation !== nextRelation);
+    const hasExpectedTuple =
+      nextRelation !== null &&
+      existingTuples.some((tupleKey) => tupleKey.relation === nextRelation);
+
+    if (deletes.length === 0 && (nextRelation === null || hasExpectedTuple)) {
+      return;
+    }
+
+    await client.write(
+      {
+        deletes: normalizeTupleKeysForDelete(deletes),
+        writes:
+          nextRelation === null || hasExpectedTuple
+            ? []
+            : [
+                {
+                  object,
+                  relation: nextRelation,
+                  user: authzUser,
+                },
+              ],
+      },
+      DEFAULT_WRITE_OPTIONS,
+    );
+  },
+  ([objectType, objectId, userId, nextRelation, candidateRelations]) => ({
+    attributes: {
+      'authz.object.id': objectId,
+      'authz.object.type': objectType,
+      'authz.relation.candidates.count': candidateRelations.length,
+      'authz.relation.next': nextRelation,
+      'authz.user.id': userId,
+    },
+  }),
+);
+
+export const deleteObjectAuthzRelations = instrumentedFunction(
+  'authz.deleteObjectAuthzRelations',
+  async (objectType: AuthzObjectType, objectId: string): Promise<void> => {
+    const { client } = await ensureAuthzState();
+    const object = createAuthzObject(objectType, objectId);
+    const existingTuples = await readTuplesForObject(client, object);
+
+    if (existingTuples.length === 0) {
+      return;
+    }
+
+    const parentChildDeletes = existingTuples
+      .filter((tupleKey) => tupleKey.relation === AUTHZ_RELATION_PARENT)
+      .map((tupleKey) => ({
+        object: tupleKey.user,
+        relation: AUTHZ_RELATION_CHILD,
+        user: object,
+      }));
+
+    await client.write(
+      {
+        deletes: normalizeTupleKeysForDelete([...existingTuples, ...parentChildDeletes]),
+      },
+      DEFAULT_WRITE_OPTIONS,
+    );
+  },
+  ([objectType, objectId]) => ({
+    attributes: {
+      'authz.object.id': objectId,
+      'authz.object.type': objectType,
+    },
+  }),
+);

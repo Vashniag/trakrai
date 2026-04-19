@@ -10,6 +10,7 @@ import type { OpenApiMeta } from 'trpc-to-openapi';
 import type winston from 'winston';
 
 import { device } from '../db/schema';
+import { withSpan } from '../lib/otel';
 import { withRequestContext } from '../lib/request-context';
 
 export type Database = DatabaseClient & {
@@ -31,9 +32,14 @@ const t = initTRPC
   });
 
 const timingMiddleware = t.middleware(
-  withRequestContext(async ({ next, path, ctx }) => {
+  withRequestContext(async ({ next, path, type, ctx }) => {
     const start = Date.now();
-    const result = await next();
+    const result = await withSpan(`trpc.${type}.${path}`, () => next(), {
+      attributes: {
+        'trpc.path': path,
+        'trpc.type': type,
+      },
+    });
     const end = Date.now();
     ctx.logger.info(`TRPC ${path} took ${end - start}ms to execute`, {
       path,
@@ -98,10 +104,19 @@ const SET_COOKIE_HEADER = 'set-cookie';
 const BEARER_PREFIX = 'Bearer ';
 
 export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
-  const { response: session, headers } = await ctx.getSession({
-    headers: ctx.headers,
-    returnHeaders: true,
-  });
+  const { response: session, headers } = await withSpan(
+    'trpc.auth.getSession',
+    () =>
+      ctx.getSession({
+        headers: ctx.headers,
+        returnHeaders: true,
+      }),
+    {
+      attributes: {
+        'trpc.auth.strategy': 'session',
+      },
+    },
+  );
   if (headers.get(SET_COOKIE_HEADER) !== null) {
     const setCookieValue = headers.get(SET_COOKIE_HEADER);
     if (setCookieValue !== null) {
@@ -162,10 +177,20 @@ export const deviceProcedure = t.procedure
         .limit(1);
       foundDevice = devices[0];
     } else {
-      const { response: session, headers } = await ctx.getSession({
-        headers: ctx.headers,
-        returnHeaders: true,
-      });
+      const { response: session, headers } = await withSpan(
+        'trpc.device.getSession',
+        () =>
+          ctx.getSession({
+            headers: ctx.headers,
+            returnHeaders: true,
+          }),
+        {
+          attributes: {
+            'trpc.auth.strategy': 'session',
+            'trpc.device.id': deviceId,
+          },
+        },
+      );
       if (headers.get(SET_COOKIE_HEADER) !== null) {
         const setCookieValue = headers.get(SET_COOKIE_HEADER);
         if (setCookieValue !== null) {

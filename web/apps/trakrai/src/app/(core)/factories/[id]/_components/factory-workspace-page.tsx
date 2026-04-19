@@ -53,14 +53,6 @@ export const FactoryWorkspacePage = ({ data }: Readonly<{ data: FactoryWorkspace
         header: 'Active',
       },
       {
-        accessorKey: 'directUserCount',
-        header: 'Users',
-      },
-      {
-        accessorKey: 'directAdminCount',
-        header: 'Admins',
-      },
-      {
         accessorKey: 'updatedAt',
         cell: ({ row }) => (
           <span className="text-muted-foreground text-xs">
@@ -94,7 +86,6 @@ export const FactoryWorkspacePage = ({ data }: Readonly<{ data: FactoryWorkspace
           <StatCard title="Departments" value={data.stats.departmentCount} />
           <StatCard title="Devices" value={data.stats.deviceCount} />
           <StatCard title="Active Devices" value={data.stats.activeDeviceCount} />
-          <StatCard title="Direct Users" value={data.stats.directUserCount} />
         </>
       }
       title={data.selectedFactory.name}

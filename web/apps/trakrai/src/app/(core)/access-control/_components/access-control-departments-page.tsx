@@ -100,14 +100,6 @@ export const AccessControlDepartmentsPage = ({
         header: 'Devices',
       },
       {
-        accessorKey: 'directAdminCount',
-        header: 'Admins',
-      },
-      {
-        accessorKey: 'directViewerCount',
-        header: 'Viewers',
-      },
-      {
         id: 'actions',
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-2">
@@ -177,39 +169,39 @@ export const AccessControlDepartmentsPage = ({
       title="Departments"
     >
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
-          <ServerDataTable
-            columns={columns}
-            data={data.table.rows}
-            pageCount={data.table.pageCount}
-            toolbarChildren={
-              data.navigation.isSysadmin ? (
-                <MutationModal
-                  defaultValues={{
-                    description: '',
-                    factoryId: factoryOptions[0]?.value ?? '',
-                    name: '',
-                  }}
-                  fields={[
-                    { label: 'Name', name: 'name', type: 'input' },
-                    {
-                      label: 'Factory',
-                      name: 'factoryId',
-                      options: factoryOptions,
-                      type: 'select',
-                    },
-                    { label: 'Description', name: 'description', type: 'textarea' },
-                  ]}
-                  mutation={createDepartmentMutation}
-                  refresh={refresh}
-                  schema={createDepartmentSchema}
-                  submitButtonText="Create department"
-                  successToast={() => 'Department created.'}
-                  titleText="Create department"
-                  trigger={<Button type="button">Create department</Button>}
-                />
-              ) : undefined
-            }
-          />
+        <ServerDataTable
+          columns={columns}
+          data={data.table.rows}
+          pageCount={data.table.pageCount}
+          toolbarChildren={
+            data.navigation.isSysadmin ? (
+              <MutationModal
+                defaultValues={{
+                  description: '',
+                  factoryId: factoryOptions[0]?.value ?? '',
+                  name: '',
+                }}
+                fields={[
+                  { label: 'Name', name: 'name', type: 'input' },
+                  {
+                    label: 'Factory',
+                    name: 'factoryId',
+                    options: factoryOptions,
+                    type: 'select',
+                  },
+                  { label: 'Description', name: 'description', type: 'textarea' },
+                ]}
+                mutation={createDepartmentMutation}
+                refresh={refresh}
+                schema={createDepartmentSchema}
+                submitButtonText="Create department"
+                successToast={() => 'Department created.'}
+                titleText="Create department"
+                trigger={<Button type="button">Create department</Button>}
+              />
+            ) : undefined
+          }
+        />
       </section>
     </AccessControlShell>
   );

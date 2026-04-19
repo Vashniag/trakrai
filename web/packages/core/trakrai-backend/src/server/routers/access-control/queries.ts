@@ -3,6 +3,7 @@ import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 
 import { assertUserCanManageScope, requireSysAdmin } from './helpers';
 import {
+  accessControlDeviceInstallationsInputSchema,
   accessControlPageInputSchema,
   accessControlScopeQueryInputSchema,
   accessControlUserSearchInputSchema,
@@ -190,18 +191,6 @@ const readDirectUserAssignments = async <TRelation extends AuthzDirectUserRelati
   });
 };
 
-const countAssignmentsByRelation = <TRelation extends string>(
-  assignments: readonly DirectAssignmentEntry<TRelation>[],
-): Map<TRelation, number> => {
-  const counts = new Map<TRelation, number>();
-
-  for (const assignment of assignments) {
-    counts.set(assignment.relation, (counts.get(assignment.relation) ?? 0) + 1);
-  }
-
-  return counts;
-};
-
 const readScopeAssignmentRows = async <TRelation extends AuthzDirectUserRelation>(
   scopeObject: string,
   relations: readonly TRelation[],
@@ -244,6 +233,27 @@ const readScopeAssignmentRows = async <TRelation extends AuthzDirectUserRelation
       `${left.userName}:${left.userEmail}`.localeCompare(`${right.userName}:${right.userEmail}`),
     );
 };
+
+const readDeviceInstallationRows = async (
+  ctx: Parameters<typeof assertUserCanManageScope>[0],
+  deviceId: string,
+) =>
+  ctx.db
+    .select({
+      componentDisplayName: deviceComponentCatalog.displayName,
+      componentKey: deviceComponentInstallation.componentKey,
+      deviceId: deviceComponentInstallation.deviceId,
+      enabled: deviceComponentInstallation.enabled,
+      id: deviceComponentInstallation.id,
+      serviceName: deviceComponentCatalog.serviceName,
+    })
+    .from(deviceComponentInstallation)
+    .innerJoin(
+      deviceComponentCatalog,
+      eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
+    )
+    .where(eq(deviceComponentInstallation.deviceId, deviceId))
+    .orderBy(asc(deviceComponentCatalog.sortOrder), asc(deviceComponentCatalog.displayName));
 
 const buildFactoryAccessCondition = (access: ManagementAccessContext) =>
   access.navigation.isSysadmin ? undefined : inArray(factory.id, access.manageableFactoryIds);
@@ -371,6 +381,18 @@ export const accessControlQueryProcedures = {
             ),
           };
       }
+    }),
+  listDeviceInstallations: protectedProcedure
+    .input(accessControlDeviceInstallationsInputSchema)
+    .query(async ({ input, ctx }) => {
+      await assertUserCanManageScope(ctx, {
+        scopeId: input.deviceId,
+        scopeType: 'device',
+      });
+
+      return {
+        rows: await readDeviceInstallationRows(ctx, input.deviceId),
+      };
     }),
   listAssignableUsers: protectedProcedure
     .input(accessControlUserSearchInputSchema)
@@ -624,23 +646,6 @@ export const accessControlQueryProcedures = {
           .orderBy(asc(factory.name)),
       ]);
 
-      const accessCounts = await Promise.all(
-        rows.map(async (row) => {
-          const assignments = await readDirectUserAssignments(
-            createAuthzObject(AUTHZ_TYPE_DEPARTMENT, row.id),
-            [AUTHZ_RELATION_ADMIN, AUTHZ_RELATION_VIEWER],
-          );
-          const counts = countAssignmentsByRelation(assignments);
-          return {
-            adminCount: counts.get(AUTHZ_RELATION_ADMIN) ?? 0,
-            id: row.id,
-            viewerCount: counts.get(AUTHZ_RELATION_VIEWER) ?? 0,
-          };
-        }),
-      );
-
-      const countsById = new Map(accessCounts.map((entry) => [entry.id, entry]));
-
       return {
         filterOptions: {
           factories: factoryFilterRows,
@@ -653,11 +658,7 @@ export const accessControlQueryProcedures = {
         },
         table: {
           ...toPaginationMeta(input.page, input.perPage, totalCount),
-          rows: rows.map((row) => ({
-            ...row,
-            directAdminCount: countsById.get(row.id)?.adminCount ?? 0,
-            directViewerCount: countsById.get(row.id)?.viewerCount ?? 0,
-          })),
+          rows,
         },
       };
     }),
@@ -767,87 +768,6 @@ export const accessControlQueryProcedures = {
             .orderBy(asc(factory.name), asc(department.name)),
         ]);
 
-      const accessCounts = await Promise.all(
-        rows.map(async (row) => {
-          const assignments = await readDirectUserAssignments(
-            createAuthzObject(AUTHZ_TYPE_DEVICE, row.id),
-            [AUTHZ_RELATION_VIEWER],
-          );
-          return {
-            id: row.id,
-            viewerCount: assignments.length,
-          };
-        }),
-      );
-
-      const countsById = new Map(accessCounts.map((entry) => [entry.id, entry.viewerCount]));
-      const pageDeviceIds = rows.map((row) => row.id);
-      const installationRows =
-        pageDeviceIds.length === 0
-          ? []
-          : await ctx.db
-              .select({
-                componentDisplayName: deviceComponentCatalog.displayName,
-                componentKey: deviceComponentInstallation.componentKey,
-                deviceId: deviceComponentInstallation.deviceId,
-                enabled: deviceComponentInstallation.enabled,
-                id: deviceComponentInstallation.id,
-                serviceName: deviceComponentCatalog.serviceName,
-              })
-              .from(deviceComponentInstallation)
-              .innerJoin(
-                deviceComponentCatalog,
-                eq(deviceComponentCatalog.key, deviceComponentInstallation.componentKey),
-              )
-              .where(inArray(deviceComponentInstallation.deviceId, pageDeviceIds))
-              .orderBy(
-                asc(deviceComponentInstallation.deviceId),
-                asc(deviceComponentCatalog.sortOrder),
-                asc(deviceComponentCatalog.displayName),
-              );
-
-      const installationAccessCounts = await Promise.all(
-        installationRows.map(async (row) => {
-          const assignments = await readDirectUserAssignments(
-            createAuthzObject(AUTHZ_TYPE_DEVICE_COMPONENT, row.id),
-            [AUTHZ_RELATION_READER, AUTHZ_RELATION_WRITER],
-          );
-          const counts = countAssignmentsByRelation(assignments);
-          return {
-            id: row.id,
-            readCount: counts.get(AUTHZ_RELATION_READER) ?? 0,
-            writeCount: counts.get(AUTHZ_RELATION_WRITER) ?? 0,
-          };
-        }),
-      );
-
-      const installationAccessById = new Map(
-        installationAccessCounts.map((entry) => [entry.id, entry]),
-      );
-      const installationsByDeviceId = new Map<
-        string,
-        Array<{
-          componentDisplayName: string;
-          componentKey: string;
-          deviceId: string;
-          enabled: boolean;
-          id: string;
-          readCount: number;
-          serviceName: string;
-          writeCount: number;
-        }>
-      >();
-
-      for (const installationRow of installationRows) {
-        const currentInstallations = installationsByDeviceId.get(installationRow.deviceId) ?? [];
-        currentInstallations.push({
-          ...installationRow,
-          readCount: installationAccessById.get(installationRow.id)?.readCount ?? 0,
-          writeCount: installationAccessById.get(installationRow.id)?.writeCount ?? 0,
-        });
-        installationsByDeviceId.set(installationRow.deviceId, currentInstallations);
-      }
-
       return {
         filterOptions: {
           departments: departmentFilterRows,
@@ -861,11 +781,7 @@ export const accessControlQueryProcedures = {
         },
         table: {
           ...toPaginationMeta(input.page, input.perPage, totalCount),
-          rows: rows.map((row) => ({
-            ...row,
-            directViewerCount: countsById.get(row.id) ?? 0,
-            installations: installationsByDeviceId.get(row.id) ?? [],
-          })),
+          rows,
         },
       };
     }),
@@ -928,23 +844,6 @@ export const accessControlQueryProcedures = {
           .where(accessCondition),
       ]);
 
-      const accessCounts = await Promise.all(
-        rows.map(async (row) => {
-          const assignments = await readDirectUserAssignments(
-            createAuthzObject(AUTHZ_TYPE_FACTORY, row.id),
-            [AUTHZ_RELATION_ADMIN, AUTHZ_RELATION_VIEWER],
-          );
-          const counts = countAssignmentsByRelation(assignments);
-          return {
-            adminCount: counts.get(AUTHZ_RELATION_ADMIN) ?? 0,
-            id: row.id,
-            viewerCount: counts.get(AUTHZ_RELATION_VIEWER) ?? 0,
-          };
-        }),
-      );
-
-      const countsById = new Map(accessCounts.map((entry) => [entry.id, entry]));
-
       return {
         navigation: access.navigation,
         stats: {
@@ -954,11 +853,7 @@ export const accessControlQueryProcedures = {
         },
         table: {
           ...toPaginationMeta(input.page, input.perPage, totalCount),
-          rows: rows.map((row) => ({
-            ...row,
-            directAdminCount: countsById.get(row.id)?.adminCount ?? 0,
-            directViewerCount: countsById.get(row.id)?.viewerCount ?? 0,
-          })),
+          rows,
         },
       };
     }),

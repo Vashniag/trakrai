@@ -109,7 +109,6 @@ export const DeviceRouteShell = ({ children, routeContext }: DeviceRouteShellPro
               <StatCard title="Installed Apps" value={routeContext.stats.totalAppCount} />
               <StatCard title="Enabled Apps" value={routeContext.stats.enabledAppCount} />
               <StatCard title="Visible Apps" value={routeContext.stats.visibleAppCount} />
-              <StatCard title="Direct Users" value={routeContext.stats.directUserCount} />
             </>
           }
           title={device.name}

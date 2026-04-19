@@ -1,15 +1,15 @@
 import { eq } from 'drizzle-orm';
 
-import { getScopedAssignments } from './assignments';
 import {
   AUTHZ_RELATION_CAN_NAVIGATE,
   AUTHZ_RELATION_CAN_MANAGE_USERS,
   AUTHZ_RELATION_CAN_READ,
   AUTHZ_RELATION_CAN_WRITE,
   AUTHZ_TYPE_DEVICE,
+  AUTHZ_TYPE_DEVICE_COMPONENT,
   type DeviceComponentAccessRecord,
 } from './constants';
-import { checkUserObjectRelation } from './relations';
+import { checkUserObjectRelation, listUserAuthorizedObjectIds } from './relations';
 
 import type { Database } from '../../server/trpc';
 
@@ -80,8 +80,8 @@ export const getDeviceComponentAccessForUser = async (
     )
     .where(eq(deviceComponentInstallation.deviceId, deviceRecordId));
 
-  const [canManageUsers, componentAssignments] = isSysadmin
-    ? [true, null]
+  const [canManageUsers, readableComponentIds, writableComponentIds] = isSysadmin
+    ? [true, null, null]
     : await Promise.all([
         checkUserObjectRelation(
           userId,
@@ -89,34 +89,18 @@ export const getDeviceComponentAccessForUser = async (
           AUTHZ_TYPE_DEVICE,
           foundDevice.id,
         ),
-        getScopedAssignments({
-          componentIds: installationRows.map((row) => row.id),
-          userIds: [userId],
-        }),
+        listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_READ, AUTHZ_TYPE_DEVICE_COMPONENT),
+        listUserAuthorizedObjectIds(userId, AUTHZ_RELATION_CAN_WRITE, AUTHZ_TYPE_DEVICE_COMPONENT),
       ]);
-
-  const directAccessByComponentId = new Map<
-    string,
-    typeof AUTHZ_RELATION_CAN_READ | typeof AUTHZ_RELATION_CAN_WRITE
-  >();
-
-  for (const assignment of componentAssignments?.componentAssignmentRows ?? []) {
-    directAccessByComponentId.set(
-      assignment.componentId,
-      assignment.accessLevel === 'write' ? AUTHZ_RELATION_CAN_WRITE : AUTHZ_RELATION_CAN_READ,
-    );
-  }
 
   const components: DeviceComponentAccessRecord[] = installationRows
     .filter(
       (row) =>
-        row.enabled && (isSysadmin || canReadDevice || directAccessByComponentId.has(row.id)),
+        row.enabled && (isSysadmin || canReadDevice || readableComponentIds?.has(row.id) === true),
     )
     .map((row) => {
       const accessLevel: DeviceComponentAccessRecord['accessLevel'] =
-        isSysadmin || directAccessByComponentId.get(row.id) === AUTHZ_RELATION_CAN_WRITE
-          ? 'write'
-          : 'read';
+        isSysadmin || writableComponentIds?.has(row.id) === true ? 'write' : 'read';
 
       return {
         accessLevel,

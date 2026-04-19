@@ -116,10 +116,6 @@ export const AccessControlDevicesPage = ({
         header: 'Total Apps',
       },
       {
-        accessorKey: 'directViewerCount',
-        header: 'Viewers',
-      },
-      {
         accessorKey: 'isActive',
         cell: ({ row }) => (
           <span className="text-xs font-medium tracking-[0.18em] uppercase">
@@ -174,7 +170,6 @@ export const AccessControlDevicesPage = ({
             <DeviceInstallationsModal
               deviceId={row.original.id}
               deviceName={row.original.name}
-              installations={row.original.installations}
               isSysadmin={data.navigation.isSysadmin}
             />
           </div>
@@ -207,39 +202,39 @@ export const AccessControlDevicesPage = ({
       title="Devices"
     >
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden border px-6 py-6">
-          <ServerDataTable
-            columns={columns}
-            data={data.table.rows}
-            pageCount={data.table.pageCount}
-            toolbarChildren={
-              data.navigation.isSysadmin ? (
-                <MutationModal
-                  defaultValues={{
-                    departmentId: departmentOptions[0]?.value ?? '',
-                    description: '',
-                    name: '',
-                  }}
-                  fields={[
-                    { label: 'Name', name: 'name', type: 'input' },
-                    {
-                      label: 'Department',
-                      name: 'departmentId',
-                      options: departmentOptions,
-                      type: 'select',
-                    },
-                    { label: 'Description', name: 'description', type: 'textarea' },
-                  ]}
-                  mutation={createDeviceMutation}
-                  refresh={refresh}
-                  schema={deviceCreateSchema}
-                  submitButtonText="Create device"
-                  successToast={() => 'Device created.'}
-                  titleText="Create device"
-                  trigger={<Button type="button">Create device</Button>}
-                />
-              ) : undefined
-            }
-          />
+        <ServerDataTable
+          columns={columns}
+          data={data.table.rows}
+          pageCount={data.table.pageCount}
+          toolbarChildren={
+            data.navigation.isSysadmin ? (
+              <MutationModal
+                defaultValues={{
+                  departmentId: departmentOptions[0]?.value ?? '',
+                  description: '',
+                  name: '',
+                }}
+                fields={[
+                  { label: 'Name', name: 'name', type: 'input' },
+                  {
+                    label: 'Department',
+                    name: 'departmentId',
+                    options: departmentOptions,
+                    type: 'select',
+                  },
+                  { label: 'Description', name: 'description', type: 'textarea' },
+                ]}
+                mutation={createDeviceMutation}
+                refresh={refresh}
+                schema={deviceCreateSchema}
+                submitButtonText="Create device"
+                successToast={() => 'Device created.'}
+                titleText="Create device"
+                trigger={<Button type="button">Create device</Button>}
+              />
+            ) : undefined
+          }
+        />
       </section>
     </AccessControlShell>
   );

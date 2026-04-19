@@ -14,41 +14,64 @@ import {
 } from './constants';
 import { ensureAuthzState } from './openfga-state';
 
-export const checkUserObjectRelation = async (
-  userId: string,
-  relation: AuthzRelation,
-  objectType: AuthzObjectType,
-  objectId: string,
-): Promise<boolean> => {
-  const { client } = await ensureAuthzState();
-  const response = await client.check({
-    object: createAuthzObject(objectType, objectId),
-    relation,
-    user: createAuthzUser(userId),
-  });
+import { instrumentedFunction } from '../otel';
 
-  return response.allowed === true;
-};
+export const checkUserObjectRelation = instrumentedFunction(
+  'authz.checkUserObjectRelation',
+  async (
+    userId: string,
+    relation: AuthzRelation,
+    objectType: AuthzObjectType,
+    objectId: string,
+  ): Promise<boolean> => {
+    const { client } = await ensureAuthzState();
+    const response = await client.check({
+      object: createAuthzObject(objectType, objectId),
+      relation,
+      user: createAuthzUser(userId),
+    });
 
-export const listUserAuthorizedObjectIds = async (
-  userId: string,
-  relation: AuthzRelation,
-  objectType: AuthzObjectType,
-): Promise<Set<string>> => {
-  const { client } = await ensureAuthzState();
-  const response = await client.listObjects({
-    relation,
-    type: objectType,
-    user: createAuthzUser(userId),
-  });
+    return response.allowed === true;
+  },
+  ([userId, relation, objectType, objectId]) => ({
+    attributes: {
+      'authz.object.id': objectId,
+      'authz.object.type': objectType,
+      'authz.relation': relation,
+      'authz.user.id': userId,
+    },
+  }),
+);
 
-  return new Set(
-    response.objects
-      .map((objectName) => objectName.split(':')[1] ?? '')
-      .map((objectId) => objectId.trim())
-      .filter((objectId) => objectId !== ''),
-  );
-};
+export const listUserAuthorizedObjectIds = instrumentedFunction(
+  'authz.listUserAuthorizedObjectIds',
+  async (
+    userId: string,
+    relation: AuthzRelation,
+    objectType: AuthzObjectType,
+  ): Promise<Set<string>> => {
+    const { client } = await ensureAuthzState();
+    const response = await client.listObjects({
+      relation,
+      type: objectType,
+      user: createAuthzUser(userId),
+    });
+
+    return new Set(
+      response.objects
+        .map((objectName) => objectName.split(':')[1] ?? '')
+        .map((objectId) => objectId.trim())
+        .filter((objectId) => objectId !== ''),
+    );
+  },
+  ([userId, relation, objectType]) => ({
+    attributes: {
+      'authz.object.type': objectType,
+      'authz.relation': relation,
+      'authz.user.id': userId,
+    },
+  }),
+);
 
 export const getUserManagementScopeIds = async (userId: string) => {
   const [factoryIds, departmentIds, deviceIds, componentIds] = await Promise.all([
