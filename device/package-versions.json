@@ -4,9 +4,9 @@
       "artifacts": {
         "linux/arm64": {
           "fileName": "trakrai_audio_manager-0.1.0-py3-none-any.whl",
-          "remotePath": "audio-manager/0.1.5/linux-arm64/trakrai_audio_manager-0.1.0-py3-none-any.whl",
-          "sha256": "427d69144e60e366c28375f94105e6ce7157730b8806c7087c248d35afbd89f0",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "remotePath": "audio-manager/0.1.6/linux-arm64/trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "sha256": "1ba80a17e0d71e983be59081617174d66c857ee2338c1c0e6de4d98f507a2ba9",
+          "updatedAt": "2026-04-20T03:48:57Z"
         }
       },
       "buildTarget": "python-wheel",
@@ -34,11 +34,19 @@
           "sha256": "427d69144e60e366c28375f94105e6ce7157730b8806c7087c248d35afbd89f0",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.5"
+        },
+        {
+          "fileName": "trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "platform": "linux/arm64",
+          "remotePath": "audio-manager/0.1.6/linux-arm64/trakrai_audio_manager-0.1.0-py3-none-any.whl",
+          "sha256": "1ba80a17e0d71e983be59081617174d66c857ee2338c1c0e6de4d98f507a2ba9",
+          "updatedAt": "2026-04-20T03:48:57Z",
+          "version": "0.1.6"
         }
       ],
       "kind": "python-wheel",
       "serviceName": "audio-manager",
-      "sourceHash": "sha256:760c095924ba8805dc2065ad3e2d3d29baafaa6d87901ba088d2472c85677e8c",
+      "sourceHash": "sha256:f3b28ca354894b7da578156179aa04ba4ed39caace5b10ab620e9bba3d3cba9c",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/audio_manager/FLOW.md",
@@ -79,7 +87,7 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.5"
+      "version": "0.1.6"
     },
     "cloud-comm": {
       "artifacts": {
@@ -236,10 +244,10 @@
     "edge-ui": {
       "artifacts": {
         "linux/arm64": {
-          "fileName": "edge-ui-v0.1.16.zip",
-          "remotePath": "edge-ui/0.1.16/universal/edge-ui-v0.1.16.zip",
-          "sha256": "25885bec41679251814f27c306a32bb2bc7c419835bbcc88442b8acf54316f65",
-          "updatedAt": "2026-04-19T11:14:14Z"
+          "fileName": "edge-ui-v0.1.17.zip",
+          "remotePath": "edge-ui/0.1.17/universal/edge-ui-v0.1.17.zip",
+          "sha256": "21800a5ffa6f293c59c89357cc645f99a1d29d6f107c2ac54d0e208b8a2ae68a",
+          "updatedAt": "2026-04-20T03:48:57Z"
         }
       },
       "buildTarget": "ui-bundle",
@@ -355,11 +363,19 @@
           "sha256": "25885bec41679251814f27c306a32bb2bc7c419835bbcc88442b8acf54316f65",
           "updatedAt": "2026-04-19T11:14:14Z",
           "version": "0.1.16"
+        },
+        {
+          "fileName": "edge-ui-v0.1.17.zip",
+          "platform": "linux/arm64",
+          "remotePath": "edge-ui/0.1.17/universal/edge-ui-v0.1.17.zip",
+          "sha256": "21800a5ffa6f293c59c89357cc645f99a1d29d6f107c2ac54d0e208b8a2ae68a",
+          "updatedAt": "2026-04-20T03:48:57Z",
+          "version": "0.1.17"
         }
       ],
       "kind": "ui-bundle",
       "serviceName": "edge-ui",
-      "sourceHash": "sha256:1a8a4c447b6ffebf788c4a283fc6d4144ed29104b157d95fece045b7f23d5076",
+      "sourceHash": "sha256:185354a83ac5c82844448f0600516cdd090494608c03ad34f32bd541c129a88b",
       "sourceInputs": [
         "web/Dockerfile.trakrai-device-bundle",
         "web/apps/trakrai-device/src/app/(core)/audio/page.tsx",
@@ -404,6 +420,7 @@
         "web/packages/core/trakrai-backend/src/lib/device-access-token.ts",
         "web/packages/core/trakrai-backend/src/lib/device-component-manifest.ts",
         "web/packages/core/trakrai-backend/src/lib/gateway-access-token.ts",
+        "web/packages/core/trakrai-backend/src/lib/otel.ts",
         "web/packages/core/trakrai-backend/src/lib/request-context.ts",
         "web/packages/core/trakrai-backend/src/lib/storage/azure-provider.ts",
         "web/packages/core/trakrai-backend/src/lib/storage/interface.ts",
@@ -824,7 +841,7 @@
         "web/turbo.json"
       ],
       "targetType": "ui-bundle",
-      "version": "0.1.16"
+      "version": "0.1.17"
     },
     "live-feed": {
       "artifacts": {
@@ -1244,9 +1261,9 @@
       "artifacts": {
         "linux/arm64": {
           "fileName": "trakrai_ai_inference-0.1.0-py3-none-any.whl",
-          "remotePath": "trakrai-ai-inference/0.1.9/linux-arm64/trakrai_ai_inference-0.1.0-py3-none-any.whl",
-          "sha256": "b51975b76682cb0164b450bf33d6db5898c62d25c138256f15a558ea5d7df810",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "remotePath": "trakrai-ai-inference/0.1.10/linux-arm64/trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "sha256": "2cd873aa8d41be6299b33ab3c1f16eb09d8834c368a6ce83091b5c1c81cd1487",
+          "updatedAt": "2026-04-20T03:48:57Z"
         }
       },
       "buildTarget": "python-wheel",
@@ -1274,11 +1291,19 @@
           "sha256": "b51975b76682cb0164b450bf33d6db5898c62d25c138256f15a558ea5d7df810",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.9"
+        },
+        {
+          "fileName": "trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "platform": "linux/arm64",
+          "remotePath": "trakrai-ai-inference/0.1.10/linux-arm64/trakrai_ai_inference-0.1.0-py3-none-any.whl",
+          "sha256": "2cd873aa8d41be6299b33ab3c1f16eb09d8834c368a6ce83091b5c1c81cd1487",
+          "updatedAt": "2026-04-20T03:48:57Z",
+          "version": "0.1.10"
         }
       ],
       "kind": "python-wheel",
       "serviceName": "trakrai-ai-inference",
-      "sourceHash": "sha256:9756ebb4864c237d0b0edb6b97118b906182f487f7e69e82bd1519b579f0f82b",
+      "sourceHash": "sha256:a5772a4b7647939e5ecf8a67ab87928782b404c391f492c06af10f973df06085",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/ai_inference/.gitignore",
@@ -1288,6 +1313,7 @@
         "device/python/ai_inference/_version.py",
         "device/python/ai_inference/main.py",
         "device/python/ai_inference/pyproject.toml",
+        "device/python/ai_inference/requirements-local.txt",
         "device/python/ai_inference/requirements.txt",
         "device/python/ai_inference/src/backend.py",
         "device/python/ai_inference/src/config.py",
@@ -1382,7 +1408,7 @@
         "device/python/trakrai_service_runtime/src/service_main.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.9"
+      "version": "0.1.10"
     },
     "video-recorder": {
       "artifacts": {
@@ -1481,9 +1507,9 @@
       "artifacts": {
         "linux/arm64": {
           "fileName": "trakrai_workflow_engine-0.1.0-py3-none-any.whl",
-          "remotePath": "workflow-engine/0.1.6/linux-arm64/trakrai_workflow_engine-0.1.0-py3-none-any.whl",
-          "sha256": "9896873bc3c274cfcd76a0021c52adc9e792353725d6b87416276ece7776a51b",
-          "updatedAt": "2026-04-18T12:05:21Z"
+          "remotePath": "workflow-engine/0.1.7/linux-arm64/trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "sha256": "a9772fe8a254c09bb45420c773c4c080c22f2eb351864b3d233b04974952c6b4",
+          "updatedAt": "2026-04-20T03:48:57Z"
         }
       },
       "buildTarget": "python-wheel",
@@ -1511,11 +1537,19 @@
           "sha256": "9896873bc3c274cfcd76a0021c52adc9e792353725d6b87416276ece7776a51b",
           "updatedAt": "2026-04-18T12:05:21Z",
           "version": "0.1.6"
+        },
+        {
+          "fileName": "trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "platform": "linux/arm64",
+          "remotePath": "workflow-engine/0.1.7/linux-arm64/trakrai_workflow_engine-0.1.0-py3-none-any.whl",
+          "sha256": "a9772fe8a254c09bb45420c773c4c080c22f2eb351864b3d233b04974952c6b4",
+          "updatedAt": "2026-04-20T03:48:57Z",
+          "version": "0.1.7"
         }
       ],
       "kind": "python-wheel",
       "serviceName": "workflow-engine",
-      "sourceHash": "sha256:0b869f1dc0988ab9ee4e8c8811506c2d359621068cf85104ac9a93b0dcbce38d",
+      "sourceHash": "sha256:16d055f2d1419594d242e5994165b1cd0f6bc2923ec2038621fd255d7bd19903",
       "sourceInputs": [
         "device/python/Dockerfile.wheel",
         "device/python/generated_configs/__init__.py",
@@ -1563,9 +1597,9 @@
         "device/python/workflow_engine/tests/test_engine.py"
       ],
       "targetType": "python-wheel",
-      "version": "0.1.6"
+      "version": "0.1.7"
     }
   },
   "schemaVersion": 1,
-  "updatedAt": "2026-04-19T11:14:14Z"
+  "updatedAt": "2026-04-20T03:48:57Z"
 }
